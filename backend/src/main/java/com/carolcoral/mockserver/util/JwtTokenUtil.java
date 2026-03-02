@@ -197,12 +197,17 @@ public class JwtTokenUtil {
      */
     @Operation(summary = "刷新令牌")
     public String refreshToken(String token) {
-        final Claims claims = getClaimsFromToken(token);
-        claims.setIssuedAt(new Date());
+        final Claims oldClaims = getClaimsFromToken(token);
         SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
 
+        // 创建新的令牌，使用新的签发时间
         return Jwts.builder()
-                .claims(claims)
+                .subject(oldClaims.getSubject())
+                .claim("username", oldClaims.get("username"))
+                .claim("userId", oldClaims.get("userId"))
+                .claim("role", oldClaims.get("role"))
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(key, Jwts.SIG.HS512)
                 .compact();
     }
