@@ -1,0 +1,203 @@
+# 腾讯云 CloudBase 云原生应用配置
+# CloudBase Framework 配置文件
+
+# 应用名称
+appName: mock-server
+
+# 环境配置
+env:
+  # 环境变量
+  variables:
+    # 数据库配置
+    SPRING_DATASOURCE_URL: jdbc:sqlite:/tmp/mock-server.db
+    # JWT密钥（生产环境请修改）
+    JWT_SECRET: mock-server-secret-key-2024-carolcoral-mock-server-application
+    JWT_EXPIRATION: 86400000
+    # 管理员配置
+    ADMIN_USERNAME: admin
+    ADMIN_PASSWORD: Admin@123
+    ADMIN_EMAIL: admin@mockserver.com
+    # Spring配置
+    SPRING_PROFILES_ACTIVE: cloud
+  
+  # 计算资源
+  runtime: Java17
+  region: ap-guangzhou  # 可以根据需要修改区域
+
+# 服务配置
+service:
+  # 服务名称
+  name: mock-server-api
+  
+  # 框架类型
+  framework: springboot
+  
+  # 部署配置
+  deploy:
+    # 部署路径
+    path: /
+    
+    # 容器配置
+    container:
+      # 镜像配置
+      image: java17
+      
+      # 启动命令
+      command: java -jar backend/target/mock-server-1.0.0.jar
+      
+      # 端口配置
+      port: 8080
+      
+      # 环境变量
+      environmentVariables:
+        - key: JAVA_OPTS
+          value: -Xmx512m -Xms256m
+    
+    # 资源限制
+    resources:
+      limits:
+        cpu: 1000m      # 1核CPU
+        memory: 1024Mi  # 1GB内存
+      requests:
+        cpu: 500m       # 0.5核CPU
+        memory: 512Mi   # 512MB内存
+    
+    # 自动扩缩容
+    autoScaling:
+      minReplicas: 1
+      maxReplicas: 5
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 80
+
+# 前端配置
+plugins:
+  # 前端部署配置
+  frontend:
+    use: "@cloudbase/framework-plugin-website"
+    inputs:
+      # 构建命令
+      buildCommand: cd frontend && npm install && npm run build
+      
+      # 输出目录
+      outputPath: frontend/dist
+      
+      # 环境变量
+      envVariables:
+        VITE_APP_BASE_API: /api
+        
+      # CDN加速
+      cdn:
+        enabled: true
+        
+      # 自定义域名（可选）
+      # customDomain: mock-server.example.com
+
+  # 后端API配置
+  backend:
+    use: "@cloudbase/framework-plugin-container"
+    inputs:
+      # 服务名称
+      serviceName: mock-server-api
+      
+      # 镜像来源
+      imageUrl: ${env.IMAGE_URL}
+      
+      # 构建配置
+      build:
+        # 构建上下文
+        context: .
+        
+        # Dockerfile路径
+        dockerfilePath: ./docker/Dockerfile
+        
+        # 构建参数
+        buildArgs:
+          - key: MAVEN_MIRROR
+            value: https://maven.aliyun.com/repository/public
+      
+      # 启动参数
+      containerOptions:
+        # 工作目录
+        workingDir: /app
+        
+        # 数据持久化
+        volumes:
+          - name: mock-server-data
+            mountPath: /app/data
+          - name: mock-server-logs
+            mountPath: /app/logs
+        
+        # 环境变量
+        environmentVariables:
+          - key: TZ
+            value: Asia/Shanghai
+          - key: SPRING_PROFILES_ACTIVE
+            value: cloud
+          - key: JWT_SECRET
+            value: ${env.JWT_SECRET}
+          - key: ADMIN_PASSWORD
+            value: ${env.ADMIN_PASSWORD}
+      
+      # 服务端口
+      servicePath: /api
+      
+      # 健康检查
+      livenessProbe:
+        httpGet:
+          path: /api/v3/api-docs
+          port: 8080
+        initialDelaySeconds: 60
+        periodSeconds: 30
+      
+      readinessProbe:
+        httpGet:
+          path: /api/v3/api-docs
+          port: 8080
+        initialDelaySeconds: 30
+        periodSeconds: 10
+
+# 数据库配置
+# 使用云开发自带的NoSQL数据库或创建MySQL实例
+# database:
+#   - name: mock-server-db
+#     type: mysql
+#     config:
+#       instanceId: ${env.MYSQL_INSTANCE_ID}
+#       databaseName: mock_server
+#       username: ${env.DB_USER}
+#       password: ${env.DB_PASSWORD}
+
+# 存储配置
+storage:
+  # 云存储（用于文件上传等）
+  - name: mock-server-storage
+    mode: cloud
+
+# 访问控制
+access:
+  # 允许访问的来源
+  cors:
+    - https://mock-server-*.tcloudbaseapp.com
+    - http://localhost:3000
+
+# 监控告警
+monitoring:
+  # 应用监控
+  application:
+    enabled: true
+    
+  # 告警配置
+  alerting:
+    enabled: true
+    rules:
+      - name: high-cpu
+        condition: cpu > 80
+        duration: 5m
+        
+      - name: high-memory
+        condition: memory > 85
+        duration: 5m
+        
+      - name: error-rate
+        condition: error_rate > 5
+        duration: 3m
