@@ -73,7 +73,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * @return 用户列表
      */
     @Operation(summary = "根据项目ID查询项目成员")
-    @Query("SELECT u FROM User u JOIN u.projects p WHERE p.id = :projectId")
+    @Query("SELECT u FROM Project p JOIN p.members u WHERE p.id = :projectId")
     List<User> findMembersByProjectId(@Param("projectId") Long projectId);
 
     /**
