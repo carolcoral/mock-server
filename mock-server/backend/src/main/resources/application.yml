@@ -1,0 +1,62 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: mock-server
+  datasource:
+    url: jdbc:sqlite:./data/mock-server.db
+    driver-class-name: org.sqlite.JDBC
+    username:
+    password:
+  jpa:
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=10000,expireAfterWrite=10m
+
+# Swagger配置
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+
+# JWT配置
+jwt:
+  secret: mock-server-secret-key-2024-carolcoral-mock-server-application
+  expiration: 86400000 # 24小时
+
+# Mock Server配置
+mock:
+  server:
+    default-response-delay: 0 # 默认响应延迟（毫秒）
+    enable-request-log: true # 是否记录请求日志
+
+# 日志配置
+logging:
+  level:
+    com.carolcoral.mockserver: INFO
+    org.springframework.security: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: ./logs/mock-server.log
+
+# 管理账号配置（首次启动时创建）
+admin:
+  username: admin
+  password: Admin@123
+  email: admin@mockserver.com

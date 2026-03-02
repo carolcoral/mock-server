@@ -1,0 +1,24 @@
+# Cloud Native Buildpacks 项目配置
+# CNB 项目配置文件
+
+[project]
+id = "com.carolcoral.mock-server"
+name = "Mock Server"
+version = "1.0.0"
+
+[build]
+builder = "paketobuildpacks/builder:base"
+buildpacks = [
+    "paketo-buildpacks/bellsoft-liberica",
+    "paketo-buildpacks/executable-jar",
+    "paketo-buildpacks/spring-boot"
+]
+
+[build.env]
+BP_JVM_VERSION = "17"
+BP_SPRING_CLOUD_BINDINGS_DISABLED = "true"
+
+# 启动配置
+[[io.buildpacks.build.metadata.start-processes]]
+type = "web"
+command = "java -jar /workspace/mock-server.jar"

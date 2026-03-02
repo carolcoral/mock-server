@@ -1,0 +1,55 @@
+# 编译输出
+*/target/
+*/dist/
+*/build/
+
+# 依赖
+*/node_modules/
+
+# 日志
+*/logs/
+*.log
+
+# 数据
+*/data/
+*.db
+*.sqlite
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.tmp
+*.temp
+*.cache
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
+
+# Gradle
+.gradle/
+build/
+
+# 测试
+*.test.js.snap
+.coverage/
+.nyc_output/
+
+# 编辑器
+*.sublime-project
+*.sublime-workspace

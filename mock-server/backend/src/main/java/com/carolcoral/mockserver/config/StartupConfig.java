@@ -1,0 +1,253 @@
+package com.carolcoral.mockserver.config;
+
+import com.carolcoral.mockserver.entity.MockApi;
+import com.carolcoral.mockserver.entity.MockResponse;
+import com.carolcoral.mockserver.entity.Project;
+import com.carolcoral.mockserver.entity.User;
+import com.carolcoral.mockserver.repository.MockApiRepository;
+import com.carolcoral.mockserver.repository.MockResponseRepository;
+import com.carolcoral.mockserver.repository.ProjectRepository;
+import com.carolcoral.mockserver.repository.UserRepository;
+import com.carolcoral.mockserver.util.CacheUtil;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+
+/**
+ * 启动配置类 - 初始化数据
+ *
+ * @author carolcoral
+ */
+@Tag(name = "启动配置", description = "应用启动初始化配置")
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class StartupConfig implements CommandLineRunner {
+
+    private final UserRepository userRepository;
+    private final ProjectRepository projectRepository;
+    private final MockApiRepository mockApiRepository;
+    private final MockResponseRepository mockResponseRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final CacheUtil cacheUtil;
+
+    @Value("${admin.username}")
+    private String adminUsername;
+
+    @Value("${admin.password}")
+    private String adminPassword;
+
+    @Value("${admin.email}")
+    private String adminEmail;
+
+    @Override
+    @Operation(summary = "初始化数据", description = "应用启动时初始化管理员账号和示例数据")
+    public void run(String... args) throws Exception {
+        log.info("开始初始化应用数据...");
+
+        try {
+            // 初始化管理员账号
+            initAdminUser();
+
+            // 初始化示例项目
+            initExampleProject();
+
+            log.info("应用数据初始化完成");
+        } catch (Exception e) {
+            log.error("应用数据初始化失败: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 初始化管理员账号
+     */
+    @Operation(summary = "初始化管理员账号")
+    private void initAdminUser() {
+        try {
+            // 检查管理员账号是否已存在
+            if (userRepository.existsByUsername(adminUsername)) {
+                log.info("管理员账号已存在: {}", adminUsername);
+                return;
+            }
+
+            // 创建管理员账号
+            User admin = new User();
+            admin.setUsername(adminUsername);
+            admin.setPassword(passwordEncoder.encode(adminPassword));
+            admin.setEmail(adminEmail);
+            admin.setRole(User.UserRole.ADMIN);
+            admin.setEnabled(true);
+            admin.setCreateTime(LocalDateTime.now());
+            admin.setUpdateTime(LocalDateTime.now());
+
+            userRepository.save(admin);
+            log.info("初始化管理员账号成功: {}", adminUsername);
+
+        } catch (Exception e) {
+            log.error("初始化管理员账号失败: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 初始化示例项目
+     */
+    @Operation(summary = "初始化示例项目")
+    private void initExampleProject() {
+        try {
+            // 检查示例项目是否已存在
+            String projectCode = "demo";
+            if (projectRepository.existsByCode(projectCode)) {
+                log.info("示例项目已存在: {}", projectCode);
+                return;
+            }
+
+            // 获取管理员用户
+            User admin = userRepository.findByUsername(adminUsername).orElse(null);
+            if (admin == null) {
+                log.error("管理员用户不存在，无法创建示例项目");
+                return;
+            }
+
+            // 创建示例项目
+            Project project = new Project();
+            project.setName("示例项目");
+            project.setCode(projectCode);
+            project.setDescription("这是一个示例项目，包含一些常用的Mock接口");
+            project.setEnabled(true);
+            project.setCreateUserId(admin.getId());
+            project.setCreateTime(LocalDateTime.now());
+            project.setUpdateTime(LocalDateTime.now());
+
+            Project savedProject = projectRepository.save(project);
+            log.info("创建示例项目成功: {}", projectCode);
+
+            // 创建示例接口
+            initExampleApis(savedProject, admin.getId());
+
+        } catch (Exception e) {
+            log.error("初始化示例项目失败: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 初始化示例接口
+     *
+     * @param project  项目
+     * @param userId   用户ID
+     */
+    @Operation(summary = "初始化示例接口")
+    private void initExampleApis(Project project, Long userId) {
+        try {
+            // 创建用户登录接口
+            MockApi loginApi = createMockApi(project, "用户登录接口", "/user/login", MockApi.HttpMethod.POST, userId);
+            createMockResponse(loginApi, 200, "{\"code\": 200, \"message\": \"登录成功\", \"data\": {\"token\": \"mock-token-123\", \"userId\": 1, \"username\": \"admin\"}}", userId);
+            createMockResponse(loginApi, 401, "{\"code\": 401, \"message\": \"用户名或密码错误\"}", userId);
+
+            // 创建获取用户信息接口
+            MockApi userInfoApi = createMockApi(project, "获取用户信息", "/user/info", MockApi.HttpMethod.GET, userId);
+            createMockResponse(userInfoApi, 200, "{\"code\": 200, \"message\": \"成功\", \"data\": {\"userId\": 1, \"username\": \"admin\", \"email\": \"admin@example.com\", \"role\": \"ADMIN\"}}", userId);
+
+            // 创建商品列表接口
+            MockApi productListApi = createMockApi(project, "商品列表", "/products", MockApi.HttpMethod.GET, userId);
+            createMockResponse(productListApi, 200, "{\"code\": 200, \"message\": \"成功\", \"data\": [{\"id\": 1, \"name\": \"iPhone 15\", \"price\": 5999}, {\"id\": 2, \"name\": \"MacBook Pro\", \"price\": 12999}]}", userId);
+
+            // 创建订单创建接口（带条件响应）
+            MockApi orderApi = createMockApi(project, "创建订单", "/order/create", MockApi.HttpMethod.POST, userId);
+            MockResponse successResponse = createMockResponse(orderApi, 200, "{\"code\": 200, \"message\": \"订单创建成功\", \"data\": {\"orderId\": \"2024001\", \"amount\": 99.99}}", userId);
+            successResponse.setCondition("$.productId == '1'");
+            successResponse.setConditionDesc("当商品ID为1时返回成功");
+            mockResponseRepository.save(successResponse);
+
+            MockResponse errorResponse = createMockResponse(orderApi, 400, "{\"code\": 400, \"message\": \"商品库存不足\"}", userId);
+            errorResponse.setCondition("$.productId == '999'");
+            errorResponse.setConditionDesc("当商品ID为999时返回库存不足");
+            mockResponseRepository.save(errorResponse);
+
+            // 创建随机响应接口
+            MockApi randomApi = createMockApi(project, "随机响应接口", "/random", MockApi.HttpMethod.GET, userId);
+            randomApi.setEnableRandom(true);
+            mockApiRepository.save(randomApi);
+
+            createMockResponse(randomApi, 200, "{\"code\": 200, \"message\": \"成功（高概率）\", \"data\": \"这是200响应\"}", 80, userId);
+            createMockResponse(randomApi, 500, "{\"code\": 500, \"message\": \"服务器错误（低概率）\", \"data\": \"这是500响应\"}", 20, userId);
+
+            // 初始化缓存
+            cacheUtil.initCache();
+
+            log.info("创建示例接口成功，共 {} 个接口", 5);
+
+        } catch (Exception e) {
+            log.error("初始化示例接口失败: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 创建Mock接口
+     *
+     * @param project     项目
+     * @param name        接口名称
+     * @param path        接口路径
+     * @param method      请求方法
+     * @param userId      用户ID
+     * @return Mock接口
+     */
+    private MockApi createMockApi(Project project, String name, String path, MockApi.HttpMethod method, Long userId) {
+        MockApi api = new MockApi();
+        api.setName(name);
+        api.setPath(path);
+        api.setMethod(method);
+        api.setRequestType(MockApi.RequestType.HTTP);
+        api.setProject(project);
+        api.setEnabled(true);
+        api.setEnableRandom(false);
+        api.setCreateUserId(userId);
+        api.setCreateTime(LocalDateTime.now());
+        api.setUpdateTime(LocalDateTime.now());
+
+        return mockApiRepository.save(api);
+    }
+
+    /**
+     * 创建Mock响应
+     *
+     * @param mockApi       接口
+     * @param statusCode    状态码
+     * @param responseBody  响应体
+     * @param userId        用户ID
+     * @return Mock响应
+     */
+    private MockResponse createMockResponse(MockApi mockApi, int statusCode, String responseBody, Long userId) {
+        return createMockResponse(mockApi, statusCode, responseBody, 100, userId);
+    }
+
+    /**
+     * 创建Mock响应（带权重）
+     *
+     * @param mockApi       接口
+     * @param statusCode    状态码
+     * @param responseBody  响应体
+     * @param weight        权重
+     * @param userId        用户ID
+     * @return Mock响应
+     */
+    private MockResponse createMockResponse(MockApi mockApi, int statusCode, String responseBody, int weight, Long userId) {
+        MockResponse response = new MockResponse();
+        response.setMockApi(mockApi);
+        response.setStatusCode(statusCode);
+        response.setContentType("application/json");
+        response.setResponseBody(responseBody);
+        response.setWeight(weight);
+        response.setEnabled(true);
+        response.setCreateTime(LocalDateTime.now());
+        response.setUpdateTime(LocalDateTime.now());
+
+        return mockResponseRepository.save(response);
+    }
+}
