@@ -124,6 +124,53 @@ docker-compose logs -f
 docker-compose down
 ```
 
+### 腾讯云 CNB 部署（推荐）
+
+项目已配置完整的腾讯云 CNB 云原生构建支持：
+
+#### 方式一：一键脚本部署
+
+```bash
+# 运行部署脚本
+./deploy-tencent-cloud.sh
+
+# 按提示配置参数
+# 等待部署完成
+```
+
+#### 方式二：CLI 部署
+
+```bash
+# 安装 CloudBase CLI
+npm install -g @cloudbase/cli
+
+# 登录
+tcb login
+
+# 部署（自动识别 .cnb.yml）
+tcb framework:deploy
+```
+
+#### 方式三：控制台部署
+
+1. 登录 [腾讯云控制台](https://console.cloud.tencent.com/)
+2. 进入 **云开发 CloudBase**
+3. 上传项目代码（包含 `.cnb.yml`）
+4. 系统会自动识别配置文件并部署
+
+**部署文档**：
+- 快速开始：[TENCENT_CLOUD_QUICKSTART.md](./TENCENT_CLOUD_QUICKSTART.md)
+- 详细文档：[DEPLOY_TENCENT_CLOUD.md](./DEPLOY_TENCENT_CLOUD.md)
+
+**重要**：部署前请修改 `.cnb.yml` 中的敏感信息：
+```yaml
+env:
+  - name: JWT_SECRET
+    value: "你的32位以上随机密钥"  # 必须修改！
+  - name: ADMIN_PASSWORD
+    value: "你的强密码"           # 必须修改！
+```
+
 ## 🔧 配置说明
 
 ### 后端配置 (application.yml)

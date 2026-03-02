@@ -1,8 +1,48 @@
 # 腾讯云 CNB 快速部署指南
 
+> **重要提示**：腾讯云 CNB 推荐使用 `.cnb.yml` 文件配置自动化构建流程，已为你创建完整的云原生构建配置。
+
+## 🎯 推荐的构建方式
+
+腾讯云 Cloud Native Build (CNB) 推荐使用 `.cnb.yml` 文件来配置自动化构建流程，这种方式相比传统的 `tcb.yaml` 更加灵活和强大。
+
+### `.cnb.yml` 的优势
+
+- ✅ **完整的构建流水线**：支持多阶段构建、缓存优化
+- ✅ **多环境部署**：dev/test/prod 环境分离
+- ✅ **自动化 CI/CD**：代码提交自动触发构建和部署
+- ✅ **构建缓存**：大幅提升构建速度
+- ✅ **镜像安全扫描**：自动检测漏洞
+- ✅ **成本优化**：支持自动启停、资源优化建议
+
 ## 📋 快速开始（3步完成部署）
 
-### 方式一：一键脚本部署（推荐）
+### 方式一：使用 `.cnb.yml` 一键部署（最新推荐）
+
+```bash
+# 1. 配置 .cnb.yml（重要！修改敏感信息）
+vim .cnb.yml
+
+# 2. 运行部署脚本（自动识别 .cnb.yml）
+./deploy-tencent-cloud.sh
+
+# 3. 等待构建和部署完成
+```
+
+**或者使用腾讯云 CLI：**
+
+```bash
+# 1. 安装 CloudBase CLI
+npm install -g @cloudbase/cli
+
+# 2. 登录
+tcb login
+
+# 3. 使用 .cnb.yml 配置部署
+tcb app:deploy --use-config .cnb.yml
+```
+
+### 方式二：一键脚本部署（传统方式）
 
 ```bash
 # 1. 运行部署脚本
@@ -30,13 +70,133 @@ tcb framework:deploy
 1. 登录 [腾讯云控制台](https://console.cloud.tencent.com/)
 2. 进入 **云开发 CloudBase**
 3. 上传项目代码
-4. 点击部署
+4. 系统会自动识别 `.cnb.yml` 配置文件
+5. 点击部署
 
 ---
 
 ## 🔑 部署前必须修改的配置
 
-### 1. 修改敏感信息（重要！）
+### 1. 配置 `.cnb.yml`（重要！）
+
+项目已创建 `.cnb.yml` 文件，包含完整的云原生构建配置。
+
+**必须修改的敏感信息：**
+
+```yaml
+# 环境变量配置
+env:
+  # JWT配置（必须修改！）
+  - name: JWT_SECRET
+    value: ${JWT_SECRET}
+    required: true
+    description: "JWT加密密钥（必须自定义）"
+  
+  # 管理员密码（必须修改！）
+  - name: ADMIN_PASSWORD
+    value: ${ADMIN_PASSWORD}
+    required: true
+    secret: true
+    description: "管理员密码（必须自定义）"
+```
+
+**快速生成密钥：**
+
+```bash
+# Linux/Mac
+openssl rand -base64 32
+
+# 或使用脚本
+./deploy-tencent-cloud.sh
+```
+
+### 2. 配置构建环境变量
+
+在 `.cnb.yml` 中配置镜像仓库信息：
+
+```yaml
+# 步骤5: 镜像推送
+- name: push-image
+  env:
+    - name: TCR_USERNAME
+      value: ${TCR_USERNAME}  # 腾讯云镜像仓库用户名
+    - name: TCR_PASSWORD
+      value: ${TCR_PASSWORD}  # 腾讯云镜像仓库密码
+    - name: TCR_NAMESPACE
+      value: ${TCR_NAMESPACE:-"default"}  # 命名空间
+```
+
+### 3. 选择数据库配置
+
+**方式A：使用腾讯云 MySQL（生产环境推荐）**
+
+```yaml
+database:
+  - type: mysql
+    name: mock-server-db
+    config:
+      host: ${MYSQL_HOST}
+      port: ${MYSQL_PORT:-3306}
+      database: ${MYSQL_DATABASE:-mock_server}
+      username: ${MYSQL_USERNAME}
+      password: ${MYSQL_PASSWORD}
+```
+
+**方式B：使用 SQLite（开发环境）**
+
+无需额外配置，系统默认使用 SQLite。
+
+---
+
+## 📖 `.cnb.yml` 配置说明
+
+### 构建流程
+
+`.cnb.yml` 定义了完整的 6 步构建流程：
+
+1. **准备构建环境** - 安装 Node.js 和依赖
+2. **构建后端** - Maven 编译打包 Spring Boot 应用
+3. **构建前端** - npm 构建 Vue 3 应用
+4. **构建 Docker 镜像** - 创建优化镜像
+5. **推送镜像** - 推送到腾讯云镜像仓库
+6. **生成部署清单** - 创建 Kubernetes YAML
+
+### 关键特性
+
+- **构建缓存**: 缓存 Maven 依赖和 node_modules，大幅提升构建速度
+- **多环境支持**: dev/test/prod 环境配置
+- **自动扩缩容**: CPU/内存达到阈值自动扩容
+- **健康检查**: HTTP/TCP 健康检查
+- **监控告警**: 内置告警规则
+- **安全扫描**: 镜像漏洞扫描
+- **成本优化**: 预留实例、自动启停
+
+### 自定义构建
+
+修改 `.cnb.yml` 中的 `build.steps` 可以自定义构建流程：
+
+```yaml
+build:
+  steps:
+    - name: your-step-name
+      run: |
+        # 自定义命令
+        echo "自定义构建步骤"
+      cache:
+        paths:
+          - /path/to/cache
+      artifacts:
+        paths:
+          - /path/to/artifacts
+```
+
+---
+
+## 🔧 传统方式配置（tcb.yaml）
+
+如果你仍然想使用传统的 `tcb.yaml` 配置：
+
+### 修改敏感信息
 
 编辑 `tcb.yaml`：
 

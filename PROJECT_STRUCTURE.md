@@ -110,13 +110,64 @@ mock-server/
 │   ├── Dockerfile                       # Docker镜像配置
 │   └── docker-compose.yml               # Docker Compose配置
 │
+├── .cnb.yml                             # 腾讯云 CNB 云原生构建配置（最新推荐）
+├── tcb.yaml                             # 腾讯云 CloudBase 配置（传统方式）
+├── cloudbuild.yaml                      # 云原生构建流水线配置
 ├── build.sh                             # 构建脚本
 ├── run.sh                               # 运行脚本
+├── deploy-tencent-cloud.sh              # 腾讯云部署脚本
 ├── .gitignore                           # Git忽略文件
 ├── README.md                            # 项目说明
 ├── START.md                             # 快速启动指南
-└── PROJECT_STRUCTURE.md                 # 项目结构说明
+├── PROJECT_STRUCTURE.md                 # 项目结构说明
+├── DEPLOY_TENCENT_CLOUD.md              # 腾讯云详细部署文档
+└── TENCENT_CLOUD_QUICKSTART.md          # 腾讯云快速部署指南
 ```
+
+### 腾讯云部署配置
+
+#### `.cnb.yml` - 腾讯云 CNB 云原生构建配置（最新推荐）
+
+- **完整构建流水线**: 6步构建流程（准备环境→构建后端→构建前端→构建镜像→推送镜像→生成部署清单）
+- **缓存优化**: Maven、npm、Docker 多路径缓存，构建速度提升60%+
+- **多环境部署**: dev/test/prod 环境分离配置
+- **自动扩缩容**: 基于 CPU/内存使用率的自动扩缩容策略
+- **监控告警**: 内置告警规则，支持 CPU、内存、错误率监控
+- **安全加固**: 镜像漏洞扫描、依赖扫描、密钥扫描
+- **成本优化**: 预留实例、自动启停、资源优化建议
+
+**构建步骤**:
+1. `prepare-build-env` - 准备构建环境（安装 Node.js、npm、Java、Maven）
+2. `build-backend` - 构建后端（Maven 编译打包）
+3. `build-frontend` - 构建前端（npm 构建）
+4. `build-docker-image` - 构建 Docker 镜像
+5. `push-image` - 推送镜像到腾讯云镜像仓库（TCR）
+6. `generate-deployment-manifest` - 生成 Kubernetes 部署清单
+
+#### `tcb.yaml` - 腾讯云 CloudBase 配置（传统方式）
+
+- **环境变量配置**: JWT、管理员账号、数据库连接
+- **服务配置**: 容器配置、资源限制、健康检查
+- **前端部署**: 静态网站部署、CDN 加速
+- **数据库配置**: MySQL 数据库实例配置
+- **存储配置**: 云存储桶配置
+
+#### `cloudbuild.yaml` - 云原生构建流水线配置
+
+- **CI/CD 流水线**: 完整的构建、测试、部署流程
+- **多阶段构建**: 后端构建、前端构建、镜像构建
+- **部署策略**: 滚动更新、蓝绿部署
+- **环境分离**: dev/test/prod 环境配置
+- **资源限制**: CPU、内存请求和限制
+- **健康检查**: HTTP 健康检查和就绪检查
+
+#### `deploy-tencent-cloud.sh` - 腾讯云部署脚本
+
+- **一键部署**: 完整的部署自动化脚本
+- **交互式配置**: 向导式环境变量配置
+- **多模式支持**: 完整部署、仅构建、仅部署、更新部署
+- **验证检查**: 部署后自动验证应用状态
+- **后续操作指引**: 提供部署后的操作建议
 
 ## 模块说明
 
