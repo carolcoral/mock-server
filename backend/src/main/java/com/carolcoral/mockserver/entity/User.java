@@ -1,7 +1,16 @@
 package com.carolcoral.mockserver.entity;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -309,7 +318,16 @@ public class User implements UserDetails {
     }
 
     /**
-     * 账户是否启用
+     * 获取启用状态
+     *
+     * @return 启用状态
+     */
+    public Boolean getEnabled() {
+        return enabled;
+    }
+
+    /**
+     * 账户是否启用（UserDetails接口方法）
      *
      * @return 启用状态
      */
