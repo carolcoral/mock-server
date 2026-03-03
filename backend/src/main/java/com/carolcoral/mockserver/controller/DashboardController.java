@@ -9,9 +9,12 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -43,7 +46,7 @@ public class DashboardController {
     @Operation(summary = "获取仪表盘统计数据", description = "获取首页项目、接口、用户、今日请求等统计数据")
     @GetMapping("/stats")
     public ApiResponse<Map<String, Object>> getDashboardStats(
-            @Parameter(description = "是否包含今日请求数", example = "false") boolean includeTodayRequests) {
+            @Parameter(description = "是否包含今日请求数", example = "false") @RequestParam(required = false, defaultValue = "false") boolean includeTodayRequests) {
         try {
             log.info("获取仪表盘统计数据");
 

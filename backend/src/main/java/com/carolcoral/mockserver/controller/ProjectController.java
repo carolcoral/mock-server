@@ -110,8 +110,8 @@ public class ProjectController {
      */
     @Operation(summary = "查询所有项目", description = "查询所有项目列表")
     @GetMapping
-    public ApiResponse<java.util.List<Project>> getAllProjects() {
-        log.info("查询所有项目请求");
+    public ApiResponse<java.util.List<Project>> getAllProjects(HttpServletRequest request) {
+        log.info("查询所有项目请求, 认证状态: {}", SecurityContextHolder.getContext().getAuthentication());
         return projectService.getAllProjects();
     }
 

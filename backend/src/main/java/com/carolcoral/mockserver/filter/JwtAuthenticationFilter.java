@@ -37,7 +37,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
-    private static final String SWAGGER_LOGIN_PATH = "/api/swagger-login";
+    private static final String SWAGGER_LOGIN_PATH = "/api/auth/swagger-login";
     private static final String MOCK_PATH_PREFIX = "/api/mock/";
     private static final String AUTH_LOGIN_PATH = "/api/auth/login";
     private static final String AUTH_REGISTER_PATH = "/api/auth/register";
@@ -73,7 +73,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // Swagger相关路径 - 需要验证
         if (isSwaggerPath(requestUri)) {
             String token = getTokenFromRequest(request);
-            if (!validateSwaggerAccess(token, request, response)) {
+            if (StringUtils.hasText(token)) {
+                // 如果有token，验证token
+                if (!validateSwaggerAccess(token, request, response)) {
+                    return;
+                }
+            } else {
+                // 如果没有token，返回401
+                writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
+                        ApiResponse.unauthorized("访问Swagger文档需要先登录"));
                 return;
             }
         }
@@ -92,7 +100,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String username = jwtTokenUtil.getUsernameFromToken(token);
                 Long userId = jwtTokenUtil.getUserIdFromToken(token);
 
-                if (username != null && userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                if (username != null && userId != null) {
                     UserDetails userDetails = userRepository.findByUsername(username).orElse(null);
 
                     if (userDetails != null && jwtTokenUtil.validateToken(token, userDetails)) {
@@ -100,14 +108,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                 userDetails, null, userDetails.getAuthorities());
                         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authentication);
-                        
+
                         // 设置用户ID到请求属性，方便后续使用
                         request.setAttribute("userId", userId);
+                        log.debug("JWT认证成功: username={}", username);
+                    } else {
+                        log.warn("JWT token验证失败或用户不存在");
                     }
+                } else {
+                    log.warn("JWT token中无法获取用户名或用户ID");
                 }
             } catch (Exception e) {
-                log.warn("JWT认证失败");
+                log.warn("JWT认证失败: {}", e.getMessage());
             }
+        } else {
+            log.debug("请求没有提供JWT token: {}", requestUri);
         }
 
         filterChain.doFilter(request, response);
@@ -203,10 +218,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * @return 令牌
      */
     private String getTokenFromRequest(HttpServletRequest request) {
+        // 1. 尝试从Header获取
         String bearerToken = request.getHeader(AUTHORIZATION_HEADER);
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith(BEARER_PREFIX)) {
             return bearerToken.substring(BEARER_PREFIX.length());
         }
+
+        // 2. 尝试从URL参数获取（用于Swagger等场景）
+        String tokenParam = request.getParameter("token");
+        if (StringUtils.hasText(tokenParam)) {
+            return tokenParam;
+        }
+
         return null;
     }
 

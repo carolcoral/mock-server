@@ -117,8 +117,8 @@ const showSwagger = () => {
     return
   }
 
-  // 从后端配置获取Swagger地址
-  const swaggerUrl = '/api/swagger-ui.html'
+  // 使用已登录的token访问Swagger
+  const swaggerUrl = `/api/swagger-ui.html?token=${userStore.token}`
   window.open(swaggerUrl, '_blank')
 }
 
@@ -171,24 +171,25 @@ const setDefaultStats = () => {
 .stat-card {
   height: 120px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  text-align: center;
+  justify-content: flex-start;
+  padding: 0 20px;
 }
 
 .stat-icon {
-  width: 50px;
-  height: 50px;
+  width: 60px;
+  height: 60px;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 12px;
-  font-size: 18px;
+  margin-right: 20px;
+  font-size: 20px;
   color: white;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
+  flex-shrink: 0;
 }
 
 .stat-icon:hover {
@@ -212,9 +213,14 @@ const setDefaultStats = () => {
   background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
 }
 
+.stat-content {
+  flex: 1;
+  text-align: left;
+}
+
 .stat-content h3 {
-  margin: 0 0 6px 0;
-  font-size: 12px;
+  margin: 0 0 8px 0;
+  font-size: 14px;
   color: #909399;
   font-weight: normal;
   letter-spacing: 0.5px;
@@ -222,7 +228,7 @@ const setDefaultStats = () => {
 
 .stat-content p {
   margin: 0;
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 700;
   color: #303133;
   line-height: 1;
