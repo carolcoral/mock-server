@@ -8,7 +8,7 @@
           </div>
           <div class="stat-content">
             <h3>项目总数</h3>
-            <p>{{ stats.projectCount }}</p>
+            <p>{{ loading ? '-' : stats.projectCount }}</p>
           </div>
         </el-card>
       </el-col>
@@ -19,7 +19,7 @@
           </div>
           <div class="stat-content">
             <h3>接口总数</h3>
-            <p>{{ stats.apiCount }}</p>
+            <p>{{ loading ? '-' : stats.apiCount }}</p>
           </div>
         </el-card>
       </el-col>
@@ -30,7 +30,7 @@
           </div>
           <div class="stat-content">
             <h3>用户总数</h3>
-            <p>{{ stats.userCount }}</p>
+            <p>{{ loading ? '-' : stats.userCount }}</p>
           </div>
         </el-card>
       </el-col>
@@ -41,7 +41,7 @@
           </div>
           <div class="stat-content">
             <h3>今日请求</h3>
-            <p>{{ stats.requestCount }}</p>
+            <p>{{ loading ? '-' : stats.requestCount }}</p>
           </div>
         </el-card>
       </el-col>
@@ -89,6 +89,8 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useUserStore } from '@/stores/user'
+import axios from 'axios'
 import {
   Folder,
   Connection,
@@ -105,21 +107,60 @@ const stats = ref({
   requestCount: 0
 })
 
+const loading = ref(true)
+
 // 显示Swagger文档
 const showSwagger = () => {
-  window.open('http://localhost:8080/api/swagger-ui.html', '_blank')
+  const userStore = useUserStore()
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录后再访问Swagger文档')
+    return
+  }
+
+  // 从后端配置获取Swagger地址
+  const swaggerUrl = '/api/swagger-ui.html'
+  window.open(swaggerUrl, '_blank')
 }
 
 // 页面加载时获取统计数据
 onMounted(() => {
-  // 这里可以调用API获取真实数据
-  stats.value = {
-    projectCount: 5,
-    apiCount: 25,
-    userCount: 3,
-    requestCount: 1250
-  }
+  fetchRealStats()
 })
+
+// 获取真实统计数据
+const fetchRealStats = async () => {
+  loading.value = true
+  try {
+    const response = await axios.get('/api/dashboard/stats?includeTodayRequests=true')
+    if (response.code === 200) {
+      stats.value = {
+        projectCount: response.data.projectCount || 0,
+        apiCount: response.data.apiCount || 0,
+        userCount: response.data.userCount || 0,
+        requestCount: response.data.requestCount || 0
+      }
+    } else {
+      ElMessage.error('获取统计数据失败')
+      setDefaultStats()
+    }
+  } catch (error) {
+    console.error('获取统计数据失败', error)
+    ElMessage.error('获取统计数据失败，请稍后重试')
+    setDefaultStats()
+  } finally {
+    loading.value = false
+  }
+}
+
+// 设置默认值
+const setDefaultStats = () => {
+  stats.value = {
+    projectCount: 0,
+    apiCount: 0,
+    userCount: 0,
+    requestCount: 0
+  }
+}
 </script>
 
 <style scoped>
@@ -130,20 +171,21 @@ onMounted(() => {
 .stat-card {
   height: 120px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
 }
 
 .stat-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 10px auto;
-  font-size: 16px;
+  margin-bottom: 12px;
+  font-size: 18px;
   color: white;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
@@ -171,17 +213,19 @@ onMounted(() => {
 }
 
 .stat-content h3 {
-  margin: 0 0 8px 0;
-  font-size: 13px;
+  margin: 0 0 6px 0;
+  font-size: 12px;
   color: #909399;
   font-weight: normal;
+  letter-spacing: 0.5px;
 }
 
 .stat-content p {
   margin: 0;
-  font-size: 22px;
-  font-weight: 600;
+  font-size: 26px;
+  font-weight: 700;
   color: #303133;
+  line-height: 1;
 }
 
 .quick-start {
