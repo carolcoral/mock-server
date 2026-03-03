@@ -225,6 +225,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private boolean isSwaggerPath(String requestUri) {
         return requestUri.contains("/v3/api-docs") || 
                requestUri.contains("/swagger-ui") ||
+               requestUri.contains("/swagger-resources") ||
+               requestUri.contains("/webjars") ||
                requestUri.equals("/api/swagger-login");
     }
 
