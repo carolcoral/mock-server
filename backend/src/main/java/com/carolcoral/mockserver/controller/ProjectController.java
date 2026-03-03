@@ -13,6 +13,7 @@ import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -111,7 +112,7 @@ public class ProjectController {
     @Operation(summary = "查询所有项目", description = "查询所有项目列表")
     @GetMapping
     public ApiResponse<java.util.List<Project>> getAllProjects(HttpServletRequest request) {
-        log.info("查询所有项目请求, 认证状态: {}", SecurityContextHolder.getContext().getAuthentication());
+        log.info("查询所有项目请求");
         return projectService.getAllProjects();
     }
 

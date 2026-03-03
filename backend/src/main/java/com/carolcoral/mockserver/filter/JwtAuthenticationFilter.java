@@ -81,7 +81,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             } else {
                 // 如果没有token，返回401
                 writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
-                        ApiResponse.unauthorized("访问Swagger文档需要先登录"));
+                        ApiResponse.unauthorized());
                 return;
             }
         }
