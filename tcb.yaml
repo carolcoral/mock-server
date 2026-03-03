@@ -10,13 +10,18 @@ env:
   variables:
     # 数据库配置
     SPRING_DATASOURCE_URL: jdbc:sqlite:/tmp/mock-server.db
-    # JWT密钥（生产环境请修改）
-    JWT_SECRET: mock-server-secret-key-2024-carolcoral-mock-server-application
-    JWT_EXPIRATION: 86400000
-    # 管理员配置
+    # JWT密钥（生产环境必须设置强密钥，至少256位）
+    JWT_SECRET: your-super-secret-jwt-key-at-least-256-bits-long-change-this-in-production
+    JWT_EXPIRATION: 1800000
+    # 管理员配置（生产环境必须设置强密码）
     ADMIN_USERNAME: admin
-    ADMIN_PASSWORD: Admin@123
+    ADMIN_PASSWORD: YourStrongP@ssw0rd123
     ADMIN_EMAIL: admin@mockserver.com
+    # Swagger认证配置
+    SWAGGER_USERNAME: swagger_admin
+    SWAGGER_PASSWORD: YourSw@ggerP@ss123
+    # CORS配置
+    ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000
     # Spring配置
     SPRING_PROFILES_ACTIVE: cloud
   

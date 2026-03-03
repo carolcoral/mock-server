@@ -7,20 +7,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -37,9 +31,13 @@ import java.util.Map;
 @RestController
 @RequestMapping("/mock")
 @RequiredArgsConstructor
+@Validated
 public class MockController {
 
     private final MockService mockService;
+
+    // 最大响应延迟时间（毫秒）
+    private static final int MAX_RESPONSE_DELAY = 5000;
 
     /**
      * 处理所有Mock请求
@@ -51,7 +49,8 @@ public class MockController {
     @Operation(summary = "处理Mock请求", description = "处理所有Mock请求，支持所有HTTP方法和路径（无需认证）")
     @RequestMapping(value = "/{projectCode}/**", method = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.PATCH, RequestMethod.OPTIONS})
     public ResponseEntity<Object> handleMockRequest(
-            @Parameter(description = "项目编码", example = "ecmall") @PathVariable String projectCode,
+            @Parameter(description = "项目编码", example = "ecmall")
+            @PathVariable @Pattern(regexp = "^[a-zA-Z0-9_-]+$", message = "项目编码只能包含字母、数字、下划线和连字符") String projectCode,
             HttpServletRequest request) {
         
         try {
@@ -76,9 +75,9 @@ public class MockController {
             return buildHttpResponse(mockResponse);
 
         } catch (Exception e) {
-            log.error("处理Mock请求失败: {}", e.getMessage(), e);
+            log.error("处理Mock请求失败");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(createErrorBody(500, "服务器内部错误: " + e.getMessage()));
+                    .body(createErrorBody(500, "服务器内部错误"));
         }
     }
 
@@ -135,7 +134,9 @@ public class MockController {
         // 设置延迟（如果配置了）
         if (mockResponse.getDelay() != null && mockResponse.getDelay() > 0) {
             try {
-                Thread.sleep(mockResponse.getDelay());
+                // 限制最大延迟时间，防止DoS攻击
+                long delay = Math.min(mockResponse.getDelay(), MAX_RESPONSE_DELAY);
+                Thread.sleep(delay);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 log.warn("响应延迟被中断");

@@ -107,8 +107,8 @@ public class MockService {
             return buildMockResponse(mockApi, defaultResponse);
 
         } catch (Exception e) {
-            log.error("处理Mock请求失败: {}", e.getMessage(), e);
-            return createErrorResponse(500, "服务器内部错误: " + e.getMessage());
+            log.error("处理Mock请求失败");
+            return createErrorResponse(500, "服务器内部错误");
         }
     }
 

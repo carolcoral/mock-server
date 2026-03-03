@@ -35,8 +35,8 @@ springdoc:
 
 # JWT配置
 jwt:
-  secret: mock-server-secret-key-2024-carolcoral-mock-server-application
-  expiration: 86400000 # 24小时
+  secret: ${JWT_SECRET:your-secret-key-must-be-at-least-256-bits-long-for-production}
+  expiration: 1800000 # 30分钟
 
 # Mock Server配置
 mock:
@@ -57,6 +57,6 @@ logging:
 
 # 管理账号配置（首次启动时创建）
 admin:
-  username: admin
-  password: Admin@123
-  email: admin@mockserver.com
+  username: ${ADMIN_USERNAME:admin}
+  password: ${ADMIN_PASSWORD:}  # 生产环境必须通过环境变量设置
+  email: ${ADMIN_EMAIL:admin@mockserver.com}

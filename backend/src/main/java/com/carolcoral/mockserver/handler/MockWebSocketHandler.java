@@ -124,9 +124,10 @@ public class MockWebSocketHandler extends TextWebSocketHandler {
                     "delay", mockResponse.getDelay()
             );
 
-            // 模拟延迟
+            // 模拟延迟（限制最大延迟时间）
             if (mockResponse.getDelay() != null && mockResponse.getDelay() > 0) {
-                Thread.sleep(mockResponse.getDelay());
+                long delay = Math.min(mockResponse.getDelay(), 5000);
+                Thread.sleep(delay);
             }
 
             session.sendMessage(new TextMessage(objectMapper.writeValueAsString(responseMsg)));

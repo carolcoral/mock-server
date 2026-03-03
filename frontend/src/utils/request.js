@@ -19,7 +19,6 @@ service.interceptors.request.use(
     return config
   },
   (error) => {
-    console.error('请求错误:', error)
     return Promise.reject(error)
   }
 )
@@ -55,8 +54,6 @@ service.interceptors.response.use(
     }
   },
   (error) => {
-    console.error('响应错误:', error)
-    
     let message = '网络错误'
     
     if (error.response) {

@@ -53,6 +53,18 @@ public class StartupConfig implements CommandLineRunner {
         log.info("开始初始化应用数据...");
 
         try {
+            // 检查密码是否配置
+            if (adminPassword == null || adminPassword.isEmpty()) {
+                log.warn("管理员密码未配置，跳过创建管理员账号。请在环境变量中设置ADMIN_PASSWORD");
+                return;
+            }
+
+            // 验证密码强度
+            if (!isStrongPassword(adminPassword)) {
+                log.warn("管理员密码强度不足，跳过创建管理员账号。密码必须包含大小写字母、数字和特殊字符，且长度至少8位");
+                return;
+            }
+
             // 初始化管理员账号
             initAdminUser();
 
@@ -61,8 +73,22 @@ public class StartupConfig implements CommandLineRunner {
 
             log.info("应用数据初始化完成");
         } catch (Exception e) {
-            log.error("应用数据初始化失败: {}", e.getMessage(), e);
+            log.error("应用数据初始化失败");
         }
+    }
+
+    /**
+     * 检查密码强度
+     */
+    private boolean isStrongPassword(String password) {
+        if (password == null || password.length() < 8) {
+            return false;
+        }
+        boolean hasUpper = password.matches(".*[A-Z].*");
+        boolean hasLower = password.matches(".*[a-z].*");
+        boolean hasDigit = password.matches(".*\\d.*");
+        boolean hasSpecial = password.matches(".*[@$!%*?&].*");
+        return hasUpper && hasLower && hasDigit && hasSpecial;
     }
 
     /**
@@ -91,7 +117,7 @@ public class StartupConfig implements CommandLineRunner {
             log.info("初始化管理员账号成功: {}", adminUsername);
 
         } catch (Exception e) {
-            log.error("初始化管理员账号失败: {}", e.getMessage(), e);
+            log.error("初始化管理员账号失败");
         }
     }
 

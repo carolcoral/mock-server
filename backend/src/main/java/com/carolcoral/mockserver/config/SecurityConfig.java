@@ -10,6 +10,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -50,6 +51,7 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
+                .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::deny))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authz -> authz
                         // Swagger和公开接口允许访问
@@ -80,7 +82,17 @@ public class SecurityConfig {
     @Operation(summary = "配置跨域")
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
+        // 从环境变量获取允许的源列表，默认为localhost开发环境
+        String allowedOriginsEnv = System.getenv().get("ALLOWED_ORIGINS");
+        if (allowedOriginsEnv != null && !allowedOriginsEnv.isEmpty()) {
+            configuration.setAllowedOrigins(Arrays.asList(allowedOriginsEnv.split(",")));
+        } else {
+            // 开发环境默认允许本地访问
+            configuration.setAllowedOriginPatterns(Arrays.asList(
+                "http://localhost:*",
+                "http://127.0.0.1:*"
+            ));
+        }
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
@@ -99,7 +111,8 @@ public class SecurityConfig {
     @Bean
     @Operation(summary = "配置密码编码器")
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        // 使用12轮BCrypt以提高安全性
+        return new BCryptPasswordEncoder(12);
     }
 
     /**

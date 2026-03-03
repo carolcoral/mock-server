@@ -47,7 +47,6 @@
       </el-form>
       
       <div class="login-footer">
-        <p>默认账号: admin / Admin@123</p>
         <p>© 2024 carolcoral</p>
       </div>
     </div>
@@ -79,7 +78,12 @@ const rules = {
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码长度至少6位', trigger: 'blur' }
+    { min: 8, message: '密码长度至少8位', trigger: 'blur' },
+    {
+      pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/,
+      message: '密码必须包含大小写字母、数字和特殊字符',
+      trigger: 'blur'
+    }
   ]
 }
 
@@ -100,7 +104,7 @@ const handleLogin = async () => {
       ElMessage.error(result.message || '登录失败')
     }
   } catch (error) {
-    console.error('登录验证失败:', error)
+    // 登录验证失败
   } finally {
     loading.value = false
   }

@@ -44,8 +44,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
 
-    private static final String SWAGGER_USERNAME = "admin";
-    private static final String SWAGGER_PASSWORD = "Admin@123";
+    // Swagger凭据从环境变量获取
+    private static final String SWAGGER_USERNAME = System.getenv().getOrDefault("SWAGGER_USERNAME", "");
+    private static final String SWAGGER_PASSWORD = System.getenv().getOrDefault("SWAGGER_PASSWORD", "");
 
     @Override
     @Operation(summary = "执行JWT认证过滤")
@@ -95,7 +96,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     }
                 }
             } catch (Exception e) {
-                log.error("JWT认证失败: {}", e.getMessage());
+                log.warn("JWT认证失败");
             }
         }
 
@@ -108,6 +109,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private void handleSwaggerLogin(HttpServletRequest request, HttpServletResponse response) throws IOException {
         String username = request.getParameter("username");
         String password = request.getParameter("password");
+
+        // 检查环境变量是否配置
+        if (SWAGGER_USERNAME.isEmpty() || SWAGGER_PASSWORD.isEmpty()) {
+            writeJsonResponse(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    ApiResponse.error("Swagger登录未配置，请设置环境变量SWAGGER_USERNAME和SWAGGER_PASSWORD"));
+            return;
+        }
 
         if (SWAGGER_USERNAME.equals(username) && SWAGGER_PASSWORD.equals(password)) {
             String token = jwtTokenUtil.generateToken(
@@ -131,7 +139,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             writeJsonResponse(response, HttpServletResponse.SC_OK, successResponse);
         } else {
-            writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED, 
+            writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
                     ApiResponse.error("用户名或密码错误"));
         }
     }
@@ -141,7 +149,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      */
     private boolean validateSwaggerAccess(String token, HttpServletRequest request, HttpServletResponse response) throws IOException {
         if (!StringUtils.hasText(token) || !jwtTokenUtil.validateToken(token)) {
-            writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED, 
+            writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
                     ApiResponse.unauthorized());
             return false;
         }

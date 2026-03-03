@@ -9,17 +9,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * 项目控制器
@@ -32,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/projects")
 @RequiredArgsConstructor
+@Validated
 public class ProjectController {
 
     private final ProjectService projectService;
@@ -100,7 +96,9 @@ public class ProjectController {
      */
     @Operation(summary = "根据项目编码查询项目", description = "根据项目编码查询项目信息")
     @GetMapping("/code/{code}")
-    public ApiResponse<Project> getProjectByCode(@Parameter(description = "项目编码", example = "ecmall") @PathVariable String code) {
+    public ApiResponse<Project> getProjectByCode(
+            @Parameter(description = "项目编码", example = "ecmall")
+            @PathVariable @Pattern(regexp = "^[a-zA-Z0-9_-]+$", message = "项目编码只能包含字母、数字、下划线和连字符") String code) {
         log.info("查询项目请求，编码: {}", code);
         return projectService.getProjectByCode(code);
     }
