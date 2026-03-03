@@ -190,6 +190,7 @@ const setDefaultStats = () => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
   flex-shrink: 0;
+  float: left;
 }
 
 .stat-icon:hover {
@@ -199,7 +200,6 @@ const setDefaultStats = () => {
 
 .project-icon {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  float: left;
 }
 
 .api-icon {

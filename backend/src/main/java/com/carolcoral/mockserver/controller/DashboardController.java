@@ -48,7 +48,17 @@ public class DashboardController {
     public ApiResponse<Map<String, Object>> getDashboardStats(
             @Parameter(description = "是否包含今日请求数", example = "false") @RequestParam(required = false, defaultValue = "false") boolean includeTodayRequests) {
         try {
-            log.info("获取仪表盘统计数据");
+            // 添加调试日志
+            org.springframework.security.core.Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            log.info("获取仪表盘统计数据, 认证状态: {}, 用户: {}", 
+                    auth != null ? auth.isAuthenticated() : false,
+                    auth != null ? auth.getName() : "anonymous");
+            
+            if (auth == null || !auth.isAuthenticated()) {
+                log.warn("Dashboard stats 接口未认证访问");
+            } else {
+                log.info("Dashboard stats 接口已认证: {}", auth.getName());
+            }
 
             Map<String, Object> stats = new HashMap<>();
 
