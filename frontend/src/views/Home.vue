@@ -90,7 +90,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
-import axios from 'axios'
+import service from '@/utils/request'
 import {
   Folder,
   Connection,
@@ -131,7 +131,7 @@ onMounted(() => {
 const fetchRealStats = async () => {
   loading.value = true
   try {
-    const response = await axios.get('/api/dashboard/stats?includeTodayRequests=true')
+    const response = await service.get('/dashboard/stats?includeTodayRequests=true')
     if (response.code === 200) {
       stats.value = {
         projectCount: response.data.projectCount || 0,
@@ -199,6 +199,7 @@ const setDefaultStats = () => {
 
 .project-icon {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  float: left;
 }
 
 .api-icon {
