@@ -74,6 +74,7 @@ import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
+import { logout } from '@/api/auth'
 import {
   HomeFilled,
   Folder,
@@ -107,7 +108,15 @@ const handleCommand = (command) => {
 }
 
 // 退出登录
-const handleLogout = () => {
+const handleLogout = async () => {
+  try {
+    // 调用后端登出接口（清理后端状态，如果有的话）
+    await logout()
+  } catch (error) {
+    console.warn('后端登出调用失败，继续前端登出', error)
+  }
+  
+  // 前端清理token
   userStore.logout()
   ElMessage.success('已退出登录')
   router.push('/login')

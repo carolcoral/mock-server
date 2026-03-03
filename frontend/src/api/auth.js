@@ -14,6 +14,17 @@ export function login(data) {
 }
 
 /**
+ * 登出
+ * @returns {Promise}
+ */
+export function logout() {
+  return request({
+    url: '/auth/logout',
+    method: 'post'
+  })
+}
+
+/**
  * Swagger登录
  * @param {Object} data 登录数据
  * @returns {Promise}

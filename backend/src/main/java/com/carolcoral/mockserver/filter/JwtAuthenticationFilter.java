@@ -70,10 +70,36 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // Swagger相关路径 - 完全公开，不需要任何认证
+        // Swagger相关路径 - 需要认证，但token无效时重定向到登录页
         if (isSwaggerPath(requestUri)) {
-            setAnonymousAuthentication(request);
-            filterChain.doFilter(request, response);
+            String token = getTokenFromRequest(request);
+            if (StringUtils.hasText(token) && jwtTokenUtil.validateToken(token)) {
+                // token有效，设置认证并放行
+                String username = jwtTokenUtil.getUsernameFromToken(token);
+                Long userId = jwtTokenUtil.getUserIdFromToken(token);
+                
+                if (username != null && userId != null) {
+                    UserDetails userDetails = userRepository.findByUsername(username).orElse(null);
+                    if (userDetails != null) {
+                        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                                userDetails, null, userDetails.getAuthorities());
+                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                        request.setAttribute("userId", userId);
+                        log.debug("Swagger访问认证成功: username={}", username);
+                    }
+                }
+                filterChain.doFilter(request, response);
+            } else {
+                // token无效或不存在，重定向到登录页
+                String loginUrl = "/login";
+                if (!StringUtils.hasText(token)) {
+                    log.warn("Swagger访问未提供token，重定向到登录页: {}", requestUri);
+                } else {
+                    log.warn("Swagger访问token无效，重定向到登录页: {}", requestUri);
+                }
+                response.sendRedirect(loginUrl);
+            }
             return;
         }
 
