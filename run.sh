@@ -24,10 +24,12 @@ print_info() {
 }
 
 # 检查后端jar包是否存在
-if [ ! -f "backend/target/mock-server-*.jar" ]; then
+JAR_FILE=$(ls backend/target/mock-server-*.jar 2>/dev/null | head -1)
+if [ -z "$JAR_FILE" ]; then
     print_error "后端jar包不存在，请先运行构建脚本: ./build.sh"
     exit 1
 fi
+print_info "找到jar包: $(basename $JAR_FILE)"
 
 # 创建数据目录
 mkdir -p backend/data
@@ -55,11 +57,12 @@ else
 fi
 
 print_info "启动后端服务..."
-nohup java -jar backend/target/mock-server-*.jar > backend/logs/server.log 2>&1 &
+nohup java -jar "$JAR_FILE" > backend/logs/server.log 2>&1 &
 
 if [ $? -eq 0 ]; then
     print_success "后端服务已启动 (PID: $!)"
     print_info "日志文件: backend/logs/server.log"
+    print_info "jar包: $(basename $JAR_FILE)"
 else
     print_error "后端服务启动失败"
     exit 1
