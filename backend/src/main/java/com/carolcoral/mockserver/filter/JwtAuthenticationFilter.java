@@ -97,6 +97,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = getTokenFromRequest(request);
         if (StringUtils.hasText(token)) {
             try {
+                // 首先验证token是否有效（包括过期检查）
+                if (!jwtTokenUtil.validateToken(token)) {
+                    log.warn("JWT token无效或已过期");
+                    writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
+                            ApiResponse.unauthorized());
+                    return;
+                }
+                
                 String username = jwtTokenUtil.getUsernameFromToken(token);
                 Long userId = jwtTokenUtil.getUserIdFromToken(token);
 
@@ -114,12 +122,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         log.debug("JWT认证成功: username={}", username);
                     } else {
                         log.warn("JWT token验证失败或用户不存在");
+                        writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
+                                ApiResponse.unauthorized());
+                        return;
                     }
                 } else {
                     log.warn("JWT token中无法获取用户名或用户ID");
+                    writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
+                            ApiResponse.unauthorized());
+                    return;
                 }
             } catch (Exception e) {
                 log.warn("JWT认证失败: {}", e.getMessage());
+                writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
+                        ApiResponse.unauthorized());
+                return;
             }
         } else {
             log.debug("请求没有提供JWT token: {}", requestUri);

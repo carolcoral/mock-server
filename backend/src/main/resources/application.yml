@@ -40,7 +40,7 @@ springdoc:
 # JWT配置（HS512算法需要至少512位=64字节的密钥）
 jwt:
   secret: ${JWT_SECRET:your-secret-key-must-be-at-least-512-bits-long-for-production-use-carolcoral-2024-mock-server}
-  expiration: 1800000 # 30分钟
+  expiration: ${JWT_EXPIRATION:86400000} # 24小时（毫秒），可通过环境变量配置
 
 # Mock Server配置
 mock:
