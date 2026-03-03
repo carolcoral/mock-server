@@ -24,7 +24,7 @@ print_info() {
 }
 
 # 检查后端jar包是否存在
-if [ ! -f "backend/target/mock-server-1.0.0.jar" ]; then
+if [ ! -f "backend/target/mock-server-*.jar" ]; then
     print_error "后端jar包不存在，请先运行构建脚本: ./build.sh"
     exit 1
 fi
@@ -33,11 +33,32 @@ fi
 mkdir -p backend/data
 mkdir -p backend/logs
 
+# 查找并停止已存在的后端进程
+print_info "检查是否已有后端服务在运行..."
+OLD_PID=$(lsof -ti:8080 2>/dev/null || netstat -tuln 2>/dev/null | grep :8080 | awk '{print $NF}' | sed 's/.*://' || ss -tuln 2>/dev/null | grep :8080 | awk '{print $NF}' | sed 's/.*://')
+
+if [ ! -z "$OLD_PID" ]; then
+    print_info "发现已有进程占用8080端口 (PID: $OLD_PID)，正在停止..."
+    kill $OLD_PID 2>/dev/null
+    sleep 2
+    
+    # 如果进程还在，强制杀死
+    if kill -0 $OLD_PID 2>/dev/null; then
+        print_info "进程仍在运行，强制终止..."
+        kill -9 $OLD_PID 2>/dev/null
+        sleep 1
+    fi
+    
+    print_success "旧进程已停止"
+else
+    print_info "未发现占用8080端口的进程"
+fi
+
 print_info "启动后端服务..."
-nohup java -jar backend/target/mock-server-1.0.0.jar > backend/logs/server.log 2>&1 &
+nohup java -jar backend/target/mock-server-*.jar > backend/logs/server.log 2>&1 &
 
 if [ $? -eq 0 ]; then
-    print_success "后端服务已启动"
+    print_success "后端服务已启动 (PID: $!)"
     print_info "日志文件: backend/logs/server.log"
 else
     print_error "后端服务启动失败"
