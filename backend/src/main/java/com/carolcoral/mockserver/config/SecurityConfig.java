@@ -54,11 +54,9 @@ public class SecurityConfig {
                 .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::deny))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authz -> authz
-                        // Swagger和公开接口允许访问
+                        // 完全公开接口（不需要认证）
                         .requestMatchers(
                                 "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
                                 "/swagger-resources/**",
                                 "/webjars/**",
                                 "/api/auth/login",
@@ -68,7 +66,12 @@ public class SecurityConfig {
                                 "/ws/**",
                                 "/error"
                         ).permitAll()
-                        // 其他所有请求需要认证（JWT过滤器会处理认证）
+                        // Swagger UI 页面（需要认证，但由JWT过滤器处理）
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
+                        ).authenticated()
+                        // 其他所有请求需要认证
                         .anyRequest().authenticated()
                 )
                 // JWT过滤器 - 只拦截需要认证的请求

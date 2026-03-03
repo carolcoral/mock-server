@@ -70,20 +70,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // Swagger相关路径 - 需要验证
+        // Swagger相关路径 - 完全公开，不需要任何认证
         if (isSwaggerPath(requestUri)) {
-            String token = getTokenFromRequest(request);
-            if (StringUtils.hasText(token)) {
-                // 如果有token，验证token
-                if (!validateSwaggerAccess(token, request, response)) {
-                    return;
-                }
-            } else {
-                // 如果没有token，返回401
-                writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
-                        ApiResponse.unauthorized());
-                return;
-            }
+            setAnonymousAuthentication(request);
+            filterChain.doFilter(request, response);
+            return;
         }
 
         // Mock接口路径 - 不需要认证

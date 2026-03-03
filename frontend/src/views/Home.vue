@@ -91,6 +91,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import service from '@/utils/request'
+import axios from 'axios'
 import {
   Folder,
   Connection,
@@ -110,16 +111,42 @@ const stats = ref({
 const loading = ref(true)
 
 // 显示Swagger文档
-const showSwagger = () => {
+const showSwagger = async () => {
   const userStore = useUserStore()
   if (!userStore.isLoggedIn) {
     ElMessage.warning('请先登录后再访问Swagger文档')
     return
   }
 
-  // 使用已登录的token访问Swagger
-  const swaggerUrl = `/api/swagger-ui.html?token=${userStore.token}`
-  window.open(swaggerUrl, '_blank')
+  try {
+    // 使用POST请求验证token，不在URL中暴露
+    const response = await axios.post(
+      '/api/auth/verify-swagger-access',
+      {},
+      {
+        headers: {
+          'Authorization': `Bearer ${userStore.token}`
+        }
+      }
+    )
+
+    if (response.data.code === 200) {
+      // token验证成功，打开Swagger页面（token通过请求头发送）
+      const swaggerUrl = '/api/swagger-ui.html'
+      window.open(swaggerUrl, '_blank')
+    } else {
+      ElMessage.error('Swagger访问权限验证失败：' + response.data.message)
+    }
+  } catch (error) {
+    console.error('Swagger访问权限验证失败', error)
+    if (error.response && error.response.status === 401) {
+      ElMessage.error('登录已过期，请重新登录')
+      userStore.logout()
+      window.location.href = '/login'
+    } else {
+      ElMessage.error('验证失败，请稍后重试')
+    }
+  }
 }
 
 // 页面加载时获取统计数据
