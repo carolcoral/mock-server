@@ -4,7 +4,7 @@
       <el-col :span="6">
         <el-card class="stat-card">
           <div class="stat-icon project-icon">
-            <Folder />
+            <Folder :width="'1.5em'" :height="'1.5em'" />
           </div>
           <div class="stat-content">
             <h3>项目总数</h3>
@@ -15,7 +15,7 @@
       <el-col :span="6">
         <el-card class="stat-card">
           <div class="stat-icon api-icon">
-            <Connection />
+            <Connection :width="'1.5em'" :height="'1.5em'" />
           </div>
           <div class="stat-content">
             <h3>接口总数</h3>
@@ -26,7 +26,7 @@
       <el-col :span="6">
         <el-card class="stat-card">
           <div class="stat-icon user-icon">
-            <User />
+            <User :width="'1.5em'" :height="'1.5em'" />
           </div>
           <div class="stat-content">
             <h3>用户总数</h3>
@@ -37,7 +37,7 @@
       <el-col :span="6">
         <el-card class="stat-card">
           <div class="stat-icon request-icon">
-            <Position />
+            <Position :width="'1.5em'" :height="'1.5em'" />
           </div>
           <div class="stat-content">
             <h3>今日请求</h3>
@@ -55,15 +55,15 @@
           </template>
           <div class="quick-start">
             <el-button type="primary" @click="$router.push('/projects')" style="margin: 5px;">
-              <Folder />
+              <Folder :width="'1.5em'" :height="'1.5em'" />
               创建项目
             </el-button>
             <el-button type="success" @click="$router.push('/apis')" style="margin: 5px;">
-              <Connection />
+              <Connection :width="'1.5em'" :height="'1.5em'" />
               创建接口
             </el-button>
             <el-button @click="showSwagger" style="margin: 5px;">
-              <Document />
+              <Document :width="'1.5em'" :height="'1.5em'" />
               Swagger文档
             </el-button>
           </div>
@@ -131,18 +131,27 @@ onMounted(() => {
   height: 120px;
   display: flex;
   align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .stat-icon {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 20px;
-  font-size: 24px;
+  margin: 0 auto 10px auto;
+  font-size: 16px;
   color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.stat-icon:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
 }
 
 .project-icon {
@@ -163,14 +172,14 @@ onMounted(() => {
 
 .stat-content h3 {
   margin: 0 0 8px 0;
-  font-size: 14px;
+  font-size: 13px;
   color: #909399;
   font-weight: normal;
 }
 
 .stat-content p {
   margin: 0;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
   color: #303133;
 }

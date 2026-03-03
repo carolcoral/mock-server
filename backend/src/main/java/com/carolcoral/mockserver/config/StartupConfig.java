@@ -19,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 /**
  * 启动配置类 - 初始化数据
@@ -97,8 +98,9 @@ public class StartupConfig implements CommandLineRunner {
     @Operation(summary = "初始化管理员账号")
     private void initAdminUser() {
         try {
-            // 检查管理员账号是否已存在
-            if (userRepository.existsByUsername(adminUsername)) {
+            // 检查管理员账号是否已存在（使用findByUsername代替existsByUsername避免SQLite兼容性问题）
+            Optional<User> existingAdmin = userRepository.findByUsername(adminUsername);
+            if (existingAdmin.isPresent()) {
                 log.info("管理员账号已存在: {}", adminUsername);
                 return;
             }
@@ -117,7 +119,7 @@ public class StartupConfig implements CommandLineRunner {
             log.info("初始化管理员账号成功: {}", adminUsername);
 
         } catch (Exception e) {
-            log.error("初始化管理员账号失败");
+            log.error("初始化管理员账号失败: {}", e.getMessage(), e);
         }
     }
 

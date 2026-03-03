@@ -61,6 +61,7 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/api/auth/login",
                                 "/api/auth/register",
+                                "/api/auth/swagger-login",
                                 "/api/mock/**",
                                 "/ws/**",
                                 "/error"
@@ -68,6 +69,7 @@ public class SecurityConfig {
                         // 其他所有请求需要认证
                         .anyRequest().authenticated()
                 )
+                // JWT过滤器 - 只拦截需要认证的请求
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

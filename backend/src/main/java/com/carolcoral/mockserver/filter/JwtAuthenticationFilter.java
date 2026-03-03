@@ -39,6 +39,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String SWAGGER_LOGIN_PATH = "/api/swagger-login";
     private static final String MOCK_PATH_PREFIX = "/api/mock/";
+    private static final String AUTH_LOGIN_PATH = "/api/auth/login";
+    private static final String AUTH_REGISTER_PATH = "/api/auth/register";
 
     private final JwtTokenUtil jwtTokenUtil;
     private final UserRepository userRepository;
@@ -54,6 +56,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         String requestUri = request.getRequestURI();
+        
+        // 公开接口 - 设置匿名认证并放行
+        if (isPublicPath(requestUri)) {
+            setAnonymousAuthentication(request);
+            filterChain.doFilter(request, response);
+            return;
+        }
         
         // Swagger登录接口
         if (SWAGGER_LOGIN_PATH.equals(requestUri)) {
@@ -71,6 +80,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // Mock接口路径 - 不需要认证
         if (requestUri.startsWith(MOCK_PATH_PREFIX)) {
+            setAnonymousAuthentication(request);
             filterChain.doFilter(request, response);
             return;
         }
@@ -101,6 +111,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * 设置匿名认证到SecurityContext（用于公开接口）
+     */
+    private void setAnonymousAuthentication(HttpServletRequest request) {
+        if (SecurityContextHolder.getContext().getAuthentication() == null) {
+            UsernamePasswordAuthenticationToken anonymousAuth = new UsernamePasswordAuthenticationToken(
+                    "anonymous", null, java.util.Collections.emptyList());
+            anonymousAuth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            SecurityContextHolder.getContext().setAuthentication(anonymousAuth);
+        }
+    }
+
+    /**
+     * 判断是否是公开路径（不需要认证）
+     */
+    private boolean isPublicPath(String requestUri) {
+        return AUTH_LOGIN_PATH.equals(requestUri) || 
+               AUTH_REGISTER_PATH.equals(requestUri) ||
+               requestUri.equals("/error");
     }
 
     /**
