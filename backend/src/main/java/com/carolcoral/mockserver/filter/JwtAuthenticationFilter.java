@@ -211,7 +211,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 获取用户信息
             String username = jwtTokenUtil.getUsernameFromToken(userToken);
             Long userId = jwtTokenUtil.getUserIdFromToken(userToken);
-            String role = jwtTokenUtil.getRoleFromToken(userToken);
+            String role = jwtTokenUtil.getUserRoleFromToken(userToken);
             
             if (username == null || userId == null) {
                 writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
