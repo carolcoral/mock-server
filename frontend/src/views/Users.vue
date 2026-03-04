@@ -120,7 +120,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Edit, Delete } from '@element-plus/icons-vue'
-import axios from 'axios'
+import request from '@/utils/request'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
@@ -200,7 +200,11 @@ const fetchUsers = async () => {
       ...searchForm
     }
 
-    const response = await axios.get('/api/users', { params })
+    const response = await request({
+      url: '/users',
+      method: 'get',
+      params
+    })
     if (response.code === 200) {
       userList.value = response.data
       pagination.total = response.data.length
@@ -292,7 +296,10 @@ const handleDelete = async (row) => {
       type: 'warning'
     })
 
-    const response = await axios.delete(`/api/users/${row.id}`)
+    const response = await request({
+      url: `/users/${row.id}`,
+      method: 'delete'
+    })
     if (response.code === 200) {
       ElMessage.success('删除成功')
       fetchUsers()
@@ -320,8 +327,16 @@ const handleSubmit = async () => {
     }
 
     const response = isEdit.value
-      ? await axios.put('/api/users', submitData)
-      : await axios.post('/api/users', submitData)
+      ? await request({
+          url: '/users',
+          method: 'put',
+          data: submitData
+        })
+      : await request({
+          url: '/users',
+          method: 'post',
+          data: submitData
+        })
 
     if (response.code === 200) {
       ElMessage.success(isEdit.value ? '编辑成功' : '创建成功')

@@ -4,8 +4,9 @@ import { useUserStore } from '@/stores/user'
 
 // 创建axios实例
 const service = axios.create({
-  baseURL: '/api',
-  timeout: 30000 // 30秒超时
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  timeout: 30000, // 30秒超时
+  withCredentials: false // 关闭凭据发送，避免CORS问题
 })
 
 // 请求拦截器
@@ -15,6 +16,9 @@ service.interceptors.request.use(
     const userStore = useUserStore()
     if (userStore.token) {
       config.headers['Authorization'] = `Bearer ${userStore.token}`
+      console.log('[Request] 添加Authorization头:', config.headers['Authorization'])
+    } else {
+      console.warn('[Request] 未找到token，userStore.token为空')
     }
     return config
   },

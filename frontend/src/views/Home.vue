@@ -90,8 +90,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
-import service from '@/utils/request'
-import axios from 'axios'
+import request from '@/utils/request'
 import {
   Folder,
   Connection,
@@ -120,19 +119,15 @@ const loading = ref(true)
 
     try {
       // 调用Swagger自动登录接口（后端验证用户token后返回Swagger token）
-      const response = await axios.post(
-        '/api/auth/swagger-auto-login',
-        {},
-        {
-          headers: {
-            'Authorization': `Bearer ${userStore.token}`
-          }
-        }
-      )
+      const response = await request({
+        url: '/auth/swagger-auto-login',
+        method: 'post',
+        data: {}
+      })
 
-      if (response.data.code === 200) {
+      if (response.code === 200) {
         // 获取到Swagger专用token
-        const swaggerToken = response.data.data.token
+        const swaggerToken = response.data.token
         
         // 打开Swagger页面
         const swaggerUrl = '/api/swagger-ui.html'

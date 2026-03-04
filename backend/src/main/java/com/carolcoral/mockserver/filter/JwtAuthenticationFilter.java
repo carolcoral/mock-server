@@ -292,16 +292,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private String getTokenFromRequest(HttpServletRequest request) {
         // 1. 尝试从Header获取
         String bearerToken = request.getHeader(AUTHORIZATION_HEADER);
+        log.debug("Authorization Header: {}", bearerToken);
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith(BEARER_PREFIX)) {
-            return bearerToken.substring(BEARER_PREFIX.length());
+            String token = bearerToken.substring(BEARER_PREFIX.length());
+            log.debug("从Header提取token: {}", token != null ? "token存在" : "token为空");
+            return token;
         }
 
         // 2. 尝试从URL参数获取（用于Swagger等场景）
         String tokenParam = request.getParameter("token");
         if (StringUtils.hasText(tokenParam)) {
+            log.debug("从URL参数提取token");
             return tokenParam;
         }
 
+        log.warn("请求未提供token, URI: {}", request.getRequestURI());
         return null;
     }
 

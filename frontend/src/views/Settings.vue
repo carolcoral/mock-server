@@ -218,7 +218,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Setting, Lock, Key, Connection, InfoFilled } from '@element-plus/icons-vue'
-import axios from 'axios'
+import request from '@/utils/request'
 
 // 当前激活的菜单
 const activeMenu = ref('basic')

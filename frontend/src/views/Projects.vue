@@ -103,7 +103,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Search } from '@element-plus/icons-vue'
-import axios from 'axios'
+import request from '@/utils/request'
 
 // 搜索表单
 const searchForm = reactive({
@@ -162,7 +162,11 @@ const fetchProjects = async () => {
       ...searchForm
     }
 
-    const response = await axios.get('/api/projects', { params })
+    const response = await request({
+      url: '/projects',
+      method: 'get',
+      params
+    })
     if (response.code === 200) {
       projectList.value = response.data
       pagination.total = response.data.length
@@ -236,7 +240,10 @@ const handleDelete = async (row) => {
       type: 'warning'
     })
 
-    const response = await axios.delete(`/api/projects/${row.id}`)
+    const response = await request({
+      url: `/projects/${row.id}`,
+      method: 'delete'
+    })
     if (response.code === 200) {
       ElMessage.success('删除成功')
       fetchProjects()
@@ -258,8 +265,16 @@ const handleSubmit = async () => {
     submitLoading.value = true
 
     const response = isEdit.value
-      ? await axios.put('/api/projects', form)
-      : await axios.post('/api/projects', form)
+      ? await request({
+          url: '/projects',
+          method: 'put',
+          data: form
+        })
+      : await request({
+          url: '/projects',
+          method: 'post',
+          data: form
+        })
 
     if (response.code === 200) {
       ElMessage.success(isEdit.value ? '编辑成功' : '创建成功')

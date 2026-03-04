@@ -56,20 +56,25 @@ public class SecurityConfig {
     @Operation(summary = "配置安全过滤器链")
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                // 特别注意：CORS必须在所有其他配置之前
+                .cors(cors -> {
+                    cors.configurationSource(corsConfigurationSource());
+                })
                 .csrf(AbstractHttpConfigurer::disable)
                 .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::deny))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authz -> authz
+                        // 允许所有OPTIONS预检请求
+                        .requestMatchers(request -> "OPTIONS".equals(request.getMethod())).permitAll()
                         // 完全公开接口（不需要认证）
                         .requestMatchers(
                                 "/v3/api-docs/**",
                                 "/swagger-resources/**",
                                 "/webjars/**",
-                                "/api/auth/login",
-                                "/api/auth/register",
-                                "/api/auth/swagger-auto-login",
-                                "/api/mock/**",
+                                "/auth/login",
+                                "/auth/register",
+                                "/auth/swagger-auto-login",
+                                "/mock/**",
                                 "/ws/**",
                                 "/error"
                         ).permitAll()
@@ -97,21 +102,20 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         
-        // 从系统属性（由.env文件加载）获取允许的源列表，默认为localhost开发环境
-        String allowedOriginsEnv = System.getProperty("ALLOWED_ORIGINS");
+        // 允许所有来源访问
+        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
         
-        if (allowedOriginsEnv != null && !allowedOriginsEnv.isEmpty()) {
-            configuration.setAllowedOrigins(Arrays.asList(allowedOriginsEnv.split(",")));
-        } else {
-            // 开发环境默认允许本地访问
-            configuration.setAllowedOriginPatterns(Arrays.asList(
-                "http://localhost:*",
-                "http://127.0.0.1:*"
-            ));
-        }
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        // 明确允许的HTTP方法
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"));
+        
+        // 明确允许的请求头
         configuration.setAllowedHeaders(Arrays.asList("*"));
-        configuration.setAllowCredentials(true);
+        
+        // 暴露的响应头
+        configuration.setExposedHeaders(Arrays.asList("Authorization", "Content-Type"));
+        
+        // 禁用凭据支持，避免CORS问题
+        configuration.setAllowCredentials(false);
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

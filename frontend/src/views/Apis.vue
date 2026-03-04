@@ -159,7 +159,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Edit, Delete } from '@element-plus/icons-vue'
-import axios from 'axios'
+import request from '@/utils/request'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
@@ -248,9 +248,17 @@ const fetchApis = async () => {
     const projectId = route.query.projectId
     let response
     if (projectId) {
-      response = await axios.get(`/api/mock-apis/project/${projectId}`, { params })
+      response = await request({
+        url: `/mock-apis/project/${projectId}`,
+        method: 'get',
+        params
+      })
     } else {
-      response = await axios.get('/api/mock-apis', { params })
+      response = await request({
+        url: '/mock-apis',
+        method: 'get',
+        params
+      })
     }
 
     if (response.code === 200) {
@@ -340,7 +348,10 @@ const handleDelete = async (row) => {
       type: 'warning'
     })
 
-    const response = await axios.delete(`/api/mock-apis/${row.id}`)
+    const response = await request({
+      url: `/mock-apis/${row.id}`,
+      method: 'delete'
+    })
     if (response.code === 200) {
       ElMessage.success('删除成功')
       fetchApis()
@@ -362,8 +373,16 @@ const handleSubmit = async () => {
     submitLoading.value = true
 
     const response = isEdit.value
-      ? await axios.put('/api/mock-apis', form)
-      : await axios.post('/api/mock-apis', form)
+      ? await request({
+          url: '/mock-apis',
+          method: 'put',
+          data: form
+        })
+      : await request({
+          url: '/mock-apis',
+          method: 'post',
+          data: form
+        })
 
     if (response.code === 200) {
       ElMessage.success(isEdit.value ? '编辑成功' : '创建成功')
