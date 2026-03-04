@@ -57,7 +57,7 @@ auto_set_java_home() {
     # 如果JAVA_HOME已设置且是Java 8，直接使用
     if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
         JAVA_VERSION=$($JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1,2)
-        if [ "$JAVA_VERSION" = "8" ]; then
+        if [ "$JAVA_VERSION" = "1.8" ]; then
             print_success "使用已配置的JAVA_HOME: $JAVA_HOME (Java $JAVA_VERSION)"
             return 0
         fi
@@ -105,8 +105,8 @@ auto_set_java_home() {
     
     # 验证Java版本
     if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
-        JAVA_VERSION=$($JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
-        JAVA_SUBVERSION=$($JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f2)
+        JAVA_VERSION=$($JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f2)
+        JAVA_SUBVERSION=$($JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f3)
         if [ "$JAVA_VERSION" = "8" ] || ([ "$JAVA_VERSION" = "8" ] && [ "$JAVA_SUBVERSION" = "0" ]); then
             export JAVA_HOME
             export PATH="$JAVA_HOME/bin:$PATH"
@@ -115,16 +115,16 @@ auto_set_java_home() {
             print_success "自动检测到Java 8: $JAVA_HOME"
             # 验证Maven使用的Java版本
             MAVAEN_JAVA_VERSION=$(mvn -version 2>&1 | grep "Java version" | cut -d':' -f2 | cut -d' ' -f2 | cut -d'.' -f1,2)
-            if [ "$MAVAEN_JAVA_VERSION" != "8" ]; then
+            if [ "$MAVAEN_JAVA_VERSION" != "1.8" ]; then
                 print_warning "Maven可能未正确使用Java 8（检测到: $MAVAEN_JAVA_VERSION ）"
             fi
             return 0
         fi
     fi
     
-    # 如果没有找到Java 17，检查java命令是否可用
+    # 如果没有找到Java 8，检查java命令是否可用
     if command -v java >/dev/null 2>&1; then
-        JAVA_VERSION=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
+        JAVA_VERSION=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f2)
         if [ "$JAVA_VERSION" = "8" ]; then
             print_success "使用系统Java: $(command -v java) (Java $JAVA_VERSION)"
             return 0
