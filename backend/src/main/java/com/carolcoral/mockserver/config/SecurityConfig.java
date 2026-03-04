@@ -59,6 +59,8 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-resources/**",
                                 "/webjars/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
                                 "/api/auth/login",
                                 "/api/auth/register",
                                 "/api/auth/swagger-login",
@@ -66,11 +68,6 @@ public class SecurityConfig {
                                 "/ws/**",
                                 "/error"
                         ).permitAll()
-                        // Swagger UI 页面（需要认证，但由JWT过滤器处理）
-                        .requestMatchers(
-                                "/swagger-ui/**",
-                                "/swagger-ui.html"
-                        ).authenticated()
                         // 其他所有请求需要认证
                         .anyRequest().authenticated()
                 )

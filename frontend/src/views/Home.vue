@@ -131,9 +131,26 @@ const showSwagger = async () => {
     )
 
     if (response.data.code === 200) {
-      // token验证成功，打开Swagger页面（token通过请求头发送）
+      // token验证成功，打开Swagger页面（使用Swagger UI内置认证）
       const swaggerUrl = '/api/swagger-ui.html'
-      window.open(swaggerUrl, '_blank')
+      
+      // 打开新窗口
+      const swaggerWindow = window.open(swaggerUrl, '_blank')
+      
+      // 尝试自动填充token到Swagger UI（通过localStorage）
+      setTimeout(() => {
+        try {
+          // 将token存储到localStorage，Swagger UI会读取
+          if (swaggerWindow && !swaggerWindow.closed) {
+            swaggerWindow.localStorage.setItem('swagger-token', userStore.token)
+            console.log('Token已存储到Swagger页面的localStorage')
+          }
+        } catch (e) {
+          console.log('无法自动填充token到Swagger UI，请手动输入')
+        }
+      }, 1000)
+      
+      ElMessage.success('Swagger已打开，请在Authorize按钮中输入Token')
     } else {
       ElMessage.error('Swagger访问权限验证失败：' + response.data.message)
     }
