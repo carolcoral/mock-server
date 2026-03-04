@@ -15,6 +15,7 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.util.Map;
+import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -42,11 +43,10 @@ public class MockWebSocketHandler extends TextWebSocketHandler {
         log.info("WebSocket连接建立: {}", sessionId);
 
         // 发送连接成功消息
-        Map<String, Object> connectMsg = Map.of(
-                "type", "connected",
-                "sessionId", sessionId,
-                "message", "WebSocket连接成功"
-        );
+        Map<String, Object> connectMsg = new HashMap<>();
+        connectMsg.put("type", "connected");
+        connectMsg.put("sessionId", sessionId);
+        connectMsg.put("message", "WebSocket连接成功");
         session.sendMessage(new TextMessage(objectMapper.writeValueAsString(connectMsg)));
     }
 
@@ -116,13 +116,12 @@ public class MockWebSocketHandler extends TextWebSocketHandler {
             MockResponseDTO mockResponse = mockService.handleMockRequest(mockRequest);
 
             // 发送响应
-            Map<String, Object> responseMsg = Map.of(
-                    "type", "response",
-                    "statusCode", mockResponse.getStatusCode(),
-                    "headers", mockResponse.getHeaders(),
-                    "body", mockResponse.getBody(),
-                    "delay", mockResponse.getDelay()
-            );
+            Map<String, Object> responseMsg = new HashMap<>();
+            responseMsg.put("type", "response");
+            responseMsg.put("statusCode", mockResponse.getStatusCode());
+            responseMsg.put("headers", mockResponse.getHeaders());
+            responseMsg.put("body", mockResponse.getBody());
+            responseMsg.put("delay", mockResponse.getDelay());
 
             // 模拟延迟（限制最大延迟时间）
             if (mockResponse.getDelay() != null && mockResponse.getDelay() > 0) {
@@ -144,10 +143,9 @@ public class MockWebSocketHandler extends TextWebSocketHandler {
      * @param session WebSocket会话
      */
     private void handlePing(WebSocketSession session) throws Exception {
-        Map<String, Object> pongMsg = Map.of(
-                "type", "pong",
-                "timestamp", System.currentTimeMillis()
-        );
+        Map<String, Object> pongMsg = new HashMap<>();
+        pongMsg.put("type", "pong");
+        pongMsg.put("timestamp", System.currentTimeMillis());
         session.sendMessage(new TextMessage(objectMapper.writeValueAsString(pongMsg)));
     }
 
@@ -158,11 +156,10 @@ public class MockWebSocketHandler extends TextWebSocketHandler {
      * @param message 错误消息
      */
     private void sendError(WebSocketSession session, String message) throws Exception {
-        Map<String, Object> errorMsg = Map.of(
-                "type", "error",
-                "message", message,
-                "timestamp", System.currentTimeMillis()
-        );
+        Map<String, Object> errorMsg = new HashMap<>();
+        errorMsg.put("type", "error");
+        errorMsg.put("message", message);
+        errorMsg.put("timestamp", System.currentTimeMillis());
         session.sendMessage(new TextMessage(objectMapper.writeValueAsString(errorMsg)));
     }
 
