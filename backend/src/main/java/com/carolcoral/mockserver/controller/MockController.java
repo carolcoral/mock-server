@@ -1,3 +1,9 @@
+/**
+* Copyright (c) 2026, XINDU.SITE
+* All Rights Reserved.
+* XINDU.SITE CONFIDENTIAL
+*/
+
 package com.carolcoral.mockserver.controller;
 
 import com.carolcoral.mockserver.dto.MockRequest;

@@ -1,3 +1,9 @@
+/**
+* Copyright (c) 2026, XINDU.SITE
+* All Rights Reserved.
+* XINDU.SITE CONFIDENTIAL
+*/
+
 package com.carolcoral.mockserver.filter;
 
 import com.carolcoral.mockserver.dto.ApiResponse;
@@ -54,9 +60,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String requestUri = request.getRequestURI();
         
-        // 公开接口 - 设置匿名认证并放行
+        // 公开接口 - 直接放行，不设置认证
         if (isPublicPath(requestUri)) {
-            setAnonymousAuthentication(request);
             filterChain.doFilter(request, response);
             return;
         }
@@ -71,7 +76,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // Mock接口路径 - 不需要认证
         if (requestUri.startsWith(MOCK_PATH_PREFIX)) {
-            setAnonymousAuthentication(request);
             filterChain.doFilter(request, response);
             return;
         }
@@ -155,7 +159,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
         } else {
+            // 没有提供token，且不是公开接口，返回401未授权
             log.debug("请求没有提供JWT token: {}", requestUri);
+            writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
+                    ApiResponse.unauthorized());
+            return;
         }
 
         filterChain.doFilter(request, response);
