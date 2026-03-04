@@ -216,11 +216,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
             
             // 从系统属性获取Swagger凭据（由.env文件加载）
-            String swaggerUsername = System.getProperty("SWAGGER_USERNAME", "");
-            String swaggerPassword = System.getProperty("SWAGGER_PASSWORD", "");
+            String swaggerUsername = System.getProperty("SWAGGER_USERNAME");
+            String swaggerPassword = System.getProperty("SWAGGER_PASSWORD");
+            
+            // 添加调试日志
+            log.debug("Swagger认证配置 - username: {}, password: {}", 
+                     swaggerUsername != null ? "已设置" : "未设置",
+                     swaggerPassword != null ? "已设置" : "未设置");
             
             // 检查环境变量是否配置（用于Swagger访问）
-            if (swaggerUsername.isEmpty() || swaggerPassword.isEmpty()) {
+            if (swaggerUsername == null || swaggerUsername.isEmpty() || swaggerPassword == null || swaggerPassword.isEmpty()) {
+                log.error("Swagger登录未配置，当前username: {}, password: {}", swaggerUsername, swaggerPassword);
                 writeJsonResponse(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                         ApiResponse.error("Swagger登录未配置，请设置环境变量SWAGGER_USERNAME和SWAGGER_PASSWORD"));
                 return;
