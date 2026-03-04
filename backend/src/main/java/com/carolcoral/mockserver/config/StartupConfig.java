@@ -39,14 +39,10 @@ public class StartupConfig implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
     private final CacheUtil cacheUtil;
 
-    @Value("${admin.username}")
-    private String adminUsername;
-
-    @Value("${admin.password}")
-    private String adminPassword;
-
-    @Value("${admin.email}")
-    private String adminEmail;
+    // 从系统属性（由.env文件加载）获取管理员配置
+    private String adminUsername = System.getProperty("ADMIN_USERNAME", "admin");
+    private String adminPassword = System.getProperty("ADMIN_PASSWORD", "Admin@123!");
+    private String adminEmail = System.getProperty("ADMIN_EMAIL", "admin@mockserver.com");
 
     @Override
     @Operation(summary = "初始化数据", description = "应用启动时初始化管理员账号和示例数据")

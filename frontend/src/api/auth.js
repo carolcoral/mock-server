@@ -36,3 +36,14 @@ export function swaggerLogin(data) {
     data
   })
 }
+
+/**
+ * Swagger自动登录（已登录用户调用）
+ * @returns {Promise}
+ */
+export function swaggerAutoLogin() {
+  return request({
+    url: '/auth/swagger-auto-login',
+    method: 'post'
+  })
+}

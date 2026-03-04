@@ -16,11 +16,9 @@ import java.io.File;
 @Configuration
 public class SqliteDatabaseConfig implements InitializingBean {
 
-    @Value("${spring.datasource.url:jdbc:sqlite:./data/mock-server.db}")
-    private String sqliteUrl;
-
-    @Value("${logging.file.name:./logs/mock-server.log}")
-    private String logFilePath;
+    // 从系统属性（由.env文件加载）获取配置
+    private String sqliteUrl = System.getProperty("DB_URL", "jdbc:sqlite:./data/mock-server.db");
+    private String logFilePath = System.getProperty("LOG_FILE_PATH", "./logs/mock-server.log");
 
     @Override
     public void afterPropertiesSet() throws Exception {

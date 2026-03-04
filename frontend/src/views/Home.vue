@@ -110,61 +110,83 @@ const stats = ref({
 
 const loading = ref(true)
 
-// 显示Swagger文档
-const showSwagger = async () => {
-  const userStore = useUserStore()
-  if (!userStore.isLoggedIn) {
-    ElMessage.warning('请先登录后再访问Swagger文档')
-    return
-  }
+  // 显示Swagger文档
+  const showSwagger = async () => {
+    const userStore = useUserStore()
+    if (!userStore.isLoggedIn) {
+      ElMessage.warning('请先登录后再访问Swagger文档')
+      return
+    }
 
-  try {
-    // 使用POST请求验证token，不在URL中暴露
-    const response = await axios.post(
-      '/api/auth/verify-swagger-access',
-      {},
-      {
-        headers: {
-          'Authorization': `Bearer ${userStore.token}`
-        }
-      }
-    )
-
-    if (response.data.code === 200) {
-      // token验证成功，打开Swagger页面（使用Swagger UI内置认证）
-      const swaggerUrl = '/api/swagger-ui.html'
-      
-      // 打开新窗口
-      const swaggerWindow = window.open(swaggerUrl, '_blank')
-      
-      // 尝试自动填充token到Swagger UI（通过localStorage）
-      setTimeout(() => {
-        try {
-          // 将token存储到localStorage，Swagger UI会读取
-          if (swaggerWindow && !swaggerWindow.closed) {
-            swaggerWindow.localStorage.setItem('swagger-token', userStore.token)
-            console.log('Token已存储到Swagger页面的localStorage')
+    try {
+      // 调用Swagger自动登录接口（后端验证用户token后返回Swagger token）
+      const response = await axios.post(
+        '/api/auth/swagger-auto-login',
+        {},
+        {
+          headers: {
+            'Authorization': `Bearer ${userStore.token}`
           }
-        } catch (e) {
-          console.log('无法自动填充token到Swagger UI，请手动输入')
         }
-      }, 1000)
-      
-      ElMessage.success('Swagger已打开，请在Authorize按钮中输入Token')
-    } else {
-      ElMessage.error('Swagger访问权限验证失败：' + response.data.message)
-    }
-  } catch (error) {
-    console.error('Swagger访问权限验证失败', error)
-    if (error.response && error.response.status === 401) {
-      ElMessage.error('登录已过期，请重新登录')
-      userStore.logout()
-      window.location.href = '/login'
-    } else {
-      ElMessage.error('验证失败，请稍后重试')
+      )
+
+      if (response.data.code === 200) {
+        // 获取到Swagger专用token
+        const swaggerToken = response.data.data.token
+        
+        // 打开Swagger页面
+        const swaggerUrl = '/api/swagger-ui.html'
+        const swaggerWindow = window.open(swaggerUrl, '_blank')
+        
+        // 尝试自动填充token到Swagger UI（通过localStorage）
+        setTimeout(() => {
+          try {
+            if (swaggerWindow && !swaggerWindow.closed) {
+              // 将token存储到Swagger页面的localStorage
+              swaggerWindow.localStorage.setItem('swagger-auth-token', swaggerToken)
+              console.log('Swagger token已存储到localStorage')
+              
+              // 尝试自动点击Authorize按钮并填充token
+              swaggerWindow.addEventListener('load', () => {
+                try {
+                  // 查找Authorize按钮并点击
+                  const authorizeBtn = swaggerWindow.document.querySelector('.auth-wrapper .authorize-btn')
+                  if (authorizeBtn) {
+                    authorizeBtn.click()
+                    
+                    // 等待弹窗出现后填充token
+                    setTimeout(() => {
+                      const tokenInput = swaggerWindow.document.querySelector('input[name="bearer"]')
+                      if (tokenInput) {
+                        tokenInput.value = swaggerToken
+                      }
+                    }, 500)
+                  }
+                } catch (e) {
+                  console.log('无法自动完成Swagger认证，请手动操作')
+                }
+              })
+            }
+          } catch (e) {
+            console.log('无法自动填充token到Swagger UI，请手动输入')
+          }
+        }, 1000)
+        
+        ElMessage.success('正在跳转到Swagger文档...')
+      } else {
+        ElMessage.error('Swagger自动登录失败：' + response.data.message)
+      }
+    } catch (error) {
+      console.error('Swagger自动登录失败', error)
+      if (error.response && error.response.status === 401) {
+        ElMessage.error('登录已过期，请重新登录')
+        userStore.logout()
+        window.location.href = '/login'
+      } else {
+        ElMessage.error('自动登录失败，请稍后重试')
+      }
     }
   }
-}
 
 // 页面加载时获取统计数据
 onMounted(() => {

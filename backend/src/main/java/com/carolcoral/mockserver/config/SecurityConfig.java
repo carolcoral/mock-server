@@ -1,6 +1,7 @@
 package com.carolcoral.mockserver.config;
 
 import com.carolcoral.mockserver.filter.JwtAuthenticationFilter;
+import io.github.cdimascio.dotenv.Dotenv;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -59,15 +60,18 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-resources/**",
                                 "/webjars/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
                                 "/api/auth/login",
                                 "/api/auth/register",
-                                "/api/auth/swagger-login",
+                                "/api/auth/swagger-auto-login",
                                 "/api/mock/**",
                                 "/ws/**",
                                 "/error"
                         ).permitAll()
+                        // Swagger UI 页面（需要认证，但由JWT过滤器处理）
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
+                        ).authenticated()
                         // 其他所有请求需要认证
                         .anyRequest().authenticated()
                 )
@@ -86,8 +90,10 @@ public class SecurityConfig {
     @Operation(summary = "配置跨域")
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // 从环境变量获取允许的源列表，默认为localhost开发环境
-        String allowedOriginsEnv = System.getenv().get("ALLOWED_ORIGINS");
+        
+        // 从系统属性（由.env文件加载）获取允许的源列表，默认为localhost开发环境
+        String allowedOriginsEnv = System.getProperty("ALLOWED_ORIGINS");
+        
         if (allowedOriginsEnv != null && !allowedOriginsEnv.isEmpty()) {
             configuration.setAllowedOrigins(Arrays.asList(allowedOriginsEnv.split(",")));
         } else {
