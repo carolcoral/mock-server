@@ -6,6 +6,7 @@
 
 package com.carolcoral.mockserver.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -270,6 +271,7 @@ public class Project {
      *
      * @return 项目成员列表
      */
+    @JsonIgnoreProperties({"projects", "password"})
     public List<User> getMembers() {
         return members;
     }
@@ -288,6 +290,7 @@ public class Project {
      *
      * @return 项目下的API列表
      */
+    @JsonIgnoreProperties({"project", "responses"})
     public List<MockApi> getMockApis() {
         return mockApis;
     }

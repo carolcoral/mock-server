@@ -6,6 +6,7 @@
 
 package com.carolcoral.mockserver.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -368,6 +369,7 @@ public class MockApi {
      *
      * @return 所属项目
      */
+    @JsonIgnoreProperties({"mockApis", "members"})
     public Project getProject() {
         return project;
     }
