@@ -41,6 +41,19 @@ esac
 auto_set_java_home() {
     print_info "检测Java环境..."
     
+    # 如果JAVA_HOME为空且是macOS系统，尝试自动检测
+    if [ -z "$JAVA_HOME" ] && [ "$PLATFORM" = "Mac" ]; then
+        if command -v java >/dev/null 2>&1; then
+            # macOS: 使用java_home命令自动检测Java 8
+            JAVA_HOME=$(/usr/libexec/java_home -v 1.8 2>/dev/null)
+            if [ -n "$JAVA_HOME" ]; then
+                export JAVA_HOME
+                export PATH="$JAVA_HOME/bin:$PATH"
+                print_success "自动检测到Java 8: $JAVA_HOME"
+            fi
+        fi
+    fi
+    
     # 如果JAVA_HOME已设置且是Java 8，直接使用
     if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
         JAVA_VERSION=$($JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1,2)
@@ -142,6 +155,18 @@ command_exists() {
 
 # 检查依赖
 print_info "检查依赖..."
+
+# 如果JAVA_HOME为空且是macOS系统，尝试自动检测
+if [ -z "$JAVA_HOME" ] && [ "$PLATFORM" = "Mac" ]; then
+    if command -v java >/dev/null 2>&1; then
+        JAVA_HOME=$(/usr/libexec/java_home -v 1.8 2>/dev/null)
+        if [ -n "$JAVA_HOME" ]; then
+            export JAVA_HOME
+            export PATH="$JAVA_HOME/bin:$PATH"
+            print_success "macOS自动检测到JAVA_HOME: $JAVA_HOME"
+        fi
+    fi
+fi
 
 if ! command_exists java; then
     print_error "未找到Java，请先安装JDK 8+"
