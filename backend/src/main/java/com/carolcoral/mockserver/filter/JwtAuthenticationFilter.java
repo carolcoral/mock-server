@@ -47,10 +47,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
 
-    // Swagger凭据从系统属性（由.env文件加载）获取
-    private static final String SWAGGER_USERNAME = System.getProperty("SWAGGER_USERNAME", "");
-    private static final String SWAGGER_PASSWORD = System.getProperty("SWAGGER_PASSWORD", "");
-
     @Override
     @Operation(summary = "执行JWT认证过滤")
     protected void doFilterInternal(HttpServletRequest request,
@@ -219,8 +215,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
             
+            // 从系统属性获取Swagger凭据（由.env文件加载）
+            String swaggerUsername = System.getProperty("SWAGGER_USERNAME", "");
+            String swaggerPassword = System.getProperty("SWAGGER_PASSWORD", "");
+            
             // 检查环境变量是否配置（用于Swagger访问）
-            if (SWAGGER_USERNAME.isEmpty() || SWAGGER_PASSWORD.isEmpty()) {
+            if (swaggerUsername.isEmpty() || swaggerPassword.isEmpty()) {
                 writeJsonResponse(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                         ApiResponse.error("Swagger登录未配置，请设置环境变量SWAGGER_USERNAME和SWAGGER_PASSWORD"));
                 return;
@@ -229,7 +229,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 生成Swagger专用token（使用Swagger配置的用户信息）
             String swaggerToken = jwtTokenUtil.generateToken(
                     org.springframework.security.core.userdetails.User.builder()
-                            .username(SWAGGER_USERNAME)
+                            .username(swaggerUsername)
                             .password("")
                             .roles("ADMIN")
                             .build(),
