@@ -243,7 +243,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     com.carolcoral.mockserver.dto.LoginResponse.builder()
                             .token(swaggerToken)
                             .tokenType("Bearer")
-                            .username(SWAGGER_USERNAME)
+                            .username(swaggerUsername)
                             .role("ADMIN")
                             .build()
             );
