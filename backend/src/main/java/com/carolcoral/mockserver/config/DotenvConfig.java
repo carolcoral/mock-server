@@ -1,10 +1,9 @@
 package com.carolcoral.mockserver.config;
 
 import io.github.cdimascio.dotenv.Dotenv;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
-
-import javax.annotation.PostConstruct;
 
 /**
  * Dotenv配置类 - 加载.env文件到系统属性

@@ -23,6 +23,116 @@ print_info() {
     echo -e "${YELLOW}[信息]${NC} $1"
 }
 
+# 内部JAVA_HOME变量（不污染全局环境）
+INTERNAL_JAVA_HOME=""
+
+# 检测操作系统
+OS="$(uname -s)"
+case "${OS}" in
+    Linux*)     PLATFORM=Linux;;
+    Darwin*)    PLATFORM=Mac;;
+    CYGWIN*|MINGW32*|MSYS*|MINGW*) PLATFORM=Windows;;
+    *)          PLATFORM="UNKNOWN:${OS}"
+esac
+
+# 自动检测并设置INTERNAL_JAVA_HOME（检测Java 17）
+auto_set_java_home() {
+    print_info "检测Java环境..."
+    
+    # 优先检查INTERNAL_JAVA_HOME是否已设置
+    if [ -n "$INTERNAL_JAVA_HOME" ] && [ -x "$INTERNAL_JAVA_HOME/bin/java" ]; then
+        JAVA_VERSION=$($INTERNAL_JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
+        if [ "$JAVA_VERSION" = "17" ]; then
+            print_success "使用已配置的INTERNAL_JAVA_HOME: $INTERNAL_JAVA_HOME (Java $JAVA_VERSION)"
+            return 0
+        fi
+    fi
+    
+    # 检查全局JAVA_HOME是否为Java 17，如果是则复制到INTERNAL_JAVA_HOME
+    if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+        JAVA_VERSION=$($JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
+        if [ "$JAVA_VERSION" = "17" ]; then
+            INTERNAL_JAVA_HOME="$JAVA_HOME"
+            print_success "从全局JAVA_HOME复制: $INTERNAL_JAVA_HOME (Java $JAVA_VERSION)"
+            return 0
+        fi
+    fi
+    
+    # 根据操作系统查找Java 17
+    case "${PLATFORM}" in
+        Mac)
+            # macOS: 使用java_home命令查找Java 17
+            if command -v /usr/libexec/java_home >/dev/null 2>&1; then
+                INTERNAL_JAVA_HOME=$(/usr/libexec/java_home -v 17 2>/dev/null)
+                if [ -n "$INTERNAL_JAVA_HOME" ] && [ -x "$INTERNAL_JAVA_HOME/bin/java" ]; then
+                    print_success "通过java_home命令检测到Java 17: $INTERNAL_JAVA_HOME"
+                    return 0
+                fi
+            fi
+            
+            # 备用方案：查找Homebrew安装的Java 17
+            if [ -d "/usr/local/Cellar/openjdk@17" ]; then
+                INTERNAL_JAVA_HOME=$(find /usr/local/Cellar/openjdk@17 -name "libexec" -type d 2>/dev/null | head -n 1)
+                if [ -n "$INTERNAL_JAVA_HOME" ]; then
+                    INTERNAL_JAVA_HOME="${INTERNAL_JAVA_HOME}/openjdk.jdk/Contents/Home"
+                fi
+            elif [ -d "/opt/homebrew/Cellar/openjdk@17" ]; then
+                # Apple Silicon Mac
+                INTERNAL_JAVA_HOME=$(find /opt/homebrew/Cellar/openjdk@17 -name "libexec" -type d 2>/dev/null | head -n 1)
+                if [ -n "$INTERNAL_JAVA_HOME" ]; then
+                    INTERNAL_JAVA_HOME="${INTERNAL_JAVA_HOME}/openjdk.jdk/Contents/Home"
+                fi
+            fi
+            ;;
+        Linux)
+            # Linux: 查找常见Java 17安装路径
+            for java_path in \
+                "/usr/lib/jvm/java-17-openjdk-amd64" \
+                "/usr/lib/jvm/java-17-openjdk" \
+                "/usr/lib/jvm/jdk-17" \
+                "/opt/jdk-17" \
+                "/usr/lib/jvm/temurin-17-jdk-amd64" \
+                "/usr/lib/jvm/jdk-17-oracle-x64"; do
+                if [ -d "$java_path" ]; then
+                    INTERNAL_JAVA_HOME="$java_path"
+                    break
+                fi
+            done
+            ;;
+        Windows)
+            # Windows: 查找常见Java 17安装路径
+            if [ -d "/c/Program Files/Java/jdk-17" ]; then
+                INTERNAL_JAVA_HOME="/c/Program Files/Java/jdk-17"
+            elif [ -d "/c/Program Files (x86)/Java/jdk-17" ]; then
+                INTERNAL_JAVA_HOME="/c/Program Files (x86)/Java/jdk-17"
+            elif [ -d "/c/Program Files/Java/jdk-17.0" ]; then
+                INTERNAL_JAVA_HOME="/c/Program Files/Java/jdk-17.0"
+            fi
+            ;;
+    esac
+    
+    # 验证Java版本
+    if [ -n "$INTERNAL_JAVA_HOME" ] && [ -x "$INTERNAL_JAVA_HOME/bin/java" ]; then
+        JAVA_VERSION=$($INTERNAL_JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
+        if [ "$JAVA_VERSION" = "17" ]; then
+            print_success "自动检测到Java 17: $INTERNAL_JAVA_HOME"
+            return 0
+        else
+            print_info "检测到的Java版本不是17: $JAVA_VERSION"
+            return 1
+        fi
+    fi
+    
+    print_error "未找到Java 17，请确保已安装JDK 17"
+    return 1
+}
+
+# 调用函数设置INTERNAL_JAVA_HOME
+auto_set_java_home
+if [ $? -ne 0 ]; then
+    exit 1
+fi
+
 # 检查后端jar包是否存在
 JAR_FILE=$(ls backend/target/mock-server-*.jar 2>/dev/null | head -1)
 if [ -z "$JAR_FILE" ]; then
@@ -57,7 +167,7 @@ else
 fi
 
 print_info "启动后端服务..."
-nohup java -jar "$JAR_FILE" > backend/logs/server.log 2>&1 &
+nohup "$INTERNAL_JAVA_HOME/bin/java" -jar "$JAR_FILE" > backend/logs/server.log 2>&1 &
 
 if [ $? -eq 0 ]; then
     print_success "后端服务已启动 (PID: $!)"

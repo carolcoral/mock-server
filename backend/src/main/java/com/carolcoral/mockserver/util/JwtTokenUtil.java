@@ -2,7 +2,6 @@ package com.carolcoral.mockserver.util;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -93,11 +92,11 @@ public class JwtTokenUtil {
     @Operation(summary = "从令牌中获取声明")
     private Claims getClaimsFromToken(String token) {
         SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        return Jwts.parserBuilder()
-                .setSigningKey(key)
+        return Jwts.parser()
+                .verifyWith(key)
                 .build()
-                .parseClaimsJws(token)
-                .getBody();
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
     /**
@@ -130,11 +129,11 @@ public class JwtTokenUtil {
         SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
 
         return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(subject)
-                .setIssuedAt(createdDate)
-                .setExpiration(expirationDate)
-                .signWith(key, SignatureAlgorithm.HS512)
+                .claims(claims)
+                .subject(subject)
+                .issuedAt(createdDate)
+                .expiration(expirationDate)
+                .signWith(key, Jwts.SIG.HS512)
                 .compact();
     }
 
@@ -203,17 +202,14 @@ public class JwtTokenUtil {
         SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
 
         // 创建新的令牌，使用新的签发时间
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("username", oldClaims.get("username"));
-        claims.put("userId", oldClaims.get("userId"));
-        claims.put("role", oldClaims.get("role"));
-        
         return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(oldClaims.getSubject())
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + expiration))
-                .signWith(key, SignatureAlgorithm.HS512)
+                .subject(oldClaims.getSubject())
+                .claim("username", oldClaims.get("username"))
+                .claim("userId", oldClaims.get("userId"))
+                .claim("role", oldClaims.get("role"))
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + expiration))
+                .signWith(key, Jwts.SIG.HS512)
                 .compact();
     }
 

@@ -28,6 +28,9 @@ print_warning() {
     echo -e "${YELLOW}[警告]${NC} $1"
 }
 
+# 内部JAVA_HOME变量（不污染全局环境）
+INTERNAL_JAVA_HOME=""
+
 # 检测操作系统
 OS="$(uname -s)"
 case "${OS}" in
@@ -37,116 +40,103 @@ case "${OS}" in
     *)          PLATFORM="UNKNOWN:${OS}"
 esac
 
-# 自动检测并设置JAVA_HOME（优先使用Java 8）
+# 自动检测并设置INTERNAL_JAVA_HOME（检测Java 17）
 auto_set_java_home() {
     print_info "检测Java环境..."
     
-    # 如果JAVA_HOME为空且是macOS系统，尝试自动检测
-    if [ -z "$JAVA_HOME" ] && [ "$PLATFORM" = "Mac" ]; then
-        if command -v java >/dev/null 2>&1; then
-            # macOS: 使用java_home命令自动检测Java 8
-            JAVA_HOME=$(/usr/libexec/java_home -v 1.8 2>/dev/null)
-            if [ -n "$JAVA_HOME" ]; then
-                export JAVA_HOME
-                export PATH="$JAVA_HOME/bin:$PATH"
-                print_success "自动检测到Java 8: $JAVA_HOME"
-            fi
-        fi
-    fi
-    
-    # 如果JAVA_HOME已设置且是Java 8，直接使用
-    if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
-        JAVA_VERSION=$($JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1,2)
-        if [ "$JAVA_VERSION" = "1.8" ]; then
-            print_success "使用已配置的JAVA_HOME: $JAVA_HOME (Java $JAVA_VERSION)"
+    # 优先检查INTERNAL_JAVA_HOME是否已设置
+    if [ -n "$INTERNAL_JAVA_HOME" ] && [ -x "$INTERNAL_JAVA_HOME/bin/java" ]; then
+        JAVA_VERSION=$($INTERNAL_JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
+        if [ "$JAVA_VERSION" = "17" ]; then
+            print_success "使用已配置的INTERNAL_JAVA_HOME: $INTERNAL_JAVA_HOME (Java $JAVA_VERSION)"
             return 0
         fi
     fi
     
-    # 根据操作系统查找Java 8
+    # 检查全局JAVA_HOME是否为Java 17，如果是则复制到INTERNAL_JAVA_HOME
+    if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+        JAVA_VERSION=$($JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
+        if [ "$JAVA_VERSION" = "17" ]; then
+            INTERNAL_JAVA_HOME="$JAVA_HOME"
+            print_success "从全局JAVA_HOME复制: $INTERNAL_JAVA_HOME (Java $JAVA_VERSION)"
+            return 0
+        fi
+    fi
+    
+    # 根据操作系统查找Java 17
     case "${PLATFORM}" in
         Mac)
-            # macOS: 查找Homebrew安装的Java 8
-            if [ -d "/usr/local/Cellar/openjdk@8" ]; then
-                JAVA_HOME=$(find /usr/local/Cellar/openjdk@8 -name "libexec" -type d 2>/dev/null | head -n 1)
-                if [ -n "$JAVA_HOME" ]; then
-                    JAVA_HOME="${JAVA_HOME}/openjdk.jdk/Contents/Home"
+            # macOS: 使用java_home命令查找Java 17
+            if command -v /usr/libexec/java_home >/dev/null 2>&1; then
+                INTERNAL_JAVA_HOME=$(/usr/libexec/java_home -v 17 2>/dev/null)
+                if [ -n "$INTERNAL_JAVA_HOME" ] && [ -x "$INTERNAL_JAVA_HOME/bin/java" ]; then
+                    print_success "通过java_home命令检测到Java 17: $INTERNAL_JAVA_HOME"
+                    return 0
                 fi
-            elif [ -d "/opt/homebrew/Cellar/openjdk@8" ]; then
+            fi
+            
+            # 备用方案：查找Homebrew安装的Java 17
+            if [ -d "/usr/local/Cellar/openjdk@17" ]; then
+                INTERNAL_JAVA_HOME=$(find /usr/local/Cellar/openjdk@17 -name "libexec" -type d 2>/dev/null | head -n 1)
+                if [ -n "$INTERNAL_JAVA_HOME" ]; then
+                    INTERNAL_JAVA_HOME="${INTERNAL_JAVA_HOME}/openjdk.jdk/Contents/Home"
+                fi
+            elif [ -d "/opt/homebrew/Cellar/openjdk@17" ]; then
                 # Apple Silicon Mac
-                JAVA_HOME=$(find /opt/homebrew/Cellar/openjdk@8 -name "libexec" -type d 2>/dev/null | head -n 1)
-                if [ -n "$JAVA_HOME" ]; then
-                    JAVA_HOME="${JAVA_HOME}/openjdk.jdk/Contents/Home"
+                INTERNAL_JAVA_HOME=$(find /opt/homebrew/Cellar/openjdk@17 -name "libexec" -type d 2>/dev/null | head -n 1)
+                if [ -n "$INTERNAL_JAVA_HOME" ]; then
+                    INTERNAL_JAVA_HOME="${INTERNAL_JAVA_HOME}/openjdk.jdk/Contents/Home"
                 fi
             fi
             ;;
         Linux)
-            # Linux: 查找常见Java安装路径
+            # Linux: 查找常见Java 17安装路径
             for java_path in \
-                "/usr/lib/jvm/java-8-openjdk-amd64" \
-                "/usr/lib/jvm/java-8-openjdk" \
-                "/usr/lib/jvm/jdk-8" \
-                "/opt/jdk-8"; do
+                "/usr/lib/jvm/java-17-openjdk-amd64" \
+                "/usr/lib/jvm/java-17-openjdk" \
+                "/usr/lib/jvm/jdk-17" \
+                "/opt/jdk-17" \
+                "/usr/lib/jvm/temurin-17-jdk-amd64" \
+                "/usr/lib/jvm/jdk-17-oracle-x64"; do
                 if [ -d "$java_path" ]; then
-                    JAVA_HOME="$java_path"
+                    INTERNAL_JAVA_HOME="$java_path"
                     break
                 fi
             done
             ;;
         Windows)
-            # Windows: 查找常见Java安装路径
-            if [ -d "/c/Program Files/Java/jdk-8" ]; then
-                JAVA_HOME="/c/Program Files/Java/jdk-8"
-            elif [ -d "/c/Program Files (x86)/Java/jdk-8" ]; then
-                JAVA_HOME="/c/Program Files (x86)/Java/jdk-8"
+            # Windows: 查找常见Java 17安装路径
+            if [ -d "/c/Program Files/Java/jdk-17" ]; then
+                INTERNAL_JAVA_HOME="/c/Program Files/Java/jdk-17"
+            elif [ -d "/c/Program Files (x86)/Java/jdk-17" ]; then
+                INTERNAL_JAVA_HOME="/c/Program Files (x86)/Java/jdk-17"
+            elif [ -d "/c/Program Files/Java/jdk-17.0" ]; then
+                INTERNAL_JAVA_HOME="/c/Program Files/Java/jdk-17.0"
             fi
             ;;
     esac
     
     # 验证Java版本
-    if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
-        JAVA_VERSION=$($JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f2)
-        JAVA_SUBVERSION=$($JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f3)
-        if [ "$JAVA_VERSION" = "8" ] || ([ "$JAVA_VERSION" = "8" ] && [ "$JAVA_SUBVERSION" = "0" ]); then
-            export JAVA_HOME
-            export PATH="$JAVA_HOME/bin:$PATH"
-            # 将JAVA_HOME传递给Maven
-            export MAVEN_OPTS="-Djava.home=$JAVA_HOME $MAVEN_OPTS"
-            print_success "自动检测到Java 8: $JAVA_HOME"
-            # 验证Maven使用的Java版本
-            MAVAEN_JAVA_VERSION=$(mvn -version 2>&1 | grep "Java version" | cut -d':' -f2 | cut -d' ' -f2 | cut -d'.' -f1,2)
-            if [ "$MAVAEN_JAVA_VERSION" != "1.8" ]; then
-                print_warning "Maven可能未正确使用Java 8（检测到: $MAVAEN_JAVA_VERSION ）"
-            fi
-            return 0
-        fi
-    fi
-    
-    # 如果没有找到Java 8，检查java命令是否可用
-    if command -v java >/dev/null 2>&1; then
-        JAVA_VERSION=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f2)
-        if [ "$JAVA_VERSION" = "8" ]; then
-            print_success "使用系统Java: $(command -v java) (Java $JAVA_VERSION)"
+    if [ -n "$INTERNAL_JAVA_HOME" ] && [ -x "$INTERNAL_JAVA_HOME/bin/java" ]; then
+        JAVA_VERSION=$($INTERNAL_JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
+        if [ "$JAVA_VERSION" = "17" ]; then
+            print_success "自动检测到Java 17: $INTERNAL_JAVA_HOME"
             return 0
         else
-            print_warning "检测到Java版本为 $JAVA_VERSION，建议安装Java 17"
-            print_warning "尝试强制设置JAVA_HOME..."
-            # 尝试查找Java 8安装路径
-            if [ -d "/usr/local/Cellar/openjdk@8" ]; then
-                JAVA_HOME="/usr/local/Cellar/openjdk@8/8.0.401/libexec/openjdk.jdk/Contents/Home"
-                export JAVA_HOME
-                export PATH="$JAVA_HOME/bin:$PATH"
-                print_success "已强制设置JAVA_HOME: $JAVA_HOME"
-            fi
-            return 0
+            print_warning "检测到的Java版本不是17: $JAVA_VERSION"
+            return 1
         fi
     fi
     
-    print_warning "未检测到Java，请确保已安装JDK 8+"
+    print_error "未找到Java 17，请确保已安装JDK 17"
+    return 1
 }
 
-# 在脚本开始时自动设置JAVA_HOME
+# 调用函数设置INTERNAL_JAVA_HOME
 auto_set_java_home
+if [ $? -ne 0 ]; then
+    exit 1
+fi
 
 # 检查命令是否存在
 command_exists() {
@@ -156,20 +146,8 @@ command_exists() {
 # 检查依赖
 print_info "检查依赖..."
 
-# 如果JAVA_HOME为空且是macOS系统，尝试自动检测
-if [ -z "$JAVA_HOME" ] && [ "$PLATFORM" = "Mac" ]; then
-    if command -v java >/dev/null 2>&1; then
-        JAVA_HOME=$(/usr/libexec/java_home -v 1.8 2>/dev/null)
-        if [ -n "$JAVA_HOME" ]; then
-            export JAVA_HOME
-            export PATH="$JAVA_HOME/bin:$PATH"
-            print_success "macOS自动检测到JAVA_HOME: $JAVA_HOME"
-        fi
-    fi
-fi
-
 if ! command_exists java; then
-    print_error "未找到Java，请先安装JDK 8+"
+    print_error "未找到Java，请先安装JDK 17"
     exit 1
 fi
 
@@ -194,14 +172,10 @@ print_success "依赖检查通过"
 print_info "开始构建后端..."
 cd backend || exit 1
 
-# 设置Maven使用Java 8
-export JAVA_HOME
-export PATH="$JAVA_HOME/bin:$PATH"
-
 # 检查是否需要更新依赖
 if [ ! -d "target" ] || [ "pom.xml" -nt "target/.last-build" ]; then
     print_info "检测到依赖变更，更新Maven依赖..."
-    JAVA_HOME="$JAVA_HOME" mvn dependency:resolve
+    mvn dependency:resolve -Djava.home="$INTERNAL_JAVA_HOME"
     if [ $? -ne 0 ]; then
         print_error "Maven依赖解析失败"
         exit 1
@@ -209,12 +183,12 @@ if [ ! -d "target" ] || [ "pom.xml" -nt "target/.last-build" ]; then
 fi
 
 print_info "清理并编译..."
-JAVA_HOME="$JAVA_HOME" mvn clean compile -q
+mvn clean compile -Djava.home="$INTERNAL_JAVA_HOME" -q
 
 if [ $? -ne 0 ]; then
     print_error "后端编译失败，尝试更新依赖..."
     print_info "执行 mvn clean install -U..."
-    JAVA_HOME="$JAVA_HOME" mvn clean install -U -DskipTests
+    mvn clean install -U -DskipTests -Djava.home="$INTERNAL_JAVA_HOME"
     if [ $? -ne 0 ]; then
         print_error "后端编译失败"
         exit 1
@@ -222,7 +196,7 @@ if [ $? -ne 0 ]; then
 fi
 
 print_info "打包..."
-JAVA_HOME="$JAVA_HOME" mvn package -DskipTests -q
+mvn package -DskipTests -Djava.home="$INTERNAL_JAVA_HOME" -q
 
 if [ $? -ne 0 ]; then
     print_error "后端打包失败"
@@ -282,5 +256,5 @@ print_success "构建完成！"
 print_info "后端jar包: backend/target/mock-server-1.0.0.jar"
 print_info "前端dist目录: frontend/dist/"
 print_info ""
-print_info "启动后端: cd backend && mvn spring-boot:run"
+print_info "启动后端: cd backend && mvn spring-boot:run -Djava.home=\"$INTERNAL_JAVA_HOME\""
 print_info "启动前端: cd frontend && npm run dev"
