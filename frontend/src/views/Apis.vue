@@ -18,13 +18,23 @@
     <!-- 搜索和操作栏 -->
     <el-card class="search-card">
       <el-row :gutter="20">
-        <el-col :span="6">
+        <el-col :span="4">
           <el-input v-model="searchForm.name" placeholder="按接口名称搜索" clearable @clear="handleSearch" />
         </el-col>
-        <el-col :span="6">
+        <el-col :span="5">
           <el-input v-model="searchForm.path" placeholder="按接口路径搜索" clearable @clear="handleSearch" />
         </el-col>
-        <el-col :span="5">
+        <el-col :span="4">
+          <el-select v-model="searchForm.projectId" placeholder="选择项目" clearable @change="handleSearch" style="width: 100%" filterable>
+            <el-option
+              v-for="project in projectList"
+              :key="project.id"
+              :label="project.name"
+              :value="project.id"
+            />
+          </el-select>
+        </el-col>
+        <el-col :span="3">
           <el-select v-model="searchForm.method" placeholder="请求方法" clearable @change="handleSearch" style="width: 100%">
             <el-option label="GET" value="GET" />
             <el-option label="POST" value="POST" />
@@ -33,13 +43,13 @@
             <el-option label="PATCH" value="PATCH" />
           </el-select>
         </el-col>
-        <el-col :span="4">
+        <el-col :span="3">
           <el-select v-model="searchForm.enabled" placeholder="状态" clearable @change="handleSearch" style="width: 100%">
             <el-option label="启用" :value="true" />
             <el-option label="禁用" :value="false" />
           </el-select>
         </el-col>
-        <el-col :span="3">
+        <el-col :span="5">
           <el-button type="primary" @click="handleSearch">搜索</el-button>
           <el-button @click="handleReset">重置</el-button>
         </el-col>
@@ -56,6 +66,7 @@
         :header-cell-style="{ background: '#f5f7fa' }"
       >
         <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column prop="project.name" label="项目" min-width="120" show-overflow-tooltip />
         <el-table-column prop="name" label="接口名称" min-width="150" />
         <el-table-column prop="path" label="接口路径" min-width="200" show-overflow-tooltip />
         <el-table-column prop="method" label="请求方法" width="100">
@@ -161,6 +172,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Edit, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { useRoute } from 'vue-router'
+import { getAccessibleProjects } from '@/api/project'
 
 const route = useRoute()
 
@@ -168,9 +180,13 @@ const route = useRoute()
 const searchForm = reactive({
   name: '',
   path: '',
+  projectId: null,
   method: '',
   enabled: null
 })
+
+// 项目列表
+const projectList = ref([])
 
 // 表格数据
 const loading = ref(false)
@@ -234,32 +250,39 @@ const getMethodTagType = (method) => {
   return types[method] || 'info'
 }
 
+// 获取项目列表
+const fetchProjects = async () => {
+  try {
+    const response = await getAccessibleProjects()
+    if (response.code === 200) {
+      projectList.value = response.data
+    }
+  } catch (error) {
+    console.error('获取项目列表失败:', error)
+  }
+}
+
 // 获取接口列表
 const fetchApis = async () => {
   loading.value = true
   try {
     const params = {
-      page: pagination.current - 1,
-      size: pagination.pageSize,
       ...searchForm
     }
 
-    // 如果有projectId参数，调用项目相关的接口
-    const projectId = route.query.projectId
-    let response
-    if (projectId) {
-      response = await request({
-        url: `/mock-apis/project/${projectId}`,
-        method: 'get',
-        params
-      })
-    } else {
-      response = await request({
-        url: '/mock-apis',
-        method: 'get',
-        params
-      })
+    // 使用搜索表单中的projectId，如果没有则使用路由参数
+    let url = '/mock-apis'
+    if (searchForm.projectId) {
+      url = `/mock-apis/project/${searchForm.projectId}`
+    } else if (route.query.projectId) {
+      url = `/mock-apis/project/${route.query.projectId}`
     }
+
+    const response = await request({
+      url,
+      method: 'get',
+      params
+    })
 
     if (response.code === 200) {
       apiList.value = response.data
@@ -285,6 +308,7 @@ const handleSearch = () => {
 const handleReset = () => {
   searchForm.name = ''
   searchForm.path = ''
+  searchForm.projectId = null
   searchForm.method = ''
   searchForm.enabled = null
   handleSearch()
@@ -406,6 +430,7 @@ const handleDialogClose = () => {
 
 // 页面加载时获取数据
 onMounted(() => {
+  fetchProjects()
   fetchApis()
 })
 </script>

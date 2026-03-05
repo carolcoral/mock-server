@@ -6,6 +6,7 @@
 
 package com.carolcoral.mockserver.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -71,6 +72,10 @@ public class MockResponse {
     @Schema(description = "是否启用", example = "true")
     @Column(nullable = false)
     private Boolean enabled = true;
+
+    @Schema(description = "是否为当前激活的响应", example = "false")
+    @Column(nullable = false)
+    private Boolean active = false;
 
     @Schema(description = "创建时间")
     @Column(nullable = false, updatable = false)
@@ -288,6 +293,24 @@ public class MockResponse {
     }
 
     /**
+     * 获取是否为当前激活的响应
+     *
+     * @return 是否激活
+     */
+    public Boolean getActive() {
+        return active;
+    }
+
+    /**
+     * 设置是否为当前激活的响应
+     *
+     * @param active 是否激活
+     */
+    public void setActive(Boolean active) {
+        this.active = active;
+    }
+
+    /**
      * 获取创建时间
      *
      * @return 创建时间
@@ -328,6 +351,7 @@ public class MockResponse {
      *
      * @return 所属接口
      */
+    @JsonIgnore
     public MockApi getMockApi() {
         return mockApi;
     }

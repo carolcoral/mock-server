@@ -82,24 +82,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // Swagger相关路径 - 需要认证，但token无效时重定向到登录页
         if (isSwaggerPath(requestUri)) {
-            String token = getTokenFromRequest(request);
-            if (StringUtils.hasText(token) && jwtTokenUtil.validateToken(token)) {
-                // token有效，设置认证并放行
-                String username = jwtTokenUtil.getUsernameFromToken(token);
-                Long userId = jwtTokenUtil.getUserIdFromToken(token);
-                
-                if (username != null && userId != null) {
-                    UserDetails userDetails = userRepository.findByUsername(username).orElse(null);
-                    if (userDetails != null) {
-                        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                                userDetails, null, userDetails.getAuthorities());
-                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                        SecurityContextHolder.getContext().setAuthentication(authentication);
-                        request.setAttribute("userId", userId);
-                        log.debug("Swagger访问认证成功: username={}", username);
+                String token = getTokenFromRequest(request);
+                if (StringUtils.hasText(token) && jwtTokenUtil.validateToken(token)) {
+                    // token有效，设置认证并放行
+                    String username = jwtTokenUtil.getUsernameFromToken(token);
+                    Long userId = jwtTokenUtil.getUserIdFromToken(token);
+                    String role = jwtTokenUtil.getUserRoleFromToken(token);
+
+                    if (username != null && userId != null && role != null) {
+                        UserDetails userDetails = userRepository.findByUsername(username).orElse(null);
+                        if (userDetails != null) {
+                            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                                    userDetails, null, userDetails.getAuthorities());
+                            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                            SecurityContextHolder.getContext().setAuthentication(authentication);
+                            request.setAttribute("userId", userId);
+                            request.setAttribute("userRole", User.UserRole.valueOf(role));
+                            log.debug("Swagger访问认证成功: username={}, role={}", username, role);
+                        }
                     }
-                }
-                filterChain.doFilter(request, response);
+                    filterChain.doFilter(request, response);
             } else {
                 // token无效或不存在，返回401（Swagger UI会显示认证按钮）
                 if (!StringUtils.hasText(token)) {
@@ -127,6 +129,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 
                 String username = jwtTokenUtil.getUsernameFromToken(token);
                 Long userId = jwtTokenUtil.getUserIdFromToken(token);
+                String role = jwtTokenUtil.getUserRoleFromToken(token);
 
                 if (username != null && userId != null) {
                     UserDetails userDetails = userRepository.findByUsername(username).orElse(null);
@@ -137,9 +140,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                        // 设置用户ID到请求属性，方便后续使用
+                        // 设置用户ID和角色到请求属性，方便后续使用
                         request.setAttribute("userId", userId);
-                        log.debug("JWT认证成功: username={}", username);
+                        request.setAttribute("userRole", User.UserRole.valueOf(role));
+                        log.debug("JWT认证成功: username={}, role={}", username, role);
                     } else {
                         log.warn("JWT token验证失败或用户不存在");
                         writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,

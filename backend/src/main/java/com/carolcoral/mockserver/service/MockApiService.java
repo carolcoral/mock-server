@@ -47,7 +47,12 @@ public class MockApiService {
     public ApiResponse<MockApi> createMockApi(@Parameter(description = "接口信息") MockApi mockApi, @Parameter(description = "创建人ID") Long userId) {
         try {
             // 检查项目是否存在
-            Optional<Project> projectOpt = projectRepository.findById(mockApi.getProject().getId());
+            Long projectId = mockApi.getProject() != null ? mockApi.getProject().getId() : null;
+            if (projectId == null) {
+                return ApiResponse.error("项目ID不能为空");
+            }
+
+            Optional<Project> projectOpt = projectRepository.findById(projectId);
             if (!projectOpt.isPresent()) {
                 return ApiResponse.error("项目不存在");
             }
@@ -449,6 +454,48 @@ public class MockApiService {
             cacheUtil.cacheApiResponses(apiId, responses);
 
             log.info("删除接口响应成功: {}", responseId);
+            return ApiResponse.success();
+
+        } catch (Exception e) {
+            log.error("删除接口响应失败: {}", e.getMessage(), e);
+            return ApiResponse.error("删除接口响应失败，请稍后重试");
+        }
+    }
+
+    /**
+     * 设置接口的激活响应
+     *
+     * @param apiId      接口ID
+     * @param responseId 响应ID
+     * @return 操作结果
+     */
+    @Operation(summary = "设置接口的激活响应")
+    @Transactional
+    public ApiResponse<Void> setActiveResponse(@Parameter(description = "接口ID", example = "1") Long apiId,
+                                              @Parameter(description = "响应ID", example = "1") Long responseId) {
+        try {
+            // 取消该接口的所有响应的激活状态
+            List<MockResponse> responses = mockResponseRepository.findByMockApiId(apiId);
+            for (MockResponse response : responses) {
+                response.setActive(false);
+            }
+            mockResponseRepository.saveAll(responses);
+
+            // 设置指定的响应为激活状态
+            Optional<MockResponse> targetResponseOpt = mockResponseRepository.findById(responseId);
+            if (!targetResponseOpt.isPresent()) {
+                return ApiResponse.error("响应不存在");
+            }
+
+            MockResponse targetResponse = targetResponseOpt.get();
+            targetResponse.setActive(true);
+            mockResponseRepository.save(targetResponse);
+
+            // 更新接口响应缓存
+            List<MockResponse> updatedResponses = mockResponseRepository.findByMockApiId(apiId);
+            cacheUtil.cacheApiResponses(apiId, updatedResponses);
+
+            log.info("设置激活响应成功: 接口={}, 响应={}", apiId, responseId);
             return ApiResponse.success();
 
         } catch (Exception e) {

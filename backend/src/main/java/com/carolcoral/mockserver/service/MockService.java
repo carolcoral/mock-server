@@ -102,6 +102,16 @@ public class MockService {
                 }
             }
 
+            // 优先返回激活的响应
+            MockResponse activeResponse = enabledResponses.stream()
+                    .filter(r -> r.getActive() != null && r.getActive())
+                    .findFirst()
+                    .orElse(null);
+            if (activeResponse != null) {
+                log.info("返回激活响应: 状态码={}", activeResponse.getStatusCode());
+                return buildMockResponse(mockApi, activeResponse);
+            }
+
             // 默认返回第一个响应（通常是200状态码）
             MockResponse defaultResponse = enabledResponses.get(0);
             return buildMockResponse(mockApi, defaultResponse);

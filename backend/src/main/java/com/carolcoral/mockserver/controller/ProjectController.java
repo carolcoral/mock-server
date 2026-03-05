@@ -8,6 +8,7 @@ package com.carolcoral.mockserver.controller;
 
 import com.carolcoral.mockserver.dto.ApiResponse;
 import com.carolcoral.mockserver.entity.Project;
+import com.carolcoral.mockserver.entity.User;
 import com.carolcoral.mockserver.service.ProjectService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -63,23 +64,28 @@ public class ProjectController {
      */
     @Operation(summary = "更新项目", description = "更新项目信息")
     @PutMapping
-    public ApiResponse<Project> updateProject(@Parameter(description = "项目信息") @Valid @RequestBody Project project) {
-        log.info("更新项目请求: {}", project.getId());
-        return projectService.updateProject(project);
+    public ApiResponse<Project> updateProject(@Parameter(description = "项目信息") @Valid @RequestBody Project project,
+                                       HttpServletRequest request) {
+        Long userId = getUserIdFromRequest(request);
+        log.info("更新项目请求: {}, 用户: {}", project.getId(), userId);
+        return projectService.updateProject(project, userId);
     }
 
     /**
      * 删除项目
      *
      * @param projectId 项目ID
+     * @param request   请求
      * @return 删除结果
      */
-    @Operation(summary = "删除项目", description = "删除项目，需要管理员权限")
-    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "删除项目", description = "删除项目，需要管理员权限或项目创建者权限")
     @DeleteMapping("/{projectId}")
-    public ApiResponse<Void> deleteProject(@Parameter(description = "项目ID", example = "1") @PathVariable Long projectId) {
-        log.info("删除项目请求: {}", projectId);
-        return projectService.deleteProject(projectId);
+    public ApiResponse<Void> deleteProject(@Parameter(description = "项目ID", example = "1") @PathVariable Long projectId,
+                                       HttpServletRequest request) {
+        Long userId = getUserIdFromRequest(request);
+        User.UserRole userRole = getUserRoleFromRequest(request);
+        log.info("删除项目请求: {}, 用户={}, 角色={}", projectId, userId, userRole);
+        return projectService.deleteProject(projectId, userId, userRole);
     }
 
     /**
@@ -113,11 +119,19 @@ public class ProjectController {
     /**
      * 查询所有项目
      *
+     * @param request 请求
      * @return 项目列表
      */
-    @Operation(summary = "查询所有项目", description = "查询所有项目列表")
+    @Operation(summary = "查询所有项目", description = "查询所有项目列表（仅管理员）")
     @GetMapping
     public ApiResponse<java.util.List<Project>> getAllProjects(HttpServletRequest request) {
+        User.UserRole userRole = getUserRoleFromRequest(request);
+        
+        // 只有管理员可以查询所有项目
+        if (userRole != User.UserRole.ADMIN) {
+            return ApiResponse.error("没有权限访问");
+        }
+        
         log.info("查询所有项目请求");
         return projectService.getAllProjects();
     }
@@ -144,38 +158,9 @@ public class ProjectController {
     @GetMapping("/accessible")
     public ApiResponse<java.util.List<Project>> getAccessibleProjects(HttpServletRequest request) {
         Long userId = getUserIdFromRequest(request);
-        log.info("查询用户有权限访问的项目请求，用户: {}", userId);
-        return projectService.getAccessibleProjects(userId);
-    }
-
-    /**
-     * 添加项目成员
-     *
-     * @param projectId 项目ID
-     * @param userId    用户ID
-     * @return 操作结果
-     */
-    @Operation(summary = "添加项目成员", description = "为项目添加成员，需要项目管理员权限")
-    @PostMapping("/{projectId}/members/{userId}")
-    public ApiResponse<Void> addProjectMember(@Parameter(description = "项目ID", example = "1") @PathVariable Long projectId,
-                                               @Parameter(description = "用户ID", example = "2") @PathVariable Long userId) {
-        log.info("添加项目成员请求: 项目={}, 用户={}", projectId, userId);
-        return projectService.addProjectMember(projectId, userId);
-    }
-
-    /**
-     * 移除项目成员
-     *
-     * @param projectId 项目ID
-     * @param userId    用户ID
-     * @return 操作结果
-     */
-    @Operation(summary = "移除项目成员", description = "从项目中移除成员，需要项目管理员权限")
-    @DeleteMapping("/{projectId}/members/{userId}")
-    public ApiResponse<Void> removeProjectMember(@Parameter(description = "项目ID", example = "1") @PathVariable Long projectId,
-                                                  @Parameter(description = "用户ID", example = "2") @PathVariable Long userId) {
-        log.info("移除项目成员请求: 项目={}, 用户={}", projectId, userId);
-        return projectService.removeProjectMember(projectId, userId);
+        User.UserRole userRole = getUserRoleFromRequest(request);
+        log.info("查询用户有权限访问的项目请求，用户: {}, 角色: {}", userId, userRole);
+        return projectService.getAccessibleProjects(userId, userRole);
     }
 
     /**
@@ -187,5 +172,16 @@ public class ProjectController {
     private Long getUserIdFromRequest(HttpServletRequest request) {
         Object userIdAttr = request.getAttribute("userId");
         return userIdAttr != null ? (Long) userIdAttr : 0L;
+    }
+
+    /**
+     * 从请求中获取用户角色
+     *
+     * @param request 请求
+     * @return 用户角色
+     */
+    private User.UserRole getUserRoleFromRequest(HttpServletRequest request) {
+        Object roleAttr = request.getAttribute("userRole");
+        return roleAttr != null ? (User.UserRole) roleAttr : User.UserRole.USER;
     }
 }

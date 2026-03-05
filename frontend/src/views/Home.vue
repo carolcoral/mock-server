@@ -192,7 +192,7 @@ onMounted(() => {
 const fetchRealStats = async () => {
   loading.value = true
   try {
-    const response = await service.get('/dashboard/stats?includeTodayRequests=true')
+    const response = await request.get('/dashboard/stats?includeTodayRequests=true')
     if (response.code === 200) {
       stats.value = {
         projectCount: response.data.projectCount || 0,

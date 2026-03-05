@@ -31,6 +31,19 @@ print_warning() {
 # 内部JAVA_HOME变量（不污染全局环境）
 INTERNAL_JAVA_HOME=""
 
+# 加载.env文件中的配置
+if [ -f ".env" ]; then
+    export $(cat .env | grep -v '^#' | grep -v '^$' | xargs)
+    print_info "已加载.env配置文件"
+else
+    print_error "未找到.env配置文件"
+    exit 1
+fi
+
+# 设置默认端口（如果.env中未设置）
+SERVER_PORT=${SERVER_PORT:-8080}
+FRONTEND_PORT=${FRONTEND_PORT:-3000}
+
 # 检测操作系统
 OS="$(uname -s)"
 case "${OS}" in
@@ -240,6 +253,9 @@ else
 fi
 
 print_info "构建生产版本..."
+# 设置前端环境变量（将后端端口传递给前端）
+export VITE_SERVER_PORT=$SERVER_PORT
+export VITE_FRONTEND_PORT=$FRONTEND_PORT
 npm run build
 
 if [ $? -ne 0 ]; then

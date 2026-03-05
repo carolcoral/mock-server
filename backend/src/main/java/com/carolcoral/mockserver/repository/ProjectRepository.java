@@ -70,7 +70,11 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
      * @return 项目列表
      */
     @Operation(summary = "根据用户ID查询用户参与的项目")
-    @Query("SELECT p FROM Project p JOIN p.members m WHERE m.id = :userId")
+    @Query("SELECT DISTINCT p FROM Project p " +
+            "WHERE p.id IN (" +
+            "  SELECT pm.projectId FROM ProjectMember pm " +
+            "  WHERE pm.userId = :userId" +
+            ")")
     List<Project> findProjectsByUserId(@Param("userId") Long userId);
 
     /**
@@ -81,7 +85,11 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
      * @return 项目列表
      */
     @Operation(summary = "查询用户有权限访问的项目")
-    @Query("SELECT DISTINCT p FROM Project p LEFT JOIN p.members m WHERE p.createUserId = :userId OR m.id = :userId")
+    @Query("SELECT DISTINCT p FROM Project p " +
+            "WHERE p.createUserId = :userId OR p.id IN (" +
+            "  SELECT pm.projectId FROM ProjectMember pm " +
+            "  WHERE pm.userId = :userId" +
+            ")")
     List<Project> findAccessibleProjectsByUserId(@Param("userId") Long userId);
 
     /**

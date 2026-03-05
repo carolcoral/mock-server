@@ -2,7 +2,9 @@ package com.carolcoral.mockserver.service;
 
 import com.carolcoral.mockserver.dto.ApiResponse;
 import com.carolcoral.mockserver.entity.Project;
+import com.carolcoral.mockserver.entity.ProjectMember;
 import com.carolcoral.mockserver.entity.User;
+import com.carolcoral.mockserver.repository.ProjectMemberRepository;
 import com.carolcoral.mockserver.repository.ProjectRepository;
 import com.carolcoral.mockserver.repository.UserRepository;
 import com.carolcoral.mockserver.util.CacheUtil;
@@ -30,6 +32,7 @@ public class ProjectService {
 
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
+    private final ProjectMemberRepository projectMemberRepository;
     private final CacheUtil cacheUtil;
 
     /**
@@ -54,6 +57,13 @@ public class ProjectService {
             // 保存项目
             Project savedProject = projectRepository.save(project);
 
+            // 创建创建者成员记录
+            ProjectMember creatorMember = new ProjectMember();
+            creatorMember.setProjectId(savedProject.getId());
+            creatorMember.setUserId(userId);
+            creatorMember.setRole(ProjectMember.MemberRole.CREATOR);
+            projectMemberRepository.save(creatorMember);
+
             // 缓存项目
             cacheUtil.cacheProject(savedProject);
 
@@ -70,11 +80,13 @@ public class ProjectService {
      * 更新项目
      *
      * @param project 项目信息
+     * @param userId  当前用户ID
      * @return 更新的项目
      */
     @Operation(summary = "更新项目")
     @Transactional
-    public ApiResponse<Project> updateProject(@Parameter(description = "项目信息") Project project) {
+    public ApiResponse<Project> updateProject(@Parameter(description = "项目信息") Project project, 
+                                        @Parameter(description = "当前用户ID") Long userId) {
         try {
             Optional<Project> existingProjectOpt = projectRepository.findById(project.getId());
 
@@ -83,6 +95,11 @@ public class ProjectService {
             }
 
             Project existingProject = existingProjectOpt.get();
+
+            // 检查用户是否有权限更新项目（创建者、管理员）
+            if (!hasProjectPermission(existingProject.getId(), userId)) {
+                return ApiResponse.error("没有权限管理此项目");
+            }
 
             // 检查项目编码是否被其他项目使用
             if (!existingProject.getCode().equals(project.getCode()) &&
@@ -122,14 +139,30 @@ public class ProjectService {
      * 删除项目
      *
      * @param projectId 项目ID
+     * @param userId  当前用户ID
+     * @param userRole 用户角色
      * @return 删除结果
      */
     @Operation(summary = "删除项目")
     @Transactional
-    public ApiResponse<Void> deleteProject(@Parameter(description = "项目ID", example = "1") Long projectId) {
+    public ApiResponse<Void> deleteProject(@Parameter(description = "项目ID", example = "1") Long projectId,
+                                       @Parameter(description = "当前用户ID") Long userId,
+                                       @Parameter(description = "用户角色") User.UserRole userRole) {
         try {
             if (!projectRepository.existsById(projectId)) {
                 return ApiResponse.error("项目不存在");
+            }
+
+            // 管理员可以删除任何项目
+            // 非管理员只能删除自己创建的项目
+            if (userRole != User.UserRole.ADMIN) {
+                Optional<Project> projectOpt = projectRepository.findById(projectId);
+                if (projectOpt.isPresent()) {
+                    Project project = projectOpt.get();
+                    if (!project.getCreateUserId().equals(userId)) {
+                        return ApiResponse.error("没有权限删除此项目");
+                    }
+                }
             }
 
             projectRepository.deleteById(projectId);
@@ -230,10 +263,12 @@ public class ProjectService {
      * 查询用户有权限访问的项目
      *
      * @param userId 用户ID
+     * @param userRole 用户角色
      * @return 项目列表
      */
     @Operation(summary = "查询用户有权限访问的项目")
-    public ApiResponse<List<Project>> getAccessibleProjects(@Parameter(description = "用户ID", example = "1") Long userId) {
+    public ApiResponse<List<Project>> getAccessibleProjects(@Parameter(description = "用户ID", example = "1") Long userId,
+                                                       @Parameter(description = "用户角色") User.UserRole userRole) {
         try {
             Optional<User> userOpt = userRepository.findById(userId);
 
@@ -245,10 +280,10 @@ public class ProjectService {
             List<Project> projects;
 
             // 管理员可以访问所有项目
-            if (user.getRole() == User.UserRole.ADMIN) {
+            if (userRole == User.UserRole.ADMIN) {
                 projects = projectRepository.findAll();
             } else {
-                // 普通用户只能访问自己有权限的项目
+                // 普通用户只能访问自己是创建者或管理员的项目
                 projects = projectRepository.findAccessibleProjectsByUserId(userId);
             }
 
@@ -261,42 +296,30 @@ public class ProjectService {
     }
 
     /**
-     * 添加项目成员
+     * 添加项目成员（已废弃，请使用ProjectMemberService）
      *
      * @param projectId 项目ID
      * @param userId    用户ID
      * @return 操作结果
      */
-    @Operation(summary = "添加项目成员")
-    @Transactional
+    @Operation(summary = "添加项目成员（已废弃）", deprecated = true)
+    @Deprecated
     public ApiResponse<Void> addProjectMember(@Parameter(description = "项目ID", example = "1") Long projectId,
                                                @Parameter(description = "用户ID", example = "2") Long userId) {
         try {
-            Optional<Project> projectOpt = projectRepository.findById(projectId);
-            Optional<User> userOpt = userRepository.findById(userId);
-
-            if (!projectOpt.isPresent()) {
-                return ApiResponse.error("项目不存在");
-            }
-
-            if (!userOpt.isPresent()) {
-                return ApiResponse.error("用户不存在");
-            }
-
-            Project project = projectOpt.get();
-            User user = userOpt.get();
-
             // 检查用户是否已经是项目成员
-            if (project.getMembers().contains(user)) {
+            java.util.Optional<com.carolcoral.mockserver.entity.ProjectMember> existingMember = 
+                projectMemberRepository.findByProjectIdAndUserId(projectId, userId);
+            if (existingMember.isPresent()) {
                 return ApiResponse.error("用户已是项目成员");
             }
 
-            // 添加项目成员
-            project.getMembers().add(user);
-            projectRepository.save(project);
-
-            // 更新缓存
-            cacheUtil.cacheProject(project);
+            // 添加项目成员（默认为MEMBER角色）
+            com.carolcoral.mockserver.entity.ProjectMember member = new com.carolcoral.mockserver.entity.ProjectMember();
+            member.setProjectId(projectId);
+            member.setUserId(userId);
+            member.setRole(com.carolcoral.mockserver.entity.ProjectMember.MemberRole.MEMBER);
+            projectMemberRepository.save(member);
 
             log.info("添加项目成员成功: 项目={}, 用户={}", projectId, userId);
             return ApiResponse.success();
@@ -319,31 +342,21 @@ public class ProjectService {
     public ApiResponse<Void> removeProjectMember(@Parameter(description = "项目ID", example = "1") Long projectId,
                                                   @Parameter(description = "用户ID", example = "2") Long userId) {
         try {
-            Optional<Project> projectOpt = projectRepository.findById(projectId);
-            Optional<User> userOpt = userRepository.findById(userId);
-
-            if (!projectOpt.isPresent()) {
-                return ApiResponse.error("项目不存在");
-            }
-
-            if (!userOpt.isPresent()) {
-                return ApiResponse.error("用户不存在");
-            }
-
-            Project project = projectOpt.get();
-            User user = userOpt.get();
-
-            // 检查用户是否是项目成员
-            if (!project.getMembers().contains(user)) {
+            // 检查用户是否在项目成员表中
+            Optional<ProjectMember> memberOpt = projectMemberRepository.findByProjectIdAndUserId(projectId, userId);
+            if (!memberOpt.isPresent()) {
                 return ApiResponse.error("用户不是项目成员");
             }
 
-            // 移除项目成员
-            project.getMembers().remove(user);
-            projectRepository.save(project);
+            ProjectMember member = memberOpt.get();
 
-            // 更新缓存
-            cacheUtil.cacheProject(project);
+            // 不允许移除创建者
+            if (member.getRole() == ProjectMember.MemberRole.CREATOR) {
+                return ApiResponse.error("不能移除项目创建者");
+            }
+
+            // 删除成员记录
+            projectMemberRepository.deleteById(member.getId());
 
             log.info("移除项目成员成功: 项目={}, 用户={}", projectId, userId);
             return ApiResponse.success();
@@ -352,5 +365,21 @@ public class ProjectService {
             log.error("移除项目成员失败: {}", e.getMessage(), e);
             return ApiResponse.error("移除项目成员失败，请稍后重试");
         }
+    }
+
+    /**
+     * 检查用户是否有项目权限（创建者或管理员）
+     *
+     * @param projectId 项目ID
+     * @param userId    用户ID
+     * @return 是否有权限
+     */
+    private boolean hasProjectPermission(Long projectId, Long userId) {
+        return projectMemberRepository
+                .findByProjectIdAndUserIdAndRole(projectId, userId, ProjectMember.MemberRole.CREATOR)
+                .isPresent() ||
+               projectMemberRepository
+                .findByProjectIdAndUserIdAndRole(projectId, userId, ProjectMember.MemberRole.ADMIN)
+                .isPresent();
     }
 }

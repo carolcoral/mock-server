@@ -6,6 +6,7 @@
 
 package com.carolcoral.mockserver.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.CascadeType;
@@ -369,7 +370,7 @@ public class MockApi {
      *
      * @return 所属项目
      */
-    @JsonIgnoreProperties({"mockApis", "members"})
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "mockApis", "members"})
     public Project getProject() {
         return project;
     }
@@ -388,6 +389,7 @@ public class MockApi {
      *
      * @return 接口响应列表
      */
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     public List<MockResponse> getResponses() {
         return responses;
     }

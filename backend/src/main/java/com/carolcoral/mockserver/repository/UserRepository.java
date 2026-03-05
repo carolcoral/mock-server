@@ -73,16 +73,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByRole(User.UserRole role);
 
     /**
-     * 根据项目ID查询项目成员
-     *
-     * @param projectId 项目ID
-     * @return 用户列表
-     */
-    @Operation(summary = "根据项目ID查询项目成员")
-    @Query("SELECT u FROM Project p JOIN p.members u WHERE p.id = :projectId")
-    List<User> findMembersByProjectId(@Param("projectId") Long projectId);
-
-    /**
      * 查询所有启用状态的用户
      *
      * @return 用户列表

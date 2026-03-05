@@ -26,6 +26,22 @@ print_info() {
 # 内部JAVA_HOME变量（不污染全局环境）
 INTERNAL_JAVA_HOME=""
 
+# 加载.env文件中的配置
+if [ -f ".env" ]; then
+    export $(cat .env | grep -v '^#' | grep -v '^$' | xargs)
+    print_info "已加载.env配置文件"
+else
+    print_error "未找到.env配置文件"
+    exit 1
+fi
+
+# 设置默认端口（如果.env中未设置）
+SERVER_PORT=${SERVER_PORT:-8080}
+FRONTEND_PORT=${FRONTEND_PORT:-3000}
+
+print_info "后端端口: $SERVER_PORT"
+print_info "前端端口: $FRONTEND_PORT"
+
 # 检测操作系统
 OS="$(uname -s)"
 case "${OS}" in
@@ -147,23 +163,23 @@ mkdir -p backend/logs
 
 # 查找并停止已存在的后端进程
 print_info "检查是否已有后端服务在运行..."
-OLD_PID=$(lsof -ti:8080 2>/dev/null || netstat -tuln 2>/dev/null | grep :8080 | awk '{print $NF}' | sed 's/.*://' || ss -tuln 2>/dev/null | grep :8080 | awk '{print $NF}' | sed 's/.*://')
+OLD_PID=$(lsof -ti:$SERVER_PORT 2>/dev/null || netstat -tuln 2>/dev/null | grep :$SERVER_PORT | awk '{print $NF}' | sed 's/.*://' || ss -tuln 2>/dev/null | grep :$SERVER_PORT | awk '{print $NF}' | sed 's/.*://')
 
 if [ ! -z "$OLD_PID" ]; then
-    print_info "发现已有进程占用8080端口 (PID: $OLD_PID)，正在停止..."
+    print_info "发现已有进程占用${SERVER_PORT}端口 (PID: $OLD_PID)，正在停止..."
     kill $OLD_PID 2>/dev/null
     sleep 2
-    
+
     # 如果进程还在，强制杀死
     if kill -0 $OLD_PID 2>/dev/null; then
         print_info "进程仍在运行，强制终止..."
         kill -9 $OLD_PID 2>/dev/null
         sleep 1
     fi
-    
+
     print_success "旧进程已停止"
 else
-    print_info "未发现占用8080端口的进程"
+    print_info "未发现占用${SERVER_PORT}端口的进程"
 fi
 
 print_info "启动后端服务..."
@@ -183,11 +199,40 @@ print_info "等待后端服务启动..."
 sleep 10
 
 # 检查后端是否正常运行
-if curl -s http://localhost:8080/api/v3/api-docs > /dev/null; then
+if curl -s http://localhost:${SERVER_PORT}/api/v3/api-docs > /dev/null; then
     print_success "后端服务正常运行"
 else
     print_error "后端服务启动失败，请检查日志"
     exit 1
+fi
+
+# 查找并停止已存在的前端进程（检查配置的端口和端口+1，因为Vite在端口被占用时会自动尝试下一个端口）
+print_info "检查是否已有前端服务在运行..."
+FRONTEND_PORTS=($FRONTEND_PORT $((FRONTEND_PORT + 1)))
+FRONTEND_STOPPED=false
+
+for port in "${FRONTEND_PORTS[@]}"; do
+    FRONTEND_PID=$(lsof -ti:$port 2>/dev/null || netstat -tuln 2>/dev/null | grep :$port | awk '{print $NF}' | sed 's/.*://' || ss -tuln 2>/dev/null | grep :$port | awk '{print $NF}' | sed 's/.*://')
+
+    if [ ! -z "$FRONTEND_PID" ]; then
+        print_info "发现已有进程占用${port}端口 (PID: $FRONTEND_PID)，正在停止..."
+        kill $FRONTEND_PID 2>/dev/null
+        sleep 2
+
+        # 如果进程还在，强制杀死
+        if kill -0 $FRONTEND_PID 2>/dev/null; then
+            print_info "进程仍在运行，强制终止..."
+            kill -9 $FRONTEND_PID 2>/dev/null
+            sleep 1
+        fi
+
+        print_success "${port}端口的进程已停止"
+        FRONTEND_STOPPED=true
+    fi
+done
+
+if [ "$FRONTEND_STOPPED" = false ]; then
+    print_info "未发现占用${FRONTEND_PORT}或$((FRONTEND_PORT + 1))端口的进程"
 fi
 
 print_info "启动前端服务..."
@@ -198,6 +243,10 @@ if [ ! -d "node_modules" ]; then
     print_info "安装前端依赖..."
     npm install
 fi
+
+# 设置前端环境变量（将后端端口传递给前端）
+export VITE_SERVER_PORT=$SERVER_PORT
+export VITE_FRONTEND_PORT=$FRONTEND_PORT
 
 print_info "启动前端开发服务器..."
 npm run dev

@@ -74,15 +74,6 @@ public class Project {
     @Column(nullable = false)
     private Long createUserId;
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "t_project_user",
-            joinColumns = @JoinColumn(name = "project_id"),
-            inverseJoinColumns = @JoinColumn(name = "user_id")
-    )
-    @Schema(description = "项目成员列表")
-    private List<User> members = new ArrayList<>();
-
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Schema(description = "项目下的API列表")
     private List<MockApi> mockApis = new ArrayList<>();
@@ -104,12 +95,11 @@ public class Project {
      * @param createTime 创建时间
      * @param updateTime 更新时间
      * @param createUserId 创建人ID
-     * @param members 项目成员列表
      * @param mockApis 项目下的API列表
      */
     public Project(Long id, String name, String description, String code, Boolean enabled,
                    LocalDateTime createTime, LocalDateTime updateTime, Long createUserId,
-                   List<User> members, List<MockApi> mockApis) {
+                   List<MockApi> mockApis) {
         this.id = id;
         this.name = name;
         this.description = description;
@@ -118,7 +108,6 @@ public class Project {
         this.createTime = createTime;
         this.updateTime = updateTime;
         this.createUserId = createUserId;
-        this.members = members;
         this.mockApis = mockApis;
     }
 
@@ -267,25 +256,6 @@ public class Project {
     }
 
     /**
-     * 获取项目成员列表
-     *
-     * @return 项目成员列表
-     */
-    @JsonIgnoreProperties({"projects", "password"})
-    public List<User> getMembers() {
-        return members;
-    }
-
-    /**
-     * 设置项目成员列表
-     *
-     * @param members 项目成员列表
-     */
-    public void setMembers(List<User> members) {
-        this.members = members;
-    }
-
-    /**
      * 获取项目下的API列表
      *
      * @return 项目下的API列表
@@ -344,7 +314,6 @@ public class Project {
                 ", createTime=" + createTime +
                 ", updateTime=" + updateTime +
                 ", createUserId=" + createUserId +
-                ", members=" + members +
                 ", mockApis=" + mockApis +
                 '}';
     }
