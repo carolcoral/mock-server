@@ -36,6 +36,9 @@ public class LoginResponse {
     @Schema(description = "用户名", example = "admin")
     private String username;
 
+    @Schema(description = "用户邮箱", example = "admin@mockserver.com")
+    private String email;
+
     @Schema(description = "用户角色", example = "ADMIN")
     private String role;
 

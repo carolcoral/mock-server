@@ -11,22 +11,34 @@ export const useUserStore = defineStore('user', () => {
   const isLoggedIn = computed(() => !!token.value)
   const isAdmin = computed(() => userInfo.value.role === 'ADMIN')
   const username = computed(() => userInfo.value.username || '')
+  const userAvatar = computed(() => {
+    try {
+      // 使用 cravatar.cn 生成头像
+      // 如果没有邮箱，使用用户名生成虚拟邮箱
+      const emailForAvatar = userInfo.value.email || `${userInfo.value.username || 'user'}@cravatar.cn`
+      const avatarUrl = `https://cravatar.cn/avatar/${emailForAvatar}?s=200&r=g&d=retro`
+      return avatarUrl
+    } catch (error) {
+      console.warn('生成头像URL失败:', error)
+      return ''
+    }
+  })
 
   // 登录
   const login = async (username, password) => {
     try {
       const response = await loginApi({ username, password })
       if (response.code === 200) {
-        const { token: userToken, userId, username: name, role } = response.data
-        
+        const { token: userToken, userId, username: name, role, email } = response.data
+
         // 保存token
         token.value = userToken
         localStorage.setItem('token', userToken)
-        
+
         // 保存用户信息
-        userInfo.value = { id: userId, username: name, role }
+        userInfo.value = { id: userId, username: name, role, email }
         localStorage.setItem('userInfo', JSON.stringify(userInfo.value))
-        
+
         return { success: true }
       } else {
         return { success: false, message: response.message }
@@ -56,6 +68,7 @@ export const useUserStore = defineStore('user', () => {
     isLoggedIn,
     isAdmin,
     username,
+    userAvatar,
     login,
     logout,
     setToken
