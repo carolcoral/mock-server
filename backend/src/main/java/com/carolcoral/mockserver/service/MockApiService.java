@@ -77,8 +77,24 @@ public class MockApiService {
 
             MockApi savedApi = mockApiRepository.save(mockApi);
 
+            // 创建默认的 200 响应
+            MockResponse defaultResponse = new MockResponse();
+            defaultResponse.setMockApi(savedApi);
+            defaultResponse.setStatusCode(200);
+            defaultResponse.setContentType("application/json");
+            defaultResponse.setHeaders("");
+            defaultResponse.setResponseBody("{\"code\": 200, \"message\": \"success\", \"data\": {}}");
+            defaultResponse.setWeight(100);
+            defaultResponse.setEnabled(true);
+            defaultResponse.setActive(true);
+            mockResponseRepository.save(defaultResponse);
+
             // 缓存接口
             cacheUtil.cacheApi(savedApi);
+
+            // 缓存响应
+            List<MockResponse> responses = mockResponseRepository.findByMockApiId(savedApi.getId());
+            cacheUtil.cacheApiResponses(savedApi.getId(), responses);
 
             log.info("创建接口成功: {}/{} {}", savedApi.getProject().getCode(), savedApi.getPath(), savedApi.getMethod());
             return ApiResponse.success(savedApi);
@@ -474,33 +490,64 @@ public class MockApiService {
     public ApiResponse<Void> setActiveResponse(@Parameter(description = "接口ID", example = "1") Long apiId,
                                               @Parameter(description = "响应ID", example = "1") Long responseId) {
         try {
-            // 取消该接口的所有响应的激活状态
-            List<MockResponse> responses = mockResponseRepository.findByMockApiId(apiId);
-            for (MockResponse response : responses) {
-                response.setActive(false);
+            // 获取接口信息，判断是否启用了随机返回
+            Optional<MockApi> apiOpt = mockApiRepository.findById(apiId);
+            if (!apiOpt.isPresent()) {
+                return ApiResponse.error("接口不存在");
             }
-            mockResponseRepository.saveAll(responses);
+            MockApi api = apiOpt.get();
 
-            // 设置指定的响应为激活状态
+            // 获取目标响应
             Optional<MockResponse> targetResponseOpt = mockResponseRepository.findById(responseId);
             if (!targetResponseOpt.isPresent()) {
                 return ApiResponse.error("响应不存在");
             }
-
             MockResponse targetResponse = targetResponseOpt.get();
-            targetResponse.setActive(true);
-            mockResponseRepository.save(targetResponse);
+
+            if (api.getEnableRandom() != null && api.getEnableRandom()) {
+                // 启用了随机返回，切换该响应的激活状态
+                targetResponse.setActive(!targetResponse.getActive());
+                mockResponseRepository.save(targetResponse);
+                log.info("切换响应激活状态成功: 接口={}, 响应={}, 新状态={}", apiId, responseId, targetResponse.getActive());
+            } else {
+                // 未启用随机返回，只能有一个激活响应
+                List<MockResponse> responses = mockResponseRepository.findByMockApiId(apiId);
+                for (MockResponse response : responses) {
+                    response.setActive(false);
+                }
+                mockResponseRepository.saveAll(responses);
+
+                targetResponse.setActive(true);
+                mockResponseRepository.save(targetResponse);
+                log.info("设置激活响应成功: 接口={}, 响应={}", apiId, responseId);
+            }
 
             // 更新接口响应缓存
             List<MockResponse> updatedResponses = mockResponseRepository.findByMockApiId(apiId);
             cacheUtil.cacheApiResponses(apiId, updatedResponses);
 
-            log.info("设置激活响应成功: 接口={}, 响应={}", apiId, responseId);
             return ApiResponse.success();
 
         } catch (Exception e) {
-            log.error("删除接口响应失败: {}", e.getMessage(), e);
-            return ApiResponse.error("删除接口响应失败，请稍后重试");
+            log.error("设置激活响应失败: {}", e.getMessage(), e);
+            return ApiResponse.error("设置激活响应失败，请稍后重试");
+        }
+    }
+
+    /**
+     * 获取接口的所有响应
+     *
+     * @param apiId 接口ID
+     * @return 响应列表
+     */
+    @Operation(summary = "获取接口的所有响应")
+    public ApiResponse<List<MockResponse>> getApiResponses(@Parameter(description = "接口ID", example = "1") Long apiId) {
+        try {
+            List<MockResponse> responses = mockResponseRepository.findByMockApiId(apiId);
+            return ApiResponse.success(responses);
+        } catch (Exception e) {
+            log.error("获取接口响应列表失败: {}", e.getMessage(), e);
+            return ApiResponse.error("获取接口响应列表失败，请稍后重试");
         }
     }
 }

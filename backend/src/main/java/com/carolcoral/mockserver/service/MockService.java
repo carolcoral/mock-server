@@ -94,11 +94,22 @@ public class MockService {
                 return buildMockResponse(mockApi, matchedResponse);
             }
 
-            // 如果启用了随机返回，根据权重随机选择响应
+            // 如果启用了随机返回，从所有启用且激活的响应中按权重随机选择
             if (mockApi.getEnableRandom() != null && mockApi.getEnableRandom()) {
-                MockResponse randomResponse = selectRandomResponse(enabledResponses);
-                if (randomResponse != null) {
-                    return buildMockResponse(mockApi, randomResponse);
+                // 过滤出启用且激活的响应
+                List<MockResponse> enabledActiveResponses = new ArrayList<>();
+                for (MockResponse response : enabledResponses) {
+                    if (response.getActive() != null && response.getActive()) {
+                        enabledActiveResponses.add(response);
+                    }
+                }
+                
+                if (!enabledActiveResponses.isEmpty()) {
+                    MockResponse randomResponse = selectRandomResponse(enabledActiveResponses);
+                    if (randomResponse != null) {
+                        log.info("启用随机返回，从激活响应中随机选择: 状态码={}", randomResponse.getStatusCode());
+                        return buildMockResponse(mockApi, randomResponse);
+                    }
                 }
             }
 

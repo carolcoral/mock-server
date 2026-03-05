@@ -44,10 +44,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
-    private static final String SWAGGER_AUTO_LOGIN_PATH = "/api/auth/swagger-auto-login";
-    private static final String MOCK_PATH_PREFIX = "/api/mock/";
-    private static final String AUTH_LOGIN_PATH = "/api/auth/login";
-    private static final String AUTH_REGISTER_PATH = "/api/auth/register";
+    private static final String SWAGGER_AUTO_LOGIN_PATH = "/auth/swagger-auto-login";
+    private static final String MOCK_PATH_PREFIX = "/mock/";
+    private static final String MOCK_SERVER_PATH_PREFIX = "/mock-server/";
+    private static final String AUTH_LOGIN_PATH = "/auth/login";
+    private static final String AUTH_REGISTER_PATH = "/auth/register";
 
     private final JwtTokenUtil jwtTokenUtil;
     private final UserRepository userRepository;
@@ -59,15 +60,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
         String requestUri = request.getRequestURI();
-        
+        String servletPath = request.getServletPath(); // 去除context-path后的路径
+
         // 公开接口 - 直接放行，不设置认证
         if (isPublicPath(requestUri)) {
             filterChain.doFilter(request, response);
             return;
         }
-        
+
         // Swagger自动登录接口（前端已登录用户调用）
-        if (SWAGGER_AUTO_LOGIN_PATH.equals(requestUri)) {
+        if (SWAGGER_AUTO_LOGIN_PATH.equals(requestUri) || SWAGGER_AUTO_LOGIN_PATH.equals(servletPath)) {
             handleSwaggerAutoLogin(request, response);
             return;
         }
@@ -75,13 +77,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 
         // Mock接口路径 - 不需要认证
-        if (requestUri.startsWith(MOCK_PATH_PREFIX)) {
+        if (servletPath.startsWith(MOCK_PATH_PREFIX) || requestUri.startsWith(MOCK_PATH_PREFIX)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // Mock Server接口路径 - 不需要认证
+        if (servletPath.startsWith(MOCK_SERVER_PATH_PREFIX) || requestUri.startsWith(MOCK_SERVER_PATH_PREFIX)) {
             filterChain.doFilter(request, response);
             return;
         }
 
         // Swagger相关路径 - 需要认证，但token无效时重定向到登录页
-        if (isSwaggerPath(requestUri)) {
+        if (isSwaggerPath(requestUri) || isSwaggerPath(servletPath)) {
                 String token = getTokenFromRequest(request);
                 if (StringUtils.hasText(token) && jwtTokenUtil.validateToken(token)) {
                     // token有效，设置认证并放行
@@ -189,9 +197,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * 判断是否是公开路径（不需要认证）
      */
     private boolean isPublicPath(String requestUri) {
-        return AUTH_LOGIN_PATH.equals(requestUri) || 
+        // 支持完整路径和去除context-path后的路径
+        return AUTH_LOGIN_PATH.equals(requestUri) ||
+               ("/api" + AUTH_LOGIN_PATH).equals(requestUri) ||
                AUTH_REGISTER_PATH.equals(requestUri) ||
-               requestUri.equals("/error");
+               ("/api" + AUTH_REGISTER_PATH).equals(requestUri) ||
+               requestUri.startsWith(MOCK_SERVER_PATH_PREFIX) ||
+               requestUri.startsWith("/api" + MOCK_SERVER_PATH_PREFIX) ||
+               requestUri.equals("/error") ||
+               requestUri.equals("/api/error");
     }
 
     /**

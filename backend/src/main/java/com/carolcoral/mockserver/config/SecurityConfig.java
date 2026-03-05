@@ -64,9 +64,7 @@ public class SecurityConfig {
                 .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::deny))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authz -> authz
-                        // 允许所有OPTIONS预检请求
-                        .requestMatchers(request -> "OPTIONS".equals(request.getMethod())).permitAll()
-                        // 完全公开接口（不需要认证）
+                        // 完全公开接口（不需要认证）- 注意：由于设置了context-path=/api，这些路径实际上是相对于/api的
                         .requestMatchers(
                                 "/v3/api-docs/**",
                                 "/swagger-resources/**",
@@ -74,15 +72,28 @@ public class SecurityConfig {
                                 "/auth/login",
                                 "/auth/register",
                                 "/auth/swagger-auto-login",
+                                "/mock-server/**",
                                 "/mock/**",
                                 "/ws/**",
-                                "/error"
+                                "/error",
+                                "/api/v3/api-docs/**",
+                                "/api/swagger-resources/**",
+                                "/api/webjars/**",
+                                "/api/auth/**",
+                                "/api/mock-server/**",
+                                "/api/mock/**",
+                                "/api/ws/**",
+                                "/api/error"
                         ).permitAll()
                         // Swagger UI 页面（需要认证，但由JWT过滤器处理）
                         .requestMatchers(
                                 "/swagger-ui/**",
-                                "/swagger-ui.html"
+                                "/swagger-ui.html",
+                                "/api/swagger-ui/**",
+                                "/api/swagger-ui.html"
                         ).authenticated()
+                        // 允许所有OPTIONS预检请求
+                        .requestMatchers(request -> "OPTIONS".equals(request.getMethod())).permitAll()
                         // 其他所有请求需要认证
                         .anyRequest().authenticated()
                 )

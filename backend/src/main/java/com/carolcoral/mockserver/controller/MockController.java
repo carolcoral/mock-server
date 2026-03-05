@@ -35,7 +35,7 @@ import java.util.Map;
 @Tag(name = "Mock请求", description = "Mock请求处理接口（无需认证）")
 @Slf4j
 @RestController
-@RequestMapping("/mock")
+@RequestMapping("/mock-server")
 @RequiredArgsConstructor
 @Validated
 public class MockController {
@@ -62,13 +62,39 @@ public class MockController {
         try {
             // 获取请求路径（去除项目编码前缀）
             String fullPath = request.getRequestURI();
-            String path = fullPath.replace("/api/mock/" + projectCode, "");
+            String servletPath = request.getServletPath();
+
+            log.info("Mock请求详情 - fullPath: {}, servletPath: {}, projectCode: {}", fullPath, servletPath, projectCode);
+
+            // 构建路径前缀 /mock-server/{projectCode}/
+            String pathPrefix = "/mock-server/" + projectCode + "/";
+            String path;
+
+            if (fullPath.startsWith(pathPrefix)) {
+                path = fullPath.substring(pathPrefix.length() - 1); // 保留开头的 /
+            } else if (fullPath.startsWith("/mock-server/")) {
+                // 兼容 /mock-server/ 前缀
+                String mockPathPrefix = "/mock-server/" + projectCode;
+                if (fullPath.startsWith(mockPathPrefix + "/")) {
+                    path = fullPath.substring(mockPathPrefix.length());
+                } else {
+                    path = "/";
+                }
+            } else {
+                // 使用 servletPath 作为备选
+                if (servletPath.startsWith(pathPrefix)) {
+                    path = servletPath.substring(pathPrefix.length() - 1);
+                } else {
+                    path = "/";
+                }
+            }
+
             if (path.isEmpty()) {
                 path = "/";
             }
 
             String method = request.getMethod();
-            
+
             log.info("Mock请求: {} {} 项目: {}", method, path, projectCode);
 
             // 构建Mock请求
@@ -179,60 +205,5 @@ public class MockController {
         errorBody.put("message", message);
         errorBody.put("timestamp", System.currentTimeMillis());
         return errorBody;
-    }
-
-    /**
-     * 处理GET请求
-     */
-    @Operation(summary = "处理GET Mock请求", description = "处理GET方法的Mock请求（无需认证）")
-    @GetMapping("/{projectCode}/**")
-    public ResponseEntity<Object> handleGetRequest(
-            @Parameter(description = "项目编码", example = "ecmall") @PathVariable String projectCode,
-            HttpServletRequest request) {
-        return handleMockRequest(projectCode, request);
-    }
-
-    /**
-     * 处理POST请求
-     */
-    @Operation(summary = "处理POST Mock请求", description = "处理POST方法的Mock请求（无需认证）")
-    @PostMapping("/{projectCode}/**")
-    public ResponseEntity<Object> handlePostRequest(
-            @Parameter(description = "项目编码", example = "ecmall") @PathVariable String projectCode,
-            HttpServletRequest request) {
-        return handleMockRequest(projectCode, request);
-    }
-
-    /**
-     * 处理PUT请求
-     */
-    @Operation(summary = "处理PUT Mock请求", description = "处理PUT方法的Mock请求（无需认证）")
-    @PutMapping("/{projectCode}/**")
-    public ResponseEntity<Object> handlePutRequest(
-            @Parameter(description = "项目编码", example = "ecmall") @PathVariable String projectCode,
-            HttpServletRequest request) {
-        return handleMockRequest(projectCode, request);
-    }
-
-    /**
-     * 处理DELETE请求
-     */
-    @Operation(summary = "处理DELETE Mock请求", description = "处理DELETE方法的Mock请求（无需认证）")
-    @DeleteMapping("/{projectCode}/**")
-    public ResponseEntity<Object> handleDeleteRequest(
-            @Parameter(description = "项目编码", example = "ecmall") @PathVariable String projectCode,
-            HttpServletRequest request) {
-        return handleMockRequest(projectCode, request);
-    }
-
-    /**
-     * 处理PATCH请求
-     */
-    @Operation(summary = "处理PATCH Mock请求", description = "处理PATCH方法的Mock请求（无需认证）")
-    @PatchMapping("/{projectCode}/**")
-    public ResponseEntity<Object> handlePatchRequest(
-            @Parameter(description = "项目编码", example = "ecmall") @PathVariable String projectCode,
-            HttpServletRequest request) {
-        return handleMockRequest(projectCode, request);
     }
 }

@@ -68,7 +68,13 @@
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="project.name" label="项目" min-width="120" show-overflow-tooltip />
         <el-table-column prop="name" label="接口名称" min-width="150" />
-        <el-table-column prop="path" label="接口路径" min-width="200" show-overflow-tooltip />
+        <el-table-column label="接口路径" min-width="320" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span style="font-family: monospace; color: #409EFF;">
+              /api/mock-server/{{ row.project?.code }}{{ row.path }}
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column prop="method" label="请求方法" width="100">
           <template #default="{ row }">
             <el-tag :type="getMethodTagType(row.method)">
@@ -118,6 +124,16 @@
     <!-- 创建/编辑对话框 -->
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="700px" @close="handleDialogClose">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
+        <el-form-item label="选择项目" prop="projectId" v-if="!isEdit">
+          <el-select v-model="form.projectId" placeholder="请选择项目" clearable style="width: 100%" filterable>
+            <el-option
+              v-for="project in accessibleProjects"
+              :key="project.id"
+              :label="project.name"
+              :value="project.id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="接口名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入接口名称" />
         </el-form-item>
@@ -150,10 +166,24 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="启用随机返回" prop="enableRandom">
-              <el-switch v-model="form.enableRandom" active-text="是" inactive-text="否" />
+              <el-switch
+                v-model="form.enableRandom"
+                active-text="是"
+                inactive-text="否"
+                :disabled="hasMultipleActiveResponses && !form.enableRandom"
+              />
+              <div v-if="hasMultipleActiveResponses && !form.enableRandom" style="color: #F56C6C; font-size: 12px; margin-top: 4px;">
+                该接口已激活多个响应，必须启用随机返回
+              </div>
             </el-form-item>
           </el-col>
         </el-row>
+        <el-form-item v-if="hasMultipleActiveResponses && form.enableRandom" prop="warning">
+          <div style="color: #909399; font-size: 14px; padding: 10px; background: #f4f4f5; border-left: 3px solid #409EFF; border-radius: 4px;">
+            <el-icon><WarningFilled /></el-icon>
+            <span style="margin-left: 8px;">已激活多个响应，关闭随机返回将无法正常使用接口</span>
+          </div>
+        </el-form-item>
         <el-form-item label="状态" prop="enabled">
           <el-switch v-model="form.enabled" active-text="启用" inactive-text="禁用" />
         </el-form-item>
@@ -163,13 +193,139 @@
         <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 响应管理对话框 -->
+    <el-dialog v-model="responseDialogVisible" :title="`响应管理 - ${currentApi?.name || ''}`" width="70%" @close="handleResponseDialogClose">
+      <!-- 响应状态分组提示 -->
+      <div class="response-status-tip" style="margin-bottom: 16px; padding: 12px; background: #f0f9ff; border: 1px solid #b3d8ff; border-radius: 4px;">
+        <el-icon><InfoFilled /></el-icon>
+        <span style="margin-left: 8px; color: #409EFF; font-size: 14px;">
+          提示：选中激活状态的响应作为接口默认返回。启用随机返回时，会从所有启用且激活的响应中按权重随机选择。
+        </span>
+      </div>
+
+      <div class="response-header">
+        <el-row :gutter="20">
+          <el-col :span="18">
+            <span style="color: #909399; font-size: 14px;">
+              <span>接口路径：</span>
+              <span style="color: #303133; font-weight: 600;">/api/mock-server/{{ currentApi?.project?.code }}{{ currentApi?.path }}</span>
+              <span style="margin-left: 20px;">方法：</span>
+              <el-tag :type="getMethodTagType(currentApi?.method)">{{ currentApi?.method }}</el-tag>
+            </span>
+          </el-col>
+          <el-col :span="6" style="text-align: right;">
+            <el-button type="primary" @click="handleAddResponse">
+              <Plus :width="'1em'" :height="'1em'" />
+              添加响应
+            </el-button>
+          </el-col>
+        </el-row>
+      </div>
+
+      <!-- 响应列表 -->
+      <el-table
+        v-loading="responseLoading"
+        :data="responseList"
+        border
+        style="width: 100%; margin-top: 16px;"
+        :header-cell-style="{ background: '#f5f7fa' }"
+        :row-class-name="getResponseRowClass"
+        row-key="id"
+      >
+        <el-table-column prop="id" label="ID" width="60" />
+        <el-table-column prop="statusCode" label="状态码" width="100" />
+        <el-table-column label="响应内容" min-width="200" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.responseBody }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="contentType" label="内容类型" width="150" />
+        <el-table-column prop="weight" label="权重" width="80" align="center" />
+        <el-table-column prop="enabled" label="启用" width="80" align="center">
+          <template #default="{ row }">
+            <el-switch
+              v-model="row.enabled"
+              @change="handleUpdateResponse(row)"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column prop="active" label="是否激活" width="90" align="center">
+          <template #default="{ row }">
+            <el-switch
+              v-model="row.active"
+              @change="handleToggleActive(row)"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="120" align="center">
+          <template #default="{ row }">
+            <el-button
+              type="primary"
+              link
+              size="small"
+              @click="handleEditResponse(row)"
+            >
+              编辑
+            </el-button>
+            <el-button
+              type="danger"
+              link
+              size="small"
+              @click="handleDeleteResponse(row)"
+            >
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
+
+    <!-- 添加/编辑响应对话框 -->
+    <el-dialog v-model="responseFormDialogVisible" :title="responseFormTitle" width="600px" @close="handleResponseFormDialogClose">
+      <el-form ref="responseFormRef" :model="responseForm" :rules="responseRules" label-width="100px">
+        <el-form-item label="状态码" prop="statusCode">
+          <el-input-number v-model="responseForm.statusCode" :min="100" :max="599" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="内容类型" prop="contentType">
+          <el-select v-model="responseForm.contentType" placeholder="请选择内容类型" style="width: 100%">
+            <el-option label="application/json" value="application/json" />
+            <el-option label="text/html" value="text/html" />
+            <el-option label="text/plain" value="text/plain" />
+            <el-option label="application/xml" value="application/xml" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="响应头" prop="headers">
+          <el-input v-model="responseForm.headers" type="textarea" :rows="2" placeholder='{"X-Custom-Header": "value"}' />
+        </el-form-item>
+        <el-form-item label="响应体" prop="responseBody">
+          <el-input v-model="responseForm.responseBody" type="textarea" :rows="8" placeholder="请输入响应体内容" />
+        </el-form-item>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="权重" prop="weight">
+              <el-input-number v-model="responseForm.weight" :min="0" :max="100" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="启用" prop="enabled">
+              <el-switch v-model="responseForm.enabled" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <template #footer>
+        <el-button @click="responseFormDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="responseSubmitLoading" @click="handleResponseSubmit">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Refresh, Edit, Delete } from '@element-plus/icons-vue'
+import { Plus, Refresh, Edit, Delete, InfoFilled, WarningFilled } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { useRoute } from 'vue-router'
 import { getAccessibleProjects } from '@/api/project'
@@ -187,6 +343,7 @@ const searchForm = reactive({
 
 // 项目列表
 const projectList = ref([])
+const accessibleProjects = ref([])
 
 // 表格数据
 const loading = ref(false)
@@ -206,9 +363,21 @@ const isEdit = ref(false)
 const submitLoading = ref(false)
 const formRef = ref()
 
+// 响应管理相关
+const responseDialogVisible = ref(false)
+const responseLoading = ref(false)
+const responseFormDialogVisible = ref(false)
+const responseSubmitLoading = ref(false)
+const responseFormRef = ref()
+const responseList = ref([])
+const currentApi = ref(null)
+const activeResponseId = ref(null)
+const responseFormTitle = ref('添加响应')
+
 // 表单数据
 const form = reactive({
   id: null,
+  projectId: null,
   name: '',
   path: '',
   method: 'GET',
@@ -221,6 +390,9 @@ const form = reactive({
 
 // 表单验证规则
 const rules = {
+  projectId: [
+    { required: true, message: '请选择项目', trigger: 'change' }
+  ],
   name: [
     { required: true, message: '请输入接口名称', trigger: 'blur' },
     { min: 2, max: 100, message: '长度在 2 到 100 个字符', trigger: 'blur' }
@@ -238,6 +410,30 @@ const rules = {
   ]
 }
 
+// 响应表单数据
+const responseForm = reactive({
+  id: null,
+  statusCode: 200,
+  contentType: 'application/json',
+  headers: '',
+  responseBody: '',
+  weight: 50,
+  enabled: true
+})
+
+// 响应表单验证规则
+const responseRules = {
+  statusCode: [
+    { required: true, message: '请输入状态码', trigger: 'blur' }
+  ],
+  contentType: [
+    { required: true, message: '请选择内容类型', trigger: 'change' }
+  ],
+  responseBody: [
+    { required: true, message: '请输入响应体内容', trigger: 'blur' }
+  ]
+}
+
 // 获取请求方法标签类型
 const getMethodTagType = (method) => {
   const types = {
@@ -250,6 +446,30 @@ const getMethodTagType = (method) => {
   return types[method] || 'info'
 }
 
+// 判断当前编辑的接口是否有多个激活响应
+const hasMultipleActiveResponses = ref(false)
+
+// 检查接口是否有多个激活响应
+const checkMultipleActiveResponses = async (apiId) => {
+  if (!apiId) {
+    hasMultipleActiveResponses.value = false
+    return
+  }
+  try {
+    const response = await request({
+      url: `/mock-apis/${apiId}/responses`,
+      method: 'get'
+    })
+    if (response.code === 200) {
+      const activeCount = response.data.filter(r => r.active === true).length
+      hasMultipleActiveResponses.value = activeCount > 1
+    }
+  } catch (error) {
+    console.error('检查激活响应失败:', error)
+    hasMultipleActiveResponses.value = false
+  }
+}
+
 // 获取项目列表
 const fetchProjects = async () => {
   try {
@@ -259,6 +479,17 @@ const fetchProjects = async () => {
     }
   } catch (error) {
     console.error('获取项目列表失败:', error)
+  }
+}
+
+const fetchAccessibleProjects = async () => {
+  try {
+    const response = await getAccessibleProjects()
+    if (response.code === 200) {
+      accessibleProjects.value = response.data
+    }
+  } catch (error) {
+    console.error('获取可访问项目失败:', error)
   }
 }
 
@@ -331,6 +562,7 @@ const handleCreate = () => {
   dialogTitle.value = '创建接口'
   isEdit.value = false
   form.id = null
+  form.projectId = accessibleProjects.value.length > 0 ? accessibleProjects.value[0].id : null
   form.name = ''
   form.path = ''
   form.method = 'GET'
@@ -343,7 +575,7 @@ const handleCreate = () => {
 }
 
 // 编辑接口
-const handleEdit = (row) => {
+const handleEdit = async (row) => {
   dialogTitle.value = '编辑接口'
   isEdit.value = true
   form.id = row.id
@@ -355,12 +587,244 @@ const handleEdit = (row) => {
   form.enabled = row.enabled
   form.responseDelay = row.responseDelay || 0
   form.enableRandom = row.enableRandom || false
+
+  // 检查是否有多个激活响应
+  await checkMultipleActiveResponses(row.id)
+
   dialogVisible.value = true
 }
 
 // 管理响应
-const handleResponses = (row) => {
-  ElMessage.info('响应管理功能开发中...')
+const handleResponses = async (row) => {
+  currentApi.value = row
+  responseDialogVisible.value = true
+  await fetchResponses()
+}
+
+// 获取响应列表
+const fetchResponses = async () => {
+  if (!currentApi.value) return
+  responseLoading.value = true
+  try {
+    const response = await request({
+      url: `/mock-apis/${currentApi.value.id}/responses`,
+      method: 'get'
+    })
+    if (response.code === 200) {
+      responseList.value = response.data
+      // 找到当前激活的响应
+      const active = responseList.value.find(r => r.active === true)
+      activeResponseId.value = active ? active.id : null
+    } else {
+      ElMessage.error('获取响应列表失败')
+    }
+  } catch (error) {
+    console.error('获取响应列表失败:', error)
+    ElMessage.error('获取响应列表失败')
+  } finally {
+    responseLoading.value = false
+  }
+}
+
+// 根据状态码获取行样式类名
+const getResponseRowClass = ({ row, rowIndex }) => {
+  const statusCodes = responseList.value.map(r => r.statusCode)
+  const sameStatusCount = statusCodes.filter(code => code === row.statusCode).length
+  if (sameStatusCount > 1) {
+    // 为相同状态码的行返回不同的背景色
+    const colors = ['status-code-color-1', 'status-code-color-2', 'status-code-color-3', 'status-code-color-4', 'status-code-color-5']
+    const colorIndex = statusCodes.indexOf(row.statusCode) % colors.length
+    return colors[colorIndex]
+  }
+  return ''
+}
+
+// 添加响应
+const handleAddResponse = () => {
+  responseFormTitle.value = '添加响应'
+  responseForm.id = null
+  responseForm.statusCode = 200
+  responseForm.contentType = 'application/json'
+  responseForm.headers = ''
+  responseForm.responseBody = ''
+  responseForm.weight = 50
+  responseForm.enabled = true
+  responseFormDialogVisible.value = true
+}
+
+// 编辑响应
+const handleEditResponse = (row) => {
+  responseFormTitle.value = '编辑响应'
+  responseForm.id = row.id
+  responseForm.statusCode = row.statusCode
+  responseForm.contentType = row.contentType
+  responseForm.headers = row.headers || ''
+  responseForm.responseBody = row.responseBody
+  responseForm.weight = row.weight || 50
+  responseForm.enabled = row.enabled
+  responseFormDialogVisible.value = true
+}
+
+// 删除响应
+const handleDeleteResponse = async (row) => {
+  try {
+    await ElMessageBox.confirm('确认删除该响应吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    const response = await request({
+      url: `/mock-apis/responses/${row.id}`,
+      method: 'delete'
+    })
+    if (response.code === 200) {
+      ElMessage.success('删除成功')
+      fetchResponses()
+    } else {
+      ElMessage.error('删除失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除失败:', error)
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
+// 更新响应（内联编辑）
+const handleUpdateResponse = async (row) => {
+  try {
+    const response = await request({
+      url: '/mock-apis/responses',
+      method: 'put',
+      data: {
+        id: row.id,
+        statusCode: row.statusCode,
+        contentType: row.contentType,
+        headers: row.headers,
+        responseBody: row.responseBody,
+        weight: row.weight,
+        enabled: row.enabled,
+        mockApi: { id: currentApi.value.id }
+      }
+    })
+    if (response.code === 200) {
+      ElMessage.success('更新成功')
+    } else {
+      ElMessage.error('更新失败')
+      fetchResponses()
+    }
+  } catch (error) {
+    console.error('更新失败:', error)
+    ElMessage.error('更新失败')
+    fetchResponses()
+  }
+}
+
+// 设置激活响应
+const handleSetActiveResponse = async (responseId) => {
+  try {
+    const response = await request({
+      url: `/mock-apis/${currentApi.value.id}/responses/${responseId}/active`,
+      method: 'post'
+    })
+    if (response.code === 200) {
+      ElMessage.success('设置成功')
+      fetchResponses()
+    } else {
+      ElMessage.error('设置失败')
+      fetchResponses()
+    }
+  } catch (error) {
+    console.error('设置失败:', error)
+    ElMessage.error('设置失败')
+    fetchResponses()
+  }
+}
+
+// 切换响应激活状态
+const handleToggleActive = async (row) => {
+  // 判断接口是否启用了随机返回（确保转换为布尔值）
+  const isRandomEnabled = currentApi.value?.enableRandom === true
+
+  // 计算当前已激活的响应数量（不包括当前正在切换的响应）
+  const currentActiveCount = responseList.value.filter(r => r.active === true && r.id !== row.id).length
+
+  console.log('切换激活状态:', {
+    isRandomEnabled,
+    rowActive: row.active,
+    currentActiveCount,
+    isActivating: !row.active
+  })
+
+  if (!isRandomEnabled) {
+    // 未启用随机返回时，不允许激活多个响应
+    if (!row.active && currentActiveCount >= 1) {
+      ElMessage({
+        type: 'warning',
+        message: '接口未启用随机返回，不允许激活多个响应。如需使用多个响应，请先启用"启用随机返回"选项。',
+        duration: 5000,
+        showClose: true
+      })
+      // 取消本次切换，恢复原状态
+      await fetchResponses()
+      return
+    }
+  }
+
+  // 设置该响应的激活状态
+  await handleSetActiveResponse(row.id)
+}
+
+// 提交响应表单
+const handleResponseSubmit = async () => {
+  try {
+    await responseFormRef.value.validate()
+    responseSubmitLoading.value = true
+
+    const submitData = {
+      ...responseForm,
+      mockApi: { id: currentApi.value.id }
+    }
+
+    const response = responseForm.id
+      ? await request({
+          url: '/mock-apis/responses',
+          method: 'put',
+          data: submitData
+        })
+      : await request({
+          url: `/mock-apis/${currentApi.value.id}/responses`,
+          method: 'post',
+          data: submitData
+        })
+
+    if (response.code === 200) {
+      ElMessage.success(responseForm.id ? '编辑成功' : '添加成功')
+      responseFormDialogVisible.value = false
+      fetchResponses()
+    } else {
+      ElMessage.error(response.message || (responseForm.id ? '编辑失败' : '添加失败'))
+    }
+  } catch (error) {
+    console.error('提交失败:', error)
+    ElMessage.error(responseForm.id ? '编辑失败' : '添加失败')
+  } finally {
+    responseSubmitLoading.value = false
+  }
+}
+
+// 关闭响应对话框
+const handleResponseDialogClose = () => {
+  currentApi.value = null
+  responseList.value = []
+  activeResponseId.value = null
+}
+
+// 关闭响应表单对话框
+const handleResponseFormDialogClose = () => {
+  responseFormRef.value?.resetFields()
 }
 
 // 删除接口
@@ -396,16 +860,22 @@ const handleSubmit = async () => {
     await formRef.value.validate()
     submitLoading.value = true
 
+    // 创建时需要包含project对象
+    const submitData = isEdit.value ? { ...form } : {
+      ...form,
+      project: { id: form.projectId }
+    }
+
     const response = isEdit.value
       ? await request({
           url: '/mock-apis',
           method: 'put',
-          data: form
+          data: submitData
         })
       : await request({
           url: '/mock-apis',
           method: 'post',
-          data: form
+          data: submitData
         })
 
     if (response.code === 200) {
@@ -431,6 +901,7 @@ const handleDialogClose = () => {
 // 页面加载时获取数据
 onMounted(() => {
   fetchProjects()
+  fetchAccessibleProjects()
   fetchApis()
 })
 </script>
@@ -471,6 +942,27 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+/* 状态码行背景色 */
+:deep(.status-code-color-1) {
+  background-color: #e8f5e9 !important;
+}
+
+:deep(.status-code-color-2) {
+  background-color: #e3f2fd !important;
+}
+
+:deep(.status-code-color-3) {
+  background-color: #fff3e0 !important;
+}
+
+:deep(.status-code-color-4) {
+  background-color: #f3e5f5 !important;
+}
+
+:deep(.status-code-color-5) {
+  background-color: #fce4ec !important;
 }
 </style>
 

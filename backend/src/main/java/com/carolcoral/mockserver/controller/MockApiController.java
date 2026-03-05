@@ -215,11 +215,25 @@ public class MockApiController {
      * @return 操作结果
      */
     @Operation(summary = "设置接口的激活响应", description = "设置接口的当前激活响应")
-    @PutMapping("/apis/{apiId}/responses/{responseId}/active")
+    @PostMapping("/{apiId}/responses/{responseId}/active")
     public ApiResponse<Void> setActiveResponse(
             @Parameter(description = "接口ID", example = "1") @PathVariable Long apiId,
             @Parameter(description = "响应ID", example = "1") @PathVariable Long responseId) {
         log.info("设置激活响应请求: 接口={}, 响应={}", apiId, responseId);
         return mockApiService.setActiveResponse(apiId, responseId);
+    }
+
+    /**
+     * 获取接口的所有响应
+     *
+     * @param apiId 接口ID
+     * @return 响应列表
+     */
+    @Operation(summary = "获取接口的所有响应", description = "获取指定接口的所有响应配置")
+    @GetMapping("/{apiId}/responses")
+    public ApiResponse<java.util.List<MockResponse>> getApiResponses(
+            @Parameter(description = "接口ID", example = "1") @PathVariable Long apiId) {
+        log.info("获取接口响应列表请求: 接口={}", apiId);
+        return mockApiService.getApiResponses(apiId);
     }
 }

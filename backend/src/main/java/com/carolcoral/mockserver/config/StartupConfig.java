@@ -177,25 +177,25 @@ public class StartupConfig implements CommandLineRunner {
         try {
             // 创建用户登录接口
             MockApi loginApi = createMockApi(project, "用户登录接口", "/user/login", MockApi.HttpMethod.POST, userId);
-            createMockResponse(loginApi, 200, "{\"code\": 200, \"message\": \"登录成功\", \"data\": {\"token\": \"mock-token-123\", \"userId\": 1, \"username\": \"admin\"}}", userId);
-            createMockResponse(loginApi, 401, "{\"code\": 401, \"message\": \"用户名或密码错误\"}", userId);
+            createMockResponse(loginApi, 200, "{\"code\": 200, \"message\": \"登录成功\", \"data\": {\"token\": \"mock-token-123\", \"userId\": 1, \"username\": \"admin\"}}", userId, true);
+            createMockResponse(loginApi, 401, "{\"code\": 401, \"message\": \"用户名或密码错误\"}", userId, false);
 
             // 创建获取用户信息接口
             MockApi userInfoApi = createMockApi(project, "获取用户信息", "/user/info", MockApi.HttpMethod.GET, userId);
-            createMockResponse(userInfoApi, 200, "{\"code\": 200, \"message\": \"成功\", \"data\": {\"userId\": 1, \"username\": \"admin\", \"email\": \"admin@example.com\", \"role\": \"ADMIN\"}}", userId);
+            createMockResponse(userInfoApi, 200, "{\"code\": 200, \"message\": \"成功\", \"data\": {\"userId\": 1, \"username\": \"admin\", \"email\": \"admin@example.com\", \"role\": \"ADMIN\"}}", userId, true);
 
             // 创建商品列表接口
             MockApi productListApi = createMockApi(project, "商品列表", "/products", MockApi.HttpMethod.GET, userId);
-            createMockResponse(productListApi, 200, "{\"code\": 200, \"message\": \"成功\", \"data\": [{\"id\": 1, \"name\": \"iPhone 15\", \"price\": 5999}, {\"id\": 2, \"name\": \"MacBook Pro\", \"price\": 12999}]}", userId);
+            createMockResponse(productListApi, 200, "{\"code\": 200, \"message\": \"成功\", \"data\": [{\"id\": 1, \"name\": \"iPhone 15\", \"price\": 5999}, {\"id\": 2, \"name\": \"MacBook Pro\", \"price\": 12999}]}", userId, true);
 
             // 创建订单创建接口（带条件响应）
             MockApi orderApi = createMockApi(project, "创建订单", "/order/create", MockApi.HttpMethod.POST, userId);
-            MockResponse successResponse = createMockResponse(orderApi, 200, "{\"code\": 200, \"message\": \"订单创建成功\", \"data\": {\"orderId\": \"2024001\", \"amount\": 99.99}}", userId);
+            MockResponse successResponse = createMockResponse(orderApi, 200, "{\"code\": 200, \"message\": \"订单创建成功\", \"data\": {\"orderId\": \"2024001\", \"amount\": 99.99}}", userId, true);
             successResponse.setCondition("$.productId == '1'");
             successResponse.setConditionDesc("当商品ID为1时返回成功");
             mockResponseRepository.save(successResponse);
 
-            MockResponse errorResponse = createMockResponse(orderApi, 400, "{\"code\": 400, \"message\": \"商品库存不足\"}", userId);
+            MockResponse errorResponse = createMockResponse(orderApi, 400, "{\"code\": 400, \"message\": \"商品库存不足\"}", userId, false);
             errorResponse.setCondition("$.productId == '999'");
             errorResponse.setConditionDesc("当商品ID为999时返回库存不足");
             mockResponseRepository.save(errorResponse);
@@ -205,8 +205,9 @@ public class StartupConfig implements CommandLineRunner {
             randomApi.setEnableRandom(true);
             mockApiRepository.save(randomApi);
 
-            createMockResponse(randomApi, 200, "{\"code\": 200, \"message\": \"成功（高概率）\", \"data\": \"这是200响应\"}", 80, userId);
-            createMockResponse(randomApi, 500, "{\"code\": 500, \"message\": \"服务器错误（低概率）\", \"data\": \"这是500响应\"}", 20, userId);
+            // 随机响应接口需要激活两个响应
+            createMockResponse(randomApi, 200, "{\"code\": 200, \"message\": \"成功（高概率）\", \"data\": \"这是200响应\"}", 80, userId, true);
+            createMockResponse(randomApi, 500, "{\"code\": 500, \"message\": \"服务器错误（低概率）\", \"data\": \"这是500响应\"}", 20, userId, true);
 
             // 初始化缓存
             cacheUtil.initCache();
@@ -251,10 +252,11 @@ public class StartupConfig implements CommandLineRunner {
      * @param statusCode    状态码
      * @param responseBody  响应体
      * @param userId        用户ID
+     * @param active        是否激活
      * @return Mock响应
      */
-    private MockResponse createMockResponse(MockApi mockApi, int statusCode, String responseBody, Long userId) {
-        return createMockResponse(mockApi, statusCode, responseBody, 100, userId);
+    private MockResponse createMockResponse(MockApi mockApi, int statusCode, String responseBody, Long userId, boolean active) {
+        return createMockResponse(mockApi, statusCode, responseBody, 100, userId, active);
     }
 
     /**
@@ -265,9 +267,10 @@ public class StartupConfig implements CommandLineRunner {
      * @param responseBody  响应体
      * @param weight        权重
      * @param userId        用户ID
+     * @param active        是否激活
      * @return Mock响应
      */
-    private MockResponse createMockResponse(MockApi mockApi, int statusCode, String responseBody, int weight, Long userId) {
+    private MockResponse createMockResponse(MockApi mockApi, int statusCode, String responseBody, int weight, Long userId, boolean active) {
         MockResponse response = new MockResponse();
         response.setMockApi(mockApi);
         response.setStatusCode(statusCode);
@@ -275,6 +278,7 @@ public class StartupConfig implements CommandLineRunner {
         response.setResponseBody(responseBody);
         response.setWeight(weight);
         response.setEnabled(true);
+        response.setActive(active);
         response.setCreateTime(LocalDateTime.now());
         response.setUpdateTime(LocalDateTime.now());
 
