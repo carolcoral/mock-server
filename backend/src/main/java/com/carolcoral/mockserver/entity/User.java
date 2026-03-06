@@ -71,6 +71,13 @@ public class User implements UserDetails {
     private String email;
 
     /**
+     * 用户语言偏好，默认为中文
+     */
+    @Schema(description = "用户语言", example = "zh-CN", allowableValues = {"zh-CN", "en-US", "ja-JP"})
+    @Column(nullable = false, length = 10)
+    private String language = "zh-CN";
+
+    /**
      * 用户角色，默认为普通用户
      */
     @Schema(description = "用户角色", example = "ADMIN", allowableValues = {"ADMIN", "USER"})

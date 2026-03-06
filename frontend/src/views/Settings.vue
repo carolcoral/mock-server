@@ -56,6 +56,7 @@
                 <el-select v-model="basicSettings.language" style="width: 100%">
                   <el-option label="中文" value="zh-CN" />
                   <el-option label="English" value="en-US" />
+                  <el-option label="日本語" value="ja-JP" />
                 </el-select>
               </el-form-item>
               <el-form-item label="日期格式">
@@ -80,13 +81,13 @@
             <br />
             <el-form :model="securitySettings" label-width="180px">
               <el-form-item label="密码强度要求">
-                <el-checkbox v-model="securitySettings.requireUppercase" disabled>必须包含大写字母</el-checkbox>
-                <el-checkbox v-model="securitySettings.requireLowercase" disabled>必须包含小写字母</el-checkbox>
-                <el-checkbox v-model="securitySettings.requireDigit" disabled>必须包含数字</el-checkbox>
-                <el-checkbox v-model="securitySettings.requireSpecial" disabled>必须包含特殊字符</el-checkbox>
+                <el-checkbox v-model="securitySettings.requireUppercase">必须包含大写字母</el-checkbox>
+                <el-checkbox v-model="securitySettings.requireLowercase">必须包含小写字母</el-checkbox>
+                <el-checkbox v-model="securitySettings.requireDigit">必须包含数字</el-checkbox>
+                <el-checkbox v-model="securitySettings.requireSpecial">必须包含特殊字符</el-checkbox>
               </el-form-item>
               <el-form-item label="密码最小长度">
-                <el-input-number v-model="securitySettings.minPasswordLength" :min="8" :max="32" disabled />
+                <el-input-number v-model="securitySettings.minPasswordLength" :min="8" :max="32" />
               </el-form-item>
               <el-form-item label="登录失败锁定次数">
                 <el-input-number v-model="securitySettings.maxLoginAttempts" :min="3" :max="10" />
@@ -159,9 +160,6 @@
               <el-form-item label="日志保留天数">
                 <el-input-number v-model="mockSettings.logRetentionDays" :min="1" :max="90" />
                 <span style="margin-left: 10px; color: #909399;">天</span>
-              </el-form-item>
-              <el-form-item label="启用随机返回">
-                <el-switch v-model="mockSettings.enableRandomResponse" />
               </el-form-item>
               <el-form-item label="最大请求体大小">
                 <el-input-number v-model="mockSettings.maxRequestBodySize" :min="1" :max="100" />
@@ -328,10 +326,21 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Setting, Lock, Key, Connection, InfoFilled, Bell, Edit, Delete } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import request from '@/utils/request'
+
+const { t, locale } = useI18n()
+
+// 监听语言变化，保存到 localStorage 和后端
+watch(locale, (newLocale) => {
+  localStorage.setItem('locale', newLocale)
+  console.log('Language changed to:', newLocale)
+  // 保存到后端
+  saveLanguageToServer(newLocale)
+})
 
 // 当前激活的菜单
 const activeMenu = ref('basic')
@@ -343,9 +352,19 @@ const saving = ref(false)
 const basicSettings = reactive({
   appName: 'Mock Server',
   version: 'v1.0.0',
-  language: 'zh-CN',
+  language: localStorage.getItem('locale') || 'zh-CN',
   dateFormat: 'YYYY-MM-DD'
 })
+
+// 保存语言到服务器
+const saveLanguageToServer = async (language) => {
+  try {
+    await request.post('/system-config/language', { language })
+    console.log('Language saved to server:', language)
+  } catch (error) {
+    console.error('Failed to save language to server:', error)
+  }
+}
 
 // 安全配置
 const securitySettings = reactive({
@@ -434,12 +453,18 @@ const handleMenuSelect = (index) => {
 const saveBasicSettings = async () => {
   saving.value = true
   try {
-    // TODO: 调用API保存设置
+    // 保存语言设置到服务器
+    await saveLanguageToServer(basicSettings.language)
+
+    // 切换语言
+    locale.value = basicSettings.language
+
+    // TODO: 调用API保存其他设置
     await new Promise(resolve => setTimeout(resolve, 500))
-    ElMessage.success('基础设置已保存')
+    ElMessage.success(t('settings.settingsSaved'))
   } catch (error) {
     console.error('保存失败:', error)
-    ElMessage.error('保存失败')
+    ElMessage.error(t('common.error'))
   } finally {
     saving.value = false
   }
@@ -458,10 +483,10 @@ const saveSecuritySettings = async () => {
   try {
     // TODO: 调用API保存设置
     await new Promise(resolve => setTimeout(resolve, 500))
-    ElMessage.success('安全配置已保存')
+    ElMessage.success(t('settings.settingsSaved'))
   } catch (error) {
     console.error('保存失败:', error)
-    ElMessage.error('保存失败')
+    ElMessage.error(t('common.error'))
   } finally {
     saving.value = false
   }
@@ -469,11 +494,16 @@ const saveSecuritySettings = async () => {
 
 // 重置安全配置
 const resetSecuritySettings = () => {
+  securitySettings.requireUppercase = true
+  securitySettings.requireLowercase = true
+  securitySettings.requireDigit = true
+  securitySettings.requireSpecial = true
+  securitySettings.minPasswordLength = 8
   securitySettings.maxLoginAttempts = 5
   securitySettings.lockoutDuration = 15
   securitySettings.enableIpWhitelist = false
   securitySettings.ipWhitelist = ''
-  ElMessage.info('已重置为默认值')
+  ElMessage.info(t('settings.settingsReset'))
 }
 
 // 保存JWT配置
@@ -482,10 +512,10 @@ const saveJwtSettings = async () => {
   try {
     // TODO: 调用API保存设置
     await new Promise(resolve => setTimeout(resolve, 500))
-    ElMessage.success('JWT配置已保存')
+    ElMessage.success(t('settings.settingsSaved'))
   } catch (error) {
     console.error('保存失败:', error)
-    ElMessage.error('保存失败')
+    ElMessage.error(t('common.error'))
   } finally {
     saving.value = false
   }
@@ -497,7 +527,7 @@ const resetJwtSettings = () => {
   jwtSettings.refreshTokenExpiration = 604800
   jwtSettings.issuer = 'mock-server'
   jwtSettings.audience = 'mock-server-users'
-  ElMessage.info('已重置为默认值')
+  ElMessage.info(t('settings.settingsReset'))
 }
 
 // 保存Mock配置
@@ -506,10 +536,10 @@ const saveMockSettings = async () => {
   try {
     // TODO: 调用API保存设置
     await new Promise(resolve => setTimeout(resolve, 500))
-    ElMessage.success('Mock配置已保存')
+    ElMessage.success(t('settings.settingsSaved'))
   } catch (error) {
     console.error('保存失败:', error)
-    ElMessage.error('保存失败')
+    ElMessage.error(t('common.error'))
   } finally {
     saving.value = false
   }
@@ -521,9 +551,8 @@ const resetMockSettings = () => {
   mockSettings.maxResponseDelay = 5000
   mockSettings.enableRequestLog = true
   mockSettings.logRetentionDays = 30
-  mockSettings.enableRandomResponse = false
   mockSettings.maxRequestBodySize = 10
-  ElMessage.info('已重置为默认值')
+  ElMessage.info(t('settings.settingsReset'))
 }
 
 // 获取系统信息

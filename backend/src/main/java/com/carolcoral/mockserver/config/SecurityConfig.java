@@ -88,7 +88,8 @@ public class SecurityConfig {
                                 "/api/mock-server/**",
                                 "/api/mock/**",
                                 "/api/ws/**",
-                                "/api/error"
+                                "/api/error",
+                                "/api/system-config/**"
                         ).permitAll()
                         // Swagger UI 页面（需要认证，但由JWT过滤器处理）
                         .requestMatchers(
@@ -97,6 +98,23 @@ public class SecurityConfig {
                                 "/api/swagger-ui/**",
                                 "/api/swagger-ui.html"
                         ).authenticated()
+                        // 系统配置接口 - 需要管理员权限
+                        .requestMatchers(
+                                "/api/system-config/language"
+                        ).hasRole("ADMIN")
+                        // 用户信息接口 - 需要认证
+                        .requestMatchers(
+                                "/api/user/profile",
+                                "/api/user/update-profile",
+                                "/api/user/change-password"
+                        ).authenticated()
+                        // 允许所有OPTIONS预检请求
+                        .requestMatchers(request -> "OPTIONS".equals(request.getMethod())).permitAll()
+                        // 其他所有请求需要认证
+                        .anyRequest().authenticated()
+                )
+                // JWT过滤器 - 只拦截需要认证的请求
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
                         // 允许所有OPTIONS预检请求
                         .requestMatchers(request -> "OPTIONS".equals(request.getMethod())).permitAll()
                         // 其他所有请求需要认证

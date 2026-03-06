@@ -1,3 +1,9 @@
+/**
+* Copyright (c) 2026, XINDU.SITE
+* All Rights Reserved.
+* XINDU.SITE CONFIDENTIAL
+*/
+
 package com.carolcoral.mockserver.service;
 
 import com.carolcoral.mockserver.dto.ApiResponse;
@@ -53,13 +59,13 @@ public class UserService {
             if (!userOpt.isPresent()) {
                 return ApiResponse.error(401, "用户名或密码错误");
             }
-
+            
             User user = userOpt.get();
             
             if (!user.getEnabled()) {
                 return ApiResponse.error(403, "用户已被禁用");
             }
-
+            
             if (!passwordEncoder.matches(loginRequest.getPassword(), user.getPassword())) {
                 return ApiResponse.error(401, "用户名或密码错误");
             }
@@ -83,6 +89,37 @@ public class UserService {
         } catch (Exception e) {
             log.error("用户登录失败: {}", e.getMessage(), e);
             return ApiResponse.error("登录失败，请稍后重试");
+        }
+    }
+
+    /**
+     * 更新用户个人信息
+     *
+     * @param user 用户信息
+     * @return 更新的用户
+     */
+    @Transactional
+    public ApiResponse<User> updateUserProfile(User user) {
+        try {
+            Optional<User> existingUserOpt = userRepository.findById(user.getId());
+            
+            if (!existingUserOpt.isPresent()) {
+                return ApiResponse.error("用户不存在");
+            }
+
+            User existingUser = existingUserOpt.get();
+            
+            // 只允许更新用户自己的信息
+            existingUser.setEmail(user.getEmail());
+            existingUser.setLanguage(user.getLanguage());
+            
+            User updatedUser = userRepository.save(existingUser);
+            log.info("用户个人信息更新成功: {}", updatedUser.getUsername());
+            return ApiResponse.success(updatedUser);
+            
+        } catch (Exception e) {
+            log.error("更新用户信息失败: {}", e.getMessage());
+            return ApiResponse.error("更新用户信息失败，请稍后重试");
         }
     }
 
@@ -291,8 +328,71 @@ public class UserService {
             return ApiResponse.success(users);
 
         } catch (Exception e) {
-            log.error("查询用户列表失败: {}", e.getMessage(), e);
+            log.error("查询用户列表失败: {}", e.getMessage());
             return ApiResponse.error("查询用户列表失败，请稍后重试");
+        }
+    }
+
+    /**
+     * 获取当前登录用户信息
+     *
+     * @return 用户信息
+     */
+    @Operation(summary = "获取当前登录用户信息")
+    public User getCurrentUser() {
+        try {
+            org.springframework.security.core.Authentication authentication =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new RuntimeException("用户未登录");
+            }
+            
+            return (User) authentication.getPrincipal();
+        } catch (Exception e) {
+            log.error("获取当前用户失败: {}", e.getMessage());
+            throw new RuntimeException("获取用户信息失败");
+        }
+    }
+
+    /**
+     * 修改密码
+     *
+     * @param passwordChangeRequest 密码修改请求
+     * @return 操作结果
+     */
+    @Operation(summary = "修改密码")
+    @Transactional
+    public ApiResponse<Void> changePassword(UserController.PasswordChangeRequest passwordChangeRequest) {
+        try {
+            org.springframework.security.core.Authentication authentication =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ApiResponse.error("用户未登录");
+            }
+            
+            User currentUser = (User) authentication.getPrincipal();
+            
+            // 验证原密码
+            if (!passwordEncoder.matches(passwordChangeRequest.getOldPassword(), currentUser.getPassword())) {
+                return ApiResponse.error("原密码错误");
+            }
+            
+            // 验证新密码和确认密码是否一致
+            if (!passwordChangeRequest.getNewPassword().equals(passwordChangeRequest.getConfirmPassword())) {
+                return ApiResponse.error("新密码和确认密码不一致");
+            }
+            
+            // 更新密码
+            currentUser.setPassword(passwordEncoder.encode(passwordChangeRequest.getNewPassword()));
+            userRepository.save(currentUser);
+            
+            log.info("用户 {} 修改密码成功", currentUser.getUsername());
+            return ApiResponse.success();
+        } catch (Exception e) {
+            log.error("修改密码失败: {}", e.getMessage());
+            return ApiResponse.error("修改密码失败");
         }
     }
 }

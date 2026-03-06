@@ -63,10 +63,66 @@ public class UserController {
      */
     @Operation(summary = "更新用户", description = "更新用户信息，需要管理员权限或本人操作")
     @PreAuthorize("hasRole('ADMIN') or #user.id == authentication.principal.id")
-    @PutMapping
-    public ApiResponse<User> updateUser(@Parameter(description = "用户信息") @Valid @RequestBody User user) {
-        log.info("更新用户请求: {}", user.getId());
-        return userService.updateUser(user);
+    @PutMapping("/update-profile")
+    public ApiResponse<User> updateUserProfile(@RequestBody User user) {
+        log.info("更新用户信息请求: {}", user.getId());
+        return userService.updateUserProfile(user);
+    }
+
+    /**
+     * 获取当前用户信息
+     *
+     * @return 用户信息
+     */
+    @GetMapping("/profile")
+    @Operation(summary = "获取当前用户信息", description = "需要登录")
+    public ApiResponse<User> getCurrentUserProfile() {
+        return userService.getCurrentUser();
+    }
+
+    /**
+     * 修改密码
+     *
+     * @param passwordChangeRequest 密码修改请求
+     * @return 操作结果
+     */
+    @PostMapping("/change-password")
+    @Operation(summary = "修改密码", description = "需要登录，原密码必须正确")
+    public ApiResponse<Void> changePassword(@RequestBody UserController.PasswordChangeRequest passwordChangeRequest) {
+        return userService.changePassword(passwordChangeRequest);
+    }
+
+    /**
+     * 密码修改请求DTO
+     */
+    public static class PasswordChangeRequest {
+        private String oldPassword;
+        private String newPassword;
+        private String confirmPassword;
+
+        public String getOldPassword() {
+            return oldPassword;
+        }
+
+        public void setOldPassword(String oldPassword) {
+            this.oldPassword = oldPassword;
+        }
+
+        public String getNewPassword() {
+            return newPassword;
+        }
+
+        public void setNewPassword(String newPassword) {
+            this.newPassword = newPassword;
+        }
+
+        public String getConfirmPassword() {
+            return confirmPassword;
+        }
+
+        public void setConfirmPassword(String confirmPassword) {
+            this.confirmPassword = confirmPassword;
+        }
     }
 
     /**
