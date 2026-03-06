@@ -17,11 +17,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.time.LocalDateTime;
 
 /**
@@ -38,10 +33,6 @@ import java.time.LocalDateTime;
     @Index(name = "idx_mock_api_id", columnList = "mock_api_id"),
     @Index(name = "idx_request_time", columnList = "request_time")
 })
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class RequestLog {
 
     @Schema(description = "日志ID", example = "1")
@@ -98,6 +89,173 @@ public class RequestLog {
     protected void onCreate() {
         if (requestTime == null) {
             requestTime = LocalDateTime.now();
+        }
+    }
+
+    // Getters and Setters
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Long getMockApiId() {
+        return mockApiId;
+    }
+
+    public void setMockApiId(Long mockApiId) {
+        this.mockApiId = mockApiId;
+    }
+
+    public Long getProjectId() {
+        return projectId;
+    }
+
+    public void setProjectId(Long projectId) {
+        this.projectId = projectId;
+    }
+
+    public String getMethod() {
+        return method;
+    }
+
+    public void setMethod(String method) {
+        this.method = method;
+    }
+
+    public String getPath() {
+        return path;
+    }
+
+    public void setPath(String path) {
+        this.path = path;
+    }
+
+    public LocalDateTime getRequestTime() {
+        return requestTime;
+    }
+
+    public void setRequestTime(LocalDateTime requestTime) {
+        this.requestTime = requestTime;
+    }
+
+    public Integer getStatusCode() {
+        return statusCode;
+    }
+
+    public void setStatusCode(Integer statusCode) {
+        this.statusCode = statusCode;
+    }
+
+    public Long getResponseTime() {
+        return responseTime;
+    }
+
+    public void setResponseTime(Long responseTime) {
+        this.responseTime = responseTime;
+    }
+
+    public String getRequestIp() {
+        return requestIp;
+    }
+
+    public void setRequestIp(String requestIp) {
+        this.requestIp = requestIp;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+
+    public MockApi getMockApi() {
+        return mockApi;
+    }
+
+    public void setMockApi(MockApi mockApi) {
+        this.mockApi = mockApi;
+    }
+
+    /**
+     * Builder方法
+     */
+    public static RequestLogBuilder builder() {
+        return new RequestLogBuilder();
+    }
+
+    public static class RequestLogBuilder {
+        private Long mockApiId;
+        private Long projectId;
+        private String method;
+        private String path;
+        private LocalDateTime requestTime;
+        private Integer statusCode;
+        private Long responseTime;
+        private String requestIp;
+        private Long userId;
+
+        public RequestLogBuilder mockApiId(Long mockApiId) {
+            this.mockApiId = mockApiId;
+            return this;
+        }
+
+        public RequestLogBuilder projectId(Long projectId) {
+            this.projectId = projectId;
+            return this;
+        }
+
+        public RequestLogBuilder method(String method) {
+            this.method = method;
+            return this;
+        }
+
+        public RequestLogBuilder path(String path) {
+            this.path = path;
+            return this;
+        }
+
+        public RequestLogBuilder requestTime(LocalDateTime requestTime) {
+            this.requestTime = requestTime;
+            return this;
+        }
+
+        public RequestLogBuilder statusCode(Integer statusCode) {
+            this.statusCode = statusCode;
+            return this;
+        }
+
+        public RequestLogBuilder responseTime(Long responseTime) {
+            this.responseTime = responseTime;
+            return this;
+        }
+
+        public RequestLogBuilder requestIp(String requestIp) {
+            this.requestIp = requestIp;
+            return this;
+        }
+
+        public RequestLogBuilder userId(Long userId) {
+            this.userId = userId;
+            return this;
+        }
+
+        public RequestLog build() {
+            RequestLog log = new RequestLog();
+            log.setMockApiId(mockApiId);
+            log.setProjectId(projectId);
+            log.setMethod(method);
+            log.setPath(path);
+            log.setRequestTime(requestTime);
+            log.setStatusCode(statusCode);
+            log.setResponseTime(responseTime);
+            log.setRequestIp(requestIp);
+            log.setUserId(userId);
+            return log;
         }
     }
 }

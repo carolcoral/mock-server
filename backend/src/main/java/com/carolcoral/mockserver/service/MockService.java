@@ -13,8 +13,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -30,10 +28,19 @@ import java.util.concurrent.ThreadLocalRandom;
  * @author carolcoral
  */
 @Tag(name = "Mock服务", description = "Mock请求处理核心服务")
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class MockService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MockService.class);
+
+    /**
+     * 构造器
+     */
+    public MockService(CacheUtil cacheUtil, ObjectMapper objectMapper, RequestLogService requestLogService) {
+        this.cacheUtil = cacheUtil;
+        this.objectMapper = objectMapper;
+        this.requestLogService = requestLogService;
+    }
 
     private final CacheUtil cacheUtil;
     private final ObjectMapper objectMapper;

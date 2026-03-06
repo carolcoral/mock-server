@@ -17,8 +17,6 @@ import com.carolcoral.mockserver.repository.UserRepository;
 import com.carolcoral.mockserver.util.CacheUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -33,10 +31,26 @@ import java.util.Optional;
  * @author carolcoral
  */
 @Tag(name = "启动配置", description = "应用启动初始化配置")
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class StartupConfig implements CommandLineRunner {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(StartupConfig.class);
+
+    /**
+     * 构造器
+     */
+    public StartupConfig(UserRepository userRepository,
+        ProjectRepository projectRepository,
+        MockApiRepository mockApiRepository,
+        MockResponseRepository mockResponseRepository,
+        PasswordEncoder passwordEncoder,
+        CacheUtil cacheUtil) {
+        this.userRepository = userRepository;
+        this.projectRepository = projectRepository;
+        this.mockApiRepository = mockApiRepository;
+        this.mockResponseRepository = mockResponseRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.cacheUtil = cacheUtil;
+    }
 
     private final UserRepository userRepository;
     private final ProjectRepository projectRepository;

@@ -11,8 +11,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.NotNull;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -22,11 +20,17 @@ import org.springframework.web.bind.annotation.*;
  */
 @Tag(name = "项目成员管理", description = "项目成员管理相关接口")
 @SecurityRequirement(name = "bearerAuth")
-@Slf4j
 @RestController
 @RequestMapping("/project-members")
-@RequiredArgsConstructor
 public class ProjectMemberController {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ProjectMemberController.class);
+
+    /**
+     * 构造器
+     */
+    public ProjectMemberController(ProjectMemberService projectMemberService) {
+        this.projectMemberService = projectMemberService;
+    }
 
     private final ProjectMemberService projectMemberService;
 

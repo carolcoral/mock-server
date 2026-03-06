@@ -9,7 +9,6 @@ package com.carolcoral.mockserver.config;
 import com.carolcoral.mockserver.handler.MockWebSocketHandler;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
@@ -23,8 +22,14 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 @Tag(name = "WebSocket配置", description = "WebSocket配置类")
 @Configuration
 @EnableWebSocket
-@RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketConfigurer {
+    /**
+     * 构造器
+     */
+    public WebSocketConfig(MockWebSocketHandler mockWebSocketHandler) {
+        this.mockWebSocketHandler = mockWebSocketHandler;
+    }
+
 
     private final MockWebSocketHandler mockWebSocketHandler;
 

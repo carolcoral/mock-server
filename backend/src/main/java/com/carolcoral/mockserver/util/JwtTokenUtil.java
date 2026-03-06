@@ -5,7 +5,6 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
@@ -22,9 +21,9 @@ import java.util.Map;
  * @author carolcoral
  */
 @Tag(name = "JWT工具", description = "JWT令牌生成和验证工具")
-@Slf4j
 @Component
 public class JwtTokenUtil {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(JwtTokenUtil.class);
 
     @Value("${jwt.secret}")
     private String secret;

@@ -15,8 +15,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -28,12 +26,18 @@ import org.springframework.web.bind.annotation.*;
  */
 @Tag(name = "用户管理", description = "用户管理相关接口")
 @SecurityRequirement(name = "bearerAuth")
-@Slf4j
 @RestController
 @RequestMapping("/users")
-@RequiredArgsConstructor
 @Validated
 public class UserController {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(UserController.class);
+
+    /**
+     * 构造器
+     */
+    public UserController(UserService userService) {
+        this.userService = userService;
+    }
 
     private final UserService userService;
 

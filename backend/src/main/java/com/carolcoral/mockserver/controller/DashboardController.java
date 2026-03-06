@@ -17,8 +17,6 @@ import com.carolcoral.mockserver.service.SystemAnnouncementService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,11 +36,27 @@ import java.util.Map;
  * @author carolcoral
  */
 @Tag(name = "仪表盘管理", description = "首页统计数据相关接口")
-@Slf4j
 @RestController
 @RequestMapping("/dashboard")
-@RequiredArgsConstructor
 public class DashboardController {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DashboardController.class);
+
+    /**
+     * 构造器
+     */
+    public DashboardController(ProjectRepository projectRepository,
+        MockApiRepository mockApiRepository,
+        UserRepository userRepository,
+        RequestLogRepository requestLogRepository,
+        RequestLogService requestLogService,
+        SystemAnnouncementService announcementService) {
+        this.projectRepository = projectRepository;
+        this.mockApiRepository = mockApiRepository;
+        this.userRepository = userRepository;
+        this.requestLogRepository = requestLogRepository;
+        this.requestLogService = requestLogService;
+        this.announcementService = announcementService;
+    }
 
     private final ProjectRepository projectRepository;
     private final MockApiRepository mockApiRepository;

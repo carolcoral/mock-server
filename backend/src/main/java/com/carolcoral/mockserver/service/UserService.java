@@ -9,8 +9,6 @@ import com.carolcoral.mockserver.util.JwtTokenUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,10 +22,18 @@ import java.util.Optional;
  * @author carolcoral
  */
 @Tag(name = "用户服务", description = "用户业务逻辑处理")
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class UserService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(UserService.class);
+
+    /**
+     * 构造器
+     */
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenUtil jwtTokenUtil) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtTokenUtil = jwtTokenUtil;
+    }
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;

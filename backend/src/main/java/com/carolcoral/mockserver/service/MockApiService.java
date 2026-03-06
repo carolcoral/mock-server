@@ -13,8 +13,6 @@ import com.carolcoral.mockserver.util.CacheUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -30,10 +28,20 @@ import java.util.stream.Collectors;
  * @author carolcoral
  */
 @Tag(name = "接口服务", description = "自定义接口业务逻辑处理")
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class MockApiService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MockApiService.class);
+
+    /**
+     * 构造器
+     */
+    public MockApiService(MockApiRepository mockApiRepository, MockResponseRepository mockResponseRepository, ProjectRepository projectRepository, CacheUtil cacheUtil, UserRepository userRepository) {
+        this.mockApiRepository = mockApiRepository;
+        this.mockResponseRepository = mockResponseRepository;
+        this.projectRepository = projectRepository;
+        this.cacheUtil = cacheUtil;
+        this.userRepository = userRepository;
+    }
 
     private final MockApiRepository mockApiRepository;
     private final MockResponseRepository mockResponseRepository;

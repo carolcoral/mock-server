@@ -12,8 +12,6 @@ import com.carolcoral.mockserver.service.MockService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -29,10 +27,18 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author carolcoral
  */
 @Tag(name = "WebSocket处理器", description = "Mock WebSocket请求处理器")
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class MockWebSocketHandler extends TextWebSocketHandler {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MockWebSocketHandler.class);
+
+    /**
+     * 构造器
+     */
+    public MockWebSocketHandler(MockService mockService,
+        ObjectMapper objectMapper) {
+        this.mockService = mockService;
+        this.objectMapper = objectMapper;
+    }
 
     private final MockService mockService;
     private final ObjectMapper objectMapper;

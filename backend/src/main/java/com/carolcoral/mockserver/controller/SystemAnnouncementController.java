@@ -16,8 +16,6 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -36,11 +34,17 @@ import java.util.Map;
  */
 @Tag(name = "系统公告管理", description = "系统公告管理相关接口")
 @SecurityRequirement(name = "bearerAuth")
-@Slf4j
 @RestController
 @RequestMapping("/system-announcement")
-@RequiredArgsConstructor
 public class SystemAnnouncementController {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SystemAnnouncementController.class);
+
+    /**
+     * 构造器
+     */
+    public SystemAnnouncementController(SystemAnnouncementService announcementService) {
+        this.announcementService = announcementService;
+    }
 
     private final SystemAnnouncementService announcementService;
 

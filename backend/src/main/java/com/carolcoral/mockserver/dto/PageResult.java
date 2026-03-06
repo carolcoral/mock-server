@@ -7,11 +7,6 @@
 package com.carolcoral.mockserver.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.util.List;
 
 /**
@@ -22,10 +17,6 @@ import java.util.List;
  * @since 2026-03-06
  */
 @Schema(description = "分页结果")
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class PageResult<T> {
 
     @Schema(description = "数据列表")
@@ -48,4 +39,134 @@ public class PageResult<T> {
 
     @Schema(description = "是否为第一页", example = "true")
     private boolean first;
+
+    /**
+     * 默认构造器
+     */
+    public PageResult() {
+    }
+
+    /**
+     * Builder方法
+     */
+    public static <T> PageResultBuilder<T> builder() {
+        return new PageResultBuilder<>();
+    }
+
+    /**
+     * Builder类
+     */
+    public static class PageResultBuilder<T> {
+        private List<T> content;
+        private int page;
+        private int size;
+        private long totalElements;
+        private int totalPages;
+        private boolean last;
+        private boolean first;
+
+        public PageResultBuilder<T> content(List<T> content) {
+            this.content = content;
+            return this;
+        }
+
+        public PageResultBuilder<T> page(int page) {
+            this.page = page;
+            return this;
+        }
+
+        public PageResultBuilder<T> size(int size) {
+            this.size = size;
+            return this;
+        }
+
+        public PageResultBuilder<T> totalElements(long totalElements) {
+            this.totalElements = totalElements;
+            return this;
+        }
+
+        public PageResultBuilder<T> totalPages(int totalPages) {
+            this.totalPages = totalPages;
+            return this;
+        }
+
+        public PageResultBuilder<T> last(boolean last) {
+            this.last = last;
+            return this;
+        }
+
+        public PageResultBuilder<T> first(boolean first) {
+            this.first = first;
+            return this;
+        }
+
+        public PageResult<T> build() {
+            PageResult<T> result = new PageResult<>();
+            result.content = content;
+            result.page = page;
+            result.size = size;
+            result.totalElements = totalElements;
+            result.totalPages = totalPages;
+            result.last = last;
+            result.first = first;
+            return result;
+        }
+    }
+
+    // Getters and Setters
+    public List<T> getContent() {
+        return content;
+    }
+
+    public void setContent(List<T> content) {
+        this.content = content;
+    }
+
+    public int getPage() {
+        return page;
+    }
+
+    public void setPage(int page) {
+        this.page = page;
+    }
+
+    public int getSize() {
+        return size;
+    }
+
+    public void setSize(int size) {
+        this.size = size;
+    }
+
+    public long getTotalElements() {
+        return totalElements;
+    }
+
+    public void setTotalElements(long totalElements) {
+        this.totalElements = totalElements;
+    }
+
+    public int getTotalPages() {
+        return totalPages;
+    }
+
+    public void setTotalPages(int totalPages) {
+        this.totalPages = totalPages;
+    }
+
+    public boolean isLast() {
+        return last;
+    }
+
+    public void setLast(boolean last) {
+        this.last = last;
+    }
+
+    public boolean isFirst() {
+        return first;
+    }
+
+    public void setFirst(boolean first) {
+        this.first = first;
+    }
 }

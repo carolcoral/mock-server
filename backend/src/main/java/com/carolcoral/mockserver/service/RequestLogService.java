@@ -10,8 +10,6 @@ import com.carolcoral.mockserver.entity.MockApi;
 import com.carolcoral.mockserver.entity.RequestLog;
 import com.carolcoral.mockserver.repository.RequestLogRepository;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -28,9 +26,16 @@ import java.time.LocalDateTime;
  * @since 2026-03-06
  */
 @Service
-@Slf4j
-@RequiredArgsConstructor
 public class RequestLogService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(RequestLogService.class);
+
+    /**
+     * 构造器
+     */
+    public RequestLogService(RequestLogRepository requestLogRepository) {
+        this.requestLogRepository = requestLogRepository;
+    }
 
     private final RequestLogRepository requestLogRepository;
 

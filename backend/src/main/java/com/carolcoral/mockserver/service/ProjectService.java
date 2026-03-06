@@ -1,6 +1,7 @@
 package com.carolcoral.mockserver.service;
 
 import com.carolcoral.mockserver.dto.ApiResponse;
+import com.carolcoral.mockserver.dto.ProjectWithRoleDTO;
 import com.carolcoral.mockserver.entity.Project;
 import com.carolcoral.mockserver.entity.ProjectMember;
 import com.carolcoral.mockserver.entity.User;
@@ -11,13 +12,13 @@ import com.carolcoral.mockserver.util.CacheUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * 项目服务类
@@ -25,10 +26,19 @@ import java.util.Optional;
  * @author carolcoral
  */
 @Tag(name = "项目服务", description = "项目业务逻辑处理")
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class ProjectService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ProjectService.class);
+
+    /**
+     * 构造器
+     */
+    public ProjectService(ProjectRepository projectRepository, UserRepository userRepository, ProjectMemberRepository projectMemberRepository, CacheUtil cacheUtil) {
+        this.projectRepository = projectRepository;
+        this.userRepository = userRepository;
+        this.projectMemberRepository = projectMemberRepository;
+        this.cacheUtil = cacheUtil;
+    }
 
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
@@ -257,6 +267,71 @@ public class ProjectService {
             log.error("查询项目列表失败: {}", e.getMessage(), e);
             return ApiResponse.error("查询项目列表失败，请稍后重试");
         }
+    }
+
+    /**
+     * 查询用户有权限访问的项目（带用户角色）
+     *
+     * @param userId    用户ID
+     * @param userRole 用户角色
+     * @return 项目列表（带用户角色）
+     */
+    @Operation(summary = "查询用户有权限访问的项目（带用户角色）")
+    public ApiResponse<List<ProjectWithRoleDTO>> getAccessibleProjectsWithRole(@Parameter(description = "用户ID", example = "1") Long userId,
+                                                                              @Parameter(description = "用户角色") User.UserRole userRole) {
+        try {
+            Optional<User> userOpt = userRepository.findById(userId);
+
+            if (!userOpt.isPresent()) {
+                return ApiResponse.error("用户不存在");
+            }
+
+            User user = userOpt.get();
+            List<Project> projects;
+            List<ProjectWithRoleDTO> projectWithRoles = new ArrayList<>();
+
+            if (userRole == User.UserRole.ADMIN) {
+                // 管理员可以访问所有项目，角色为ADMIN
+                projects = projectRepository.findAll();
+                for (Project project : projects) {
+                    String role = project.getCreateUserId().equals(userId) ? "CREATOR" : "ADMIN";
+                    projectWithRoles.add(ProjectWithRoleDTO.fromProject(project, role));
+                }
+            } else {
+                // 普通用户只能访问自己是创建者或管理员的项目
+                projects = projectRepository.findAccessibleProjectsByUserId(userId);
+                for (Project project : projects) {
+                    String role = project.getCreateUserId().equals(userId) ? "CREATOR" : determineUserRole(project, userId);
+                    projectWithRoles.add(ProjectWithRoleDTO.fromProject(project, role));
+                }
+            }
+
+            return ApiResponse.success(projectWithRoles);
+
+        } catch (Exception e) {
+            log.error("查询项目列表失败: {}", e.getMessage(), e);
+            return ApiResponse.error("查询项目列表失败，请稍后重试");
+        }
+    }
+
+    /**
+     * 确定用户在项目中的角色
+     *
+     * @param project 项目
+     * @param userId  用户ID
+     * @return 角色名称
+     */
+    private String determineUserRole(Project project, Long userId) {
+        if (project.getCreateUserId().equals(userId)) {
+            return "CREATOR";
+        }
+        
+        Optional<ProjectMember> member = projectMemberRepository.findByProjectIdAndUserId(project.getId(), userId);
+        if (member.isPresent()) {
+            return member.get().getRole().name();
+        }
+        
+        return "MEMBER";
     }
 
     /**

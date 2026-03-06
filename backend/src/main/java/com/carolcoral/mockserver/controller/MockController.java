@@ -14,8 +14,6 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.Pattern;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -33,12 +31,18 @@ import java.util.Map;
  * @author carolcoral
  */
 @Tag(name = "Mock请求", description = "Mock请求处理接口（无需认证）")
-@Slf4j
 @RestController
 @RequestMapping("/mock-server")
-@RequiredArgsConstructor
 @Validated
 public class MockController {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MockController.class);
+
+    /**
+     * 构造器
+     */
+    public MockController(MockService mockService) {
+        this.mockService = mockService;
+    }
 
     private final MockService mockService;
 

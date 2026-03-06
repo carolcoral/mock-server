@@ -9,8 +9,6 @@ import com.carolcoral.mockserver.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,10 +23,17 @@ import java.util.stream.Collectors;
  * @author carolcoral
  */
 @Tag(name = "项目成员服务", description = "项目成员业务逻辑处理")
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class ProjectMemberService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ProjectMemberService.class);
+
+    /**
+     * 构造器
+     */
+    public ProjectMemberService(ProjectMemberRepository projectMemberRepository, UserRepository userRepository) {
+        this.projectMemberRepository = projectMemberRepository;
+        this.userRepository = userRepository;
+    }
 
     private final ProjectMemberRepository projectMemberRepository;
     private final UserRepository userRepository;

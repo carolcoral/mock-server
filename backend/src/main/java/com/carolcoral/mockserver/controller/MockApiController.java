@@ -15,8 +15,6 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,11 +33,17 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Tag(name = "接口管理", description = "自定义接口管理相关接口")
 @SecurityRequirement(name = "bearerAuth")
-@Slf4j
 @RestController
 @RequestMapping("/mock-apis")
-@RequiredArgsConstructor
 public class MockApiController {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MockApiController.class);
+
+    /**
+     * 构造器
+     */
+    public MockApiController(MockApiService mockApiService) {
+        this.mockApiService = mockApiService;
+    }
 
     private final MockApiService mockApiService;
 

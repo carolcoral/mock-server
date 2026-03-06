@@ -54,10 +54,10 @@
         <el-table-column prop="createTime" label="创建时间" width="180" />
         <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
+            <el-button type="primary" link @click="handleEdit(row)" :disabled="!canEditProject(row)">编辑</el-button>
             <el-button type="primary" link @click="$router.push(`/apis?projectId=${row.id}`)">接口管理</el-button>
-            <el-button type="success" link @click="handleManageMembers(row)">成员管理</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            <el-button type="success" link @click="handleManageMembers(row)" :disabled="!canManageMembers(row)">成员管理</el-button>
+            <el-button type="danger" link @click="handleDelete(row)" :disabled="!canDeleteProject(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -618,6 +618,29 @@ const handleMemberDialogClose = () => {
 // 关闭添加成员对话框
 const handleAddMemberDialogClose = () => {
   memberFormRef.value?.resetFields()
+}
+
+// ====== 权限判断方法 ======
+
+// 判断是否可以编辑项目（创建者或管理员）
+const canEditProject = (project) => {
+  if (isAdmin.value) return true
+  const role = project.userRole
+  return role === 'CREATOR' || role === 'ADMIN'
+}
+
+// 判断是否可以管理成员（创建者或管理员）
+const canManageMembers = (project) => {
+  if (isAdmin.value) return true
+  const role = project.userRole
+  return role === 'CREATOR' || role === 'ADMIN'
+}
+
+// 判断是否可以删除项目（只有创建者可以删除）
+const canDeleteProject = (project) => {
+  if (isAdmin.value) return true
+  const role = project.userRole
+  return role === 'CREATOR'
 }
 
 // 页面加载时获取数据

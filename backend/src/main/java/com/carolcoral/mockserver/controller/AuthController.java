@@ -15,8 +15,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.web.bind.annotation.*;
@@ -29,11 +27,19 @@ import java.util.Collections;
  * @author carolcoral
  */
 @Tag(name = "认证管理", description = "用户认证相关接口")
-@Slf4j
 @RestController
 @RequestMapping("/auth")
-@RequiredArgsConstructor
 public class AuthController {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuthController.class);
+
+    /**
+     * 构造器
+     */
+    public AuthController(UserService userService,
+        JwtTokenUtil jwtTokenUtil) {
+        this.userService = userService;
+        this.jwtTokenUtil = jwtTokenUtil;
+    }
 
     private final UserService userService;
     private final JwtTokenUtil jwtTokenUtil;

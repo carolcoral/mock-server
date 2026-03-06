@@ -6,7 +6,6 @@
 
 package com.carolcoral.mockserver.config;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.core.Ordered;
@@ -23,9 +22,9 @@ import java.util.Map;
  *
  * @author carolcoral
  */
-@Slf4j
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class SqliteEnvironmentPostProcessor implements EnvironmentPostProcessor {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SqliteEnvironmentPostProcessor.class);
 
     private static final String PROPERTY_SOURCE_NAME = "sqliteDirectoryConfig";
 

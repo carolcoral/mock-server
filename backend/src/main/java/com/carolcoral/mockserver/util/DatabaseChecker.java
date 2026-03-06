@@ -2,8 +2,6 @@ package com.carolcoral.mockserver.util;
 
 import com.carolcoral.mockserver.entity.User;
 import com.carolcoral.mockserver.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -13,11 +11,17 @@ import org.springframework.stereotype.Component;
  *
  * @author carolcoral
  */
-@Slf4j
 @Component
 @Order(1) // 在 StartupConfig 之前执行
-@RequiredArgsConstructor
 public class DatabaseChecker implements CommandLineRunner {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DatabaseChecker.class);
+
+    /**
+     * 构造器
+     */
+    public DatabaseChecker(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     private final UserRepository userRepository;
 

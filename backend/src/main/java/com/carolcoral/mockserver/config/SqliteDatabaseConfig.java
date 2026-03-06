@@ -6,7 +6,6 @@
 
 package com.carolcoral.mockserver.config;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -18,9 +17,9 @@ import java.io.File;
  *
  * @author carolcoral
  */
-@Slf4j
 @Configuration
 public class SqliteDatabaseConfig implements InitializingBean {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SqliteDatabaseConfig.class);
 
     // 从系统属性（由.env文件加载）获取配置
     private String sqliteUrl = System.getProperty("DB_URL", "jdbc:sqlite:./data/mock-server.db");

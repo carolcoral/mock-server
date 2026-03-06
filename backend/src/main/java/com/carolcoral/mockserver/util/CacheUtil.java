@@ -9,8 +9,6 @@ import com.carolcoral.mockserver.repository.ProjectRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Component;
@@ -25,10 +23,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author carolcoral
  */
 @Tag(name = "缓存工具", description = "缓存管理工具类")
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class CacheUtil {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CacheUtil.class);
 
     private static final String PROJECT_CACHE = "projects";
     private static final String API_CACHE = "apis";
@@ -39,6 +37,17 @@ public class CacheUtil {
     private final ProjectRepository projectRepository;
     private final MockApiRepository mockApiRepository;
     private final MockResponseRepository mockResponseRepository;
+
+    /**
+     * 构造器
+     */
+    public CacheUtil(CacheManager cacheManager, ProjectRepository projectRepository,
+                      MockApiRepository mockApiRepository, MockResponseRepository mockResponseRepository) {
+        this.cacheManager = cacheManager;
+        this.projectRepository = projectRepository;
+        this.mockApiRepository = mockApiRepository;
+        this.mockResponseRepository = mockResponseRepository;
+    }
 
     // 内存缓存 - 用于高速访问
     private final ConcurrentHashMap<String, Project> projectCodeCache = new ConcurrentHashMap<>();

@@ -8,7 +8,6 @@ package com.carolcoral.mockserver.config;
 
 import io.github.cdimascio.dotenv.Dotenv;
 import jakarta.annotation.PostConstruct;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
 
 /**
@@ -17,9 +16,9 @@ import org.springframework.context.annotation.Configuration;
  *
  * @author carolcoral
  */
-@Slf4j
 @Configuration
 public class DotenvConfig {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DotenvConfig.class);
 
     @PostConstruct
     public void loadDotenv() {

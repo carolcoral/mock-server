@@ -1,6 +1,5 @@
 package com.carolcoral.mockserver.util;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
@@ -8,9 +7,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
-@Slf4j
 @Order(1)
 public class DatabaseMigration implements CommandLineRunner {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DatabaseMigration.class);
 
     @Autowired
     private JdbcTemplate jdbcTemplate;

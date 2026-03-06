@@ -7,21 +7,12 @@
 package com.carolcoral.mockserver.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 /**
  * 通用API响应DTO
  *
  * @author carolcoral
  */
 @Schema(description = "通用API响应")
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class ApiResponse<T> {
 
     @Schema(description = "响应码", example = "200")
@@ -35,6 +26,58 @@ public class ApiResponse<T> {
 
     @Schema(description = "时间戳", example = "1703123456789")
     private Long timestamp;
+
+    /**
+     * 默认构造器
+     */
+    public ApiResponse() {
+    }
+
+    /**
+     * Builder方法
+     */
+    public static <T> ApiResponseBuilder<T> builder() {
+        return new ApiResponseBuilder<>();
+    }
+
+    /**
+     * Builder类
+     */
+    public static class ApiResponseBuilder<T> {
+        private Integer code;
+        private String message;
+        private T data;
+        private Long timestamp;
+
+        public ApiResponseBuilder<T> code(Integer code) {
+            this.code = code;
+            return this;
+        }
+
+        public ApiResponseBuilder<T> message(String message) {
+            this.message = message;
+            return this;
+        }
+
+        public ApiResponseBuilder<T> data(T data) {
+            this.data = data;
+            return this;
+        }
+
+        public ApiResponseBuilder<T> timestamp(Long timestamp) {
+            this.timestamp = timestamp;
+            return this;
+        }
+
+        public ApiResponse<T> build() {
+            ApiResponse<T> response = new ApiResponse<>();
+            response.code = code;
+            response.message = message;
+            response.data = data;
+            response.timestamp = timestamp;
+            return response;
+        }
+    }
 
     /**
      * 成功响应
@@ -117,5 +160,38 @@ public class ApiResponse<T> {
      */
     public static <T> ApiResponse<T> notFound() {
         return error(404, "资源未找到");
+    }
+
+    // Getters and Setters
+    public Integer getCode() {
+        return code;
+    }
+
+    public void setCode(Integer code) {
+        this.code = code;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    public T getData() {
+        return data;
+    }
+
+    public void setData(T data) {
+        this.data = data;
+    }
+
+    public Long getTimestamp() {
+        return timestamp;
+    }
+
+    public void setTimestamp(Long timestamp) {
+        this.timestamp = timestamp;
     }
 }

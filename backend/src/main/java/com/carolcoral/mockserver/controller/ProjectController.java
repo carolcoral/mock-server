@@ -7,6 +7,7 @@
 package com.carolcoral.mockserver.controller;
 
 import com.carolcoral.mockserver.dto.ApiResponse;
+import com.carolcoral.mockserver.dto.ProjectWithRoleDTO;
 import com.carolcoral.mockserver.entity.Project;
 import com.carolcoral.mockserver.entity.User;
 import com.carolcoral.mockserver.service.ProjectService;
@@ -17,8 +18,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.annotation.Validated;
@@ -31,12 +30,18 @@ import org.springframework.web.bind.annotation.*;
  */
 @Tag(name = "项目管理", description = "项目管理相关接口")
 @SecurityRequirement(name = "bearerAuth")
-@Slf4j
 @RestController
 @RequestMapping("/projects")
-@RequiredArgsConstructor
 @Validated
 public class ProjectController {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ProjectController.class);
+
+    /**
+     * 构造器
+     */
+    public ProjectController(ProjectService projectService) {
+        this.projectService = projectService;
+    }
 
     private final ProjectService projectService;
 
@@ -149,18 +154,18 @@ public class ProjectController {
     }
 
     /**
-     * 查询用户有权限访问的项目
+     * 查询用户有权限访问的项目（带角色信息）
      *
      * @param request 请求
-     * @return 项目列表
+     * @return 项目列表（带用户角色）
      */
-    @Operation(summary = "查询用户有权限访问的项目", description = "查询当前用户有权限访问的项目列表")
+    @Operation(summary = "查询用户有权限访问的项目（带角色信息）", description = "查询当前用户有权限访问的项目列表，包含用户在每个项目中的角色")
     @GetMapping("/accessible")
-    public ApiResponse<java.util.List<Project>> getAccessibleProjects(HttpServletRequest request) {
+    public ApiResponse<java.util.List<ProjectWithRoleDTO>> getAccessibleProjects(HttpServletRequest request) {
         Long userId = getUserIdFromRequest(request);
         User.UserRole userRole = getUserRoleFromRequest(request);
         log.info("查询用户有权限访问的项目请求，用户: {}, 角色: {}", userId, userRole);
-        return projectService.getAccessibleProjects(userId, userRole);
+        return projectService.getAccessibleProjectsWithRole(userId, userRole);
     }
 
     /**

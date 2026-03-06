@@ -13,8 +13,6 @@ import com.carolcoral.mockserver.entity.SystemAnnouncement;
 import com.carolcoral.mockserver.entity.User;
 import com.carolcoral.mockserver.repository.SystemAnnouncementRepository;
 import com.carolcoral.mockserver.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -34,12 +32,20 @@ import java.util.stream.Collectors;
  * @since 2026-03-06
  */
 @Service
-@Slf4j
-@RequiredArgsConstructor
 public class SystemAnnouncementService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SystemAnnouncementService.class);
 
     private final SystemAnnouncementRepository announcementRepository;
     private final UserRepository userRepository;
+
+    /**
+     * 构造器
+     */
+    public SystemAnnouncementService(SystemAnnouncementRepository announcementRepository, UserRepository userRepository) {
+        this.announcementRepository = announcementRepository;
+        this.userRepository = userRepository;
+    }
 
     /**
      * 获取启用的公告
