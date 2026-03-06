@@ -101,7 +101,7 @@ public class MockController {
             MockRequest mockRequest = buildMockRequest(projectCode, path, method, request);
 
             // 处理请求
-            MockResponseDTO mockResponse = mockService.handleMockRequest(mockRequest);
+            MockResponseDTO mockResponse = mockService.handleMockRequest(mockRequest, request);
 
             // 构建HTTP响应
             return buildHttpResponse(mockResponse);

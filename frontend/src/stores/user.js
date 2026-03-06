@@ -16,11 +16,11 @@ export const useUserStore = defineStore('user', () => {
       // 使用 cravatar.cn 生成头像
       // 如果没有邮箱，使用用户名生成虚拟邮箱
       const emailForAvatar = userInfo.value.email || `${userInfo.value.username || 'user'}@cravatar.cn`
-      const avatarUrl = `https://cravatar.cn/avatar/${emailForAvatar}?s=200&r=g&d=retro`
+      const avatarUrl = `https://cravatar.cn/avatar/${emailForAvatar}?s=200&r=g`
       return avatarUrl
     } catch (error) {
       console.warn('生成头像URL失败:', error)
-      return ''
+      return '/src/assets/images/default-avatar.png'
     }
   })
 

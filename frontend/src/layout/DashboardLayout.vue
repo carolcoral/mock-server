@@ -46,7 +46,9 @@
         <div class="header-right">
           <el-dropdown @command="handleCommand">
             <span class="user-info">
-              <el-avatar :size="32" :src="userStore.userAvatar" :key="userStore.userAvatar" :icon="UserFilled" />
+              <el-avatar :size="32" :src="userStore.userAvatar" :key="userStore.userAvatar" @error="handleAvatarError">
+                <el-icon><UserFilled /></el-icon>
+              </el-avatar>
               <span class="username">{{ userStore.username }}</span>
               <el-icon class="el-icon--right"><arrow-down /></el-icon>
             </span>
@@ -110,6 +112,7 @@ const handleCommand = (command) => {
 // 头像加载错误处理
 const handleAvatarError = () => {
   console.warn('头像加载失败，使用默认图标')
+  return false
 }
 
 // 退出登录

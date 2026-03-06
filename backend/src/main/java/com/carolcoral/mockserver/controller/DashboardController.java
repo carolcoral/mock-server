@@ -7,9 +7,13 @@
 package com.carolcoral.mockserver.controller;
 
 import com.carolcoral.mockserver.dto.ApiResponse;
+import com.carolcoral.mockserver.dto.SystemAnnouncementDTO;
 import com.carolcoral.mockserver.repository.MockApiRepository;
 import com.carolcoral.mockserver.repository.ProjectRepository;
+import com.carolcoral.mockserver.repository.RequestLogRepository;
 import com.carolcoral.mockserver.repository.UserRepository;
+import com.carolcoral.mockserver.service.RequestLogService;
+import com.carolcoral.mockserver.service.SystemAnnouncementService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -43,13 +47,16 @@ public class DashboardController {
     private final ProjectRepository projectRepository;
     private final MockApiRepository mockApiRepository;
     private final UserRepository userRepository;
+    private final RequestLogRepository requestLogRepository;
+    private final RequestLogService requestLogService;
+    private final SystemAnnouncementService announcementService;
 
     /**
      * 获取仪表盘统计数据
      *
      * @return 统计数据
      */
-    @Operation(summary = "获取仪表盘统计数据", description = "获取首页项目、接口、用户、今日请求等统计数据")
+    @Operation(summary = "获取仪表盘统计数据", description = "获取首页项目、接口、用户、今日请求、历史请求等统计数据")
     @GetMapping("/stats")
     public ApiResponse<Map<String, Object>> getDashboardStats(
             @Parameter(description = "是否包含今日请求数", example = "false") @RequestParam(required = false, defaultValue = "false") boolean includeTodayRequests) {
@@ -80,13 +87,16 @@ public class DashboardController {
             long userCount = userRepository.count();
             stats.put("userCount", userCount);
 
-            // 今日请求数（由于没有请求日志表，暂时返回模拟数据）
-            // TODO: 后续可以添加请求日志表来统计真实的请求数
-            long requestCount = generateTodayRequestCount();
+            // 今日请求数（统计当天内所有项目的所有自定义接口的请求次数）
+            long requestCount = requestLogService.getTodayRequestCount();
             stats.put("requestCount", requestCount);
 
-            log.info("仪表盘统计数据获取成功: 项目={}, 接口={}, 用户={}, 今日请求={}",
-                    projectCount, apiCount, userCount, requestCount);
+            // 历史请求数（统计到目前为止所有项目所有接口的总请求次数）
+            long totalRequestCount = requestLogRepository.count();
+            stats.put("totalRequestCount", totalRequestCount);
+
+            log.info("仪表盘统计数据获取成功: 项目={}, 接口={}, 用户={}, 今日请求={}, 历史请求={}",
+                    projectCount, apiCount, userCount, requestCount, totalRequestCount);
 
             return ApiResponse.success(stats);
 
@@ -97,18 +107,18 @@ public class DashboardController {
     }
 
     /**
-     * 生成今日请求数（模拟数据）
-     * TODO: 后续可以添加请求日志表来统计真实的请求数
+     * 获取系统公告
      *
-     * @return 今日请求数
+     * @return 系统公告
      */
-    private long generateTodayRequestCount() {
-        // 生成一个基于当前日期的伪随机数，确保同一天的数据一致
-        LocalDate today = LocalDate.now();
-        long seed = today.getYear() * 10000L + today.getMonthValue() * 100L + today.getDayOfMonth();
-
-        // 生成1000-9999之间的随机数
-        java.util.Random random = new java.util.Random(seed);
-        return 1000 + random.nextInt(9000);
+    @Operation(summary = "获取系统公告", description = "获取当前启用的系统公告")
+    @GetMapping("/announcement")
+    public ApiResponse<SystemAnnouncementDTO> getAnnouncement() {
+        try {
+            return announcementService.getEnabledAnnouncement();
+        } catch (Exception e) {
+            log.error("获取系统公告失败: {}", e.getMessage(), e);
+            return ApiResponse.error("获取系统公告失败");
+        }
     }
 }

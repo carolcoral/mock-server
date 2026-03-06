@@ -26,6 +26,10 @@
               <Connection :width="'1em'" :height="'1em'" />
               <span>Mock配置</span>
             </el-menu-item>
+            <el-menu-item index="announcement">
+              <Bell :width="'1em'" :height="'1em'" />
+              <span>系统公告</span>
+            </el-menu-item>
             <el-menu-item index="system">
               <InfoFilled :width="'1em'" :height="'1em'" />
               <span>系统信息</span>
@@ -207,17 +211,126 @@
               <el-table-column prop="key" label="变量名" width="200" />
               <el-table-column prop="value" label="值" />
             </el-table>
+
+            <!-- 分页 -->
+            <div class="pagination-wrapper">
+              <el-pagination
+                v-model:current-page="pagination.page"
+                v-model:page-size="pagination.size"
+                :page-sizes="[10, 15, 20, 50, 100]"
+                :total="pagination.total"
+                layout="total, sizes, prev, pager, next, jumper"
+                @size-change="handleSizeChange"
+                @current-change="handlePageChange"
+              />
+            </div>
+          </div>
+
+          <!-- 系统公告 -->
+          <div v-if="activeMenu === 'announcement'">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+              <h2 style="margin: 0;">系统公告</h2>
+              <el-button type="primary" @click="openAnnouncementDialog()">
+                <Edit :width="'1em'" :height="'1em'" style="margin-right: 5px;" />
+                创建公告
+              </el-button>
+            </div>
+            <el-divider />
+            <el-table :data="announcements" border style="width: 100%">
+              <el-table-column prop="title" label="标题" width="200" />
+              <el-table-column prop="content" label="内容" show-overflow-tooltip />
+              <el-table-column prop="enabled" label="状态" width="100">
+                <template #default="{ row }">
+                  <el-tag :type="row.enabled ? 'success' : 'info'">
+                    {{ row.enabled ? '已启用' : '已禁用' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="priority" label="优先级" width="100">
+                <template #default="{ row }">
+                  <el-tag :type="getPriorityType(row.priority)">{{ row.priority }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="createBy" label="创建人" width="120" />
+              <el-table-column prop="createTime" label="创建时间" width="180" sortable>
+                <template #default="{ row }">
+                  {{ formatTime(row.createTime) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="200" fixed="right">
+                <template #default="{ row }">
+                  <el-button link type="primary" @click="openAnnouncementDialog(row)">
+                    <Edit :width="'1em'" :height="'1em'" />
+                    编辑
+                  </el-button>
+                  <el-button link type="primary" @click="toggleAnnouncementStatus(row)">
+                    {{ row.enabled ? '禁用' : '启用' }}
+                  </el-button>
+                  <el-button link type="danger" @click="deleteAnnouncement(row.id)">
+                    <Delete :width="'1em'" :height="'1em'" />
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+
+            <!-- 分页 -->
+            <div class="pagination-wrapper">
+              <el-pagination
+                v-model:current-page="pagination.page"
+                v-model:page-size="pagination.size"
+                :page-sizes="[10, 15, 20, 50, 100]"
+                :total="pagination.total"
+                layout="total, sizes, prev, pager, next, jumper"
+                @size-change="handleSizeChange"
+                @current-change="handlePageChange"
+              />
+            </div>
           </div>
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- 公告编辑对话框 -->
+    <el-dialog v-model="announcementDialogVisible" :title="dialogTitle" width="60%">
+      <el-form :model="announcementForm" label-width="100px">
+        <el-form-item label="公告标题">
+          <el-input v-model="announcementForm.title" placeholder="请输入公告标题" />
+        </el-form-item>
+        <el-form-item label="优先级">
+          <el-select v-model="announcementForm.priority" style="width: 100%">
+            <el-option label="低" value="LOW" />
+            <el-option label="普通" value="NORMAL" />
+            <el-option label="高" value="HIGH" />
+            <el-option label="紧急" value="URGENT" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="是否启用">
+          <el-switch v-model="announcementForm.enabled" />
+        </el-form-item>
+        <el-form-item label="公告内容">
+          <el-input
+            v-model="announcementForm.content"
+            type="textarea"
+            :rows="15"
+            placeholder="支持Markdown格式，例如：## 标题\n- 列表项\n**加粗文本**"
+          />
+          <div style="margin-top: 10px; color: #909399; font-size: 12px;">
+            支持的Markdown语法：# 标题, ## 子标题, **加粗**, *斜体*, - 列表, `代码`等
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="announcementDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveAnnouncement" :loading="saving">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Setting, Lock, Key, Connection, InfoFilled } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Setting, Lock, Key, Connection, InfoFilled, Bell, Edit, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 
 // 当前激活的菜单
@@ -289,6 +402,28 @@ const envVars = ref([
   { key: 'TZ', value: 'Asia/Shanghai' },
   { key: 'LOG_LEVEL', value: 'INFO' }
 ])
+
+// 公告数据
+const announcements = ref([])
+const announcementDialogVisible = ref(false)
+const announcementForm = reactive({
+  id: null,
+  title: '',
+  content: '',
+  enabled: true,
+  priority: 'NORMAL'
+})
+const dialogTitle = ref('创建公告')
+
+// 分页参数
+const pagination = reactive({
+  page: 0,
+  size: 15,
+  total: 0,
+  totalPages: 0,
+  sortBy: 'createTime',
+  sortOrder: 'desc'
+})
 
 // 菜单切换
 const handleMenuSelect = (index) => {
@@ -404,9 +539,161 @@ const fetchSystemInfo = async () => {
   }
 }
 
+// 获取公告列表
+const fetchAnnouncements = async () => {
+  try {
+    const response = await request.get('/system-announcement', {
+      params: {
+        page: pagination.page,
+        size: pagination.size,
+        sortBy: pagination.sortBy,
+        sortOrder: pagination.sortOrder
+      }
+    })
+    if (response.code === 200) {
+      announcements.value = response.data.content || []
+      pagination.total = response.data.totalElements || 0
+      pagination.totalPages = response.data.totalPages || 0
+    }
+  } catch (error) {
+    console.error('获取公告列表失败:', error)
+  }
+}
+
+// 处理页码变化
+const handlePageChange = (page) => {
+  pagination.page = page
+  fetchAnnouncements()
+}
+
+// 处理每页大小变化
+const handleSizeChange = (size) => {
+  pagination.size = size
+  pagination.page = 0
+  fetchAnnouncements()
+}
+
+// 格式化时间
+const formatTime = (time) => {
+  if (!time) return '-'
+  return new Date(time).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  })
+}
+
+// 打开公告对话框
+const openAnnouncementDialog = (row = null) => {
+  if (row) {
+    dialogTitle.value = '编辑公告'
+    announcementForm.id = row.id
+    announcementForm.title = row.title
+    announcementForm.content = row.content
+    announcementForm.enabled = row.enabled
+    announcementForm.priority = row.priority
+  } else {
+    dialogTitle.value = '创建公告'
+    announcementForm.id = null
+    announcementForm.title = ''
+    announcementForm.content = ''
+    announcementForm.enabled = true
+    announcementForm.priority = 'NORMAL'
+  }
+  announcementDialogVisible.value = true
+}
+
+// 保存公告
+const saveAnnouncement = async () => {
+  if (!announcementForm.title || !announcementForm.content) {
+    ElMessage.warning('请填写完整信息')
+    return
+  }
+
+  saving.value = true
+  try {
+    let response
+    if (announcementForm.id) {
+      // 更新
+      response = await request.put(`/system-announcement/${announcementForm.id}`, announcementForm)
+    } else {
+      // 创建
+      response = await request.post('/system-announcement', announcementForm)
+    }
+
+    if (response.code === 200) {
+      ElMessage.success(announcementForm.id ? '更新成功' : '创建成功')
+      announcementDialogVisible.value = false
+      fetchAnnouncements()
+    } else {
+      ElMessage.error(response.message || '操作失败')
+    }
+  } catch (error) {
+    console.error('保存公告失败:', error)
+    ElMessage.error('保存失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+// 删除公告
+const deleteAnnouncement = async (id) => {
+  try {
+    await ElMessageBox.confirm('确定要删除此公告吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    const response = await request.delete(`/system-announcement/${id}`)
+    if (response.code === 200) {
+      ElMessage.success('删除成功')
+      fetchAnnouncements()
+    } else {
+      ElMessage.error(response.message || '删除失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除公告失败:', error)
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
+// 切换公告状态
+const toggleAnnouncementStatus = async (row) => {
+  try {
+    const response = await request.put(`/system-announcement/${row.id}/toggle`, { enabled: !row.enabled })
+    if (response.code === 200) {
+      ElMessage.success('操作成功')
+      fetchAnnouncements()
+    } else {
+      ElMessage.error(response.message || '操作失败')
+    }
+  } catch (error) {
+    console.error('切换公告状态失败:', error)
+    ElMessage.error('操作失败')
+  }
+}
+
+// 获取优先级标签类型
+const getPriorityType = (priority) => {
+  const typeMap = {
+    'LOW': 'info',
+    'NORMAL': '',
+    'HIGH': 'warning',
+    'URGENT': 'danger'
+  }
+  return typeMap[priority] || ''
+}
+
 // 页面加载时获取数据
 onMounted(() => {
   fetchSystemInfo()
+  fetchAnnouncements()
 })
 </script>
 
@@ -456,6 +743,13 @@ h2 {
   font-weight: 600;
   width: 150px;
   text-align: right;
+}
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding: 0 10px;
 }
 </style>
 

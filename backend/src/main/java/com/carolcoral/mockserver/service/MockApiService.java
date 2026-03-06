@@ -4,20 +4,25 @@ import com.carolcoral.mockserver.dto.ApiResponse;
 import com.carolcoral.mockserver.entity.MockApi;
 import com.carolcoral.mockserver.entity.MockResponse;
 import com.carolcoral.mockserver.entity.Project;
+import com.carolcoral.mockserver.entity.User;
 import com.carolcoral.mockserver.repository.MockApiRepository;
 import com.carolcoral.mockserver.repository.MockResponseRepository;
 import com.carolcoral.mockserver.repository.ProjectRepository;
+import com.carolcoral.mockserver.repository.UserRepository;
 import com.carolcoral.mockserver.util.CacheUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * 自定义接口服务类
@@ -34,6 +39,7 @@ public class MockApiService {
     private final MockResponseRepository mockResponseRepository;
     private final ProjectRepository projectRepository;
     private final CacheUtil cacheUtil;
+    private final UserRepository userRepository;
 
     /**
      * 创建接口
@@ -283,8 +289,39 @@ public class MockApiService {
     @Operation(summary = "查询所有接口")
     public ApiResponse<List<MockApi>> getAllMockApis() {
         try {
-            List<MockApi> apis = mockApiRepository.findAll();
-            return ApiResponse.success(apis);
+            List<MockApi> allApis = mockApiRepository.findAll();
+
+            // 获取当前用户
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || auth.getName().equals("anonymousUser")) {
+                // 未登录，返回空列表
+                return ApiResponse.success(List.of());
+            }
+
+            // 获取用户角色
+            Optional<User> userOpt = userRepository.findByUsername(auth.getName());
+            if (!userOpt.isPresent()) {
+                return ApiResponse.error("用户不存在");
+            }
+
+            User user = userOpt.get();
+
+            // 管理员可以查看所有接口
+            if (user.getRole() == User.UserRole.ADMIN) {
+                return ApiResponse.success(allApis);
+            }
+
+            // 普通用户只能查看自己有权限的项目下的接口
+            List<Long> accessibleProjectIds = projectRepository.findAccessibleProjectsByUserId(user.getId())
+                    .stream()
+                    .map(Project::getId)
+                    .collect(Collectors.toList());
+
+            List<MockApi> accessibleApis = allApis.stream()
+                    .filter(api -> api.getProject() != null && accessibleProjectIds.contains(api.getProject().getId()))
+                    .collect(Collectors.toList());
+
+            return ApiResponse.success(accessibleApis);
 
         } catch (Exception e) {
             log.error("查询接口列表失败: {}", e.getMessage(), e);

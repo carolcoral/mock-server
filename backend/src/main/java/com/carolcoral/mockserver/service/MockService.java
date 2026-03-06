@@ -12,6 +12,7 @@ import com.jayway.jsonpath.JsonPath;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,7 @@ public class MockService {
 
     private final CacheUtil cacheUtil;
     private final ObjectMapper objectMapper;
+    private final RequestLogService requestLogService;
 
     /**
      * 处理Mock请求
@@ -45,34 +47,56 @@ public class MockService {
      */
     @Operation(summary = "处理Mock请求")
     public MockResponseDTO handleMockRequest(@Parameter(description = "Mock请求") MockRequest mockRequest) {
+        return handleMockRequest(mockRequest, null);
+    }
+
+    /**
+     * 处理Mock请求（带请求日志）
+     *
+     * @param mockRequest Mock请求
+     * @param request HTTP请求对象（可选，用于记录日志）
+     * @return Mock响应
+     */
+    @Operation(summary = "处理Mock请求（带请求日志）")
+    public MockResponseDTO handleMockRequest(@Parameter(description = "Mock请求") MockRequest mockRequest, HttpServletRequest request) {
+        long startTime = System.currentTimeMillis();
+        MockApi matchedApi = null;
+        Integer statusCode = 200;
         try {
             log.info("处理Mock请求: {} {} 项目: {}", mockRequest.getMethod(), mockRequest.getPath(), mockRequest.getProjectCode());
 
             // 查找项目
             Optional<Project> projectOpt = cacheUtil.getProjectFromCache(mockRequest.getProjectCode());
             if (!projectOpt.isPresent()) {
+                statusCode = 404;
                 return createErrorResponse(404, "项目不存在: " + mockRequest.getProjectCode());
             }
 
             Project project = projectOpt.get();
             if (!project.getEnabled()) {
+                statusCode = 503;
                 return createErrorResponse(503, "项目已禁用");
             }
 
             // 查找接口
             Optional<MockApi> apiOpt = findMockApi(project.getId(), mockRequest.getPath(), mockRequest.getMethod());
             if (!apiOpt.isPresent()) {
+                statusCode = 404;
                 return createErrorResponse(404, "接口不存在: " + mockRequest.getPath());
             }
 
             MockApi mockApi = apiOpt.get();
+            matchedApi = mockApi;
+
             if (!mockApi.getEnabled()) {
+                statusCode = 503;
                 return createErrorResponse(503, "接口已禁用");
             }
 
             // 获取接口响应列表
             List<MockResponse> responses = cacheUtil.getApiResponsesFromCache(mockApi.getId());
             if (responses == null || responses.isEmpty()) {
+                statusCode = 500;
                 return createErrorResponse(500, "接口未配置响应");
             }
 
@@ -85,13 +109,16 @@ public class MockService {
             }
 
             if (enabledResponses.isEmpty()) {
+                statusCode = 500;
                 return createErrorResponse(500, "接口未配置启用状态的响应");
             }
 
             // 根据条件匹配响应
             MockResponse matchedResponse = matchResponseByCondition(enabledResponses, mockRequest);
             if (matchedResponse != null) {
-                return buildMockResponse(mockApi, matchedResponse);
+                MockResponseDTO responseDTO = buildMockResponse(mockApi, matchedResponse);
+                statusCode = responseDTO.getStatusCode();
+                return responseDTO;
             }
 
             // 如果启用了随机返回，从所有启用且激活的响应中按权重随机选择
@@ -103,12 +130,14 @@ public class MockService {
                         enabledActiveResponses.add(response);
                     }
                 }
-                
+
                 if (!enabledActiveResponses.isEmpty()) {
                     MockResponse randomResponse = selectRandomResponse(enabledActiveResponses);
                     if (randomResponse != null) {
                         log.info("启用随机返回，从激活响应中随机选择: 状态码={}", randomResponse.getStatusCode());
-                        return buildMockResponse(mockApi, randomResponse);
+                        MockResponseDTO responseDTO = buildMockResponse(mockApi, randomResponse);
+                        statusCode = responseDTO.getStatusCode();
+                        return responseDTO;
                     }
                 }
             }
@@ -120,16 +149,29 @@ public class MockService {
                     .orElse(null);
             if (activeResponse != null) {
                 log.info("返回激活响应: 状态码={}", activeResponse.getStatusCode());
-                return buildMockResponse(mockApi, activeResponse);
+                MockResponseDTO responseDTO = buildMockResponse(mockApi, activeResponse);
+                statusCode = responseDTO.getStatusCode();
+                return responseDTO;
             }
 
             // 默认返回第一个响应（通常是200状态码）
             MockResponse defaultResponse = enabledResponses.get(0);
-            return buildMockResponse(mockApi, defaultResponse);
+            MockResponseDTO responseDTO = buildMockResponse(mockApi, defaultResponse);
+            statusCode = responseDTO.getStatusCode();
+            return responseDTO;
 
         } catch (Exception e) {
-            log.error("处理Mock请求失败");
+            log.error("处理Mock请求失败", e);
+            statusCode = 500;
             return createErrorResponse(500, "服务器内部错误");
+        } finally {
+            // 异步记录请求日志
+            if (request != null && matchedApi != null) {
+                long responseTime = System.currentTimeMillis() - startTime;
+                Long userId = null;
+                // TODO: 从请求中获取用户ID
+                requestLogService.logRequestAsync(matchedApi, request, statusCode, responseTime, userId);
+            }
         }
     }
 
