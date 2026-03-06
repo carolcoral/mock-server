@@ -27,6 +27,8 @@ public class SystemConfigController {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SystemConfigController.class);
 
+    private final SystemConfigService systemConfigService;
+
     /**
      * 构造器
      */

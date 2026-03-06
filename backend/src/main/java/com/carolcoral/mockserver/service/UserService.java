@@ -339,19 +339,20 @@ public class UserService {
      * @return 用户信息
      */
     @Operation(summary = "获取当前登录用户信息")
-    public User getCurrentUser() {
+    public ApiResponse<User> getCurrentUser() {
         try {
             org.springframework.security.core.Authentication authentication =
                 org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-            
+
             if (authentication == null || !authentication.isAuthenticated()) {
-                throw new RuntimeException("用户未登录");
+                return ApiResponse.error("用户未登录");
             }
-            
-            return (User) authentication.getPrincipal();
+
+            User currentUser = (User) authentication.getPrincipal();
+            return ApiResponse.success(currentUser);
         } catch (Exception e) {
             log.error("获取当前用户失败: {}", e.getMessage());
-            throw new RuntimeException("获取用户信息失败");
+            return ApiResponse.error("获取用户信息失败");
         }
     }
 
@@ -363,36 +364,69 @@ public class UserService {
      */
     @Operation(summary = "修改密码")
     @Transactional
-    public ApiResponse<Void> changePassword(UserController.PasswordChangeRequest passwordChangeRequest) {
+    public ApiResponse<Void> changePassword(PasswordChangeRequest passwordChangeRequest) {
         try {
             org.springframework.security.core.Authentication authentication =
                 org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-            
+
             if (authentication == null || !authentication.isAuthenticated()) {
                 return ApiResponse.error("用户未登录");
             }
-            
+
             User currentUser = (User) authentication.getPrincipal();
-            
+
             // 验证原密码
             if (!passwordEncoder.matches(passwordChangeRequest.getOldPassword(), currentUser.getPassword())) {
                 return ApiResponse.error("原密码错误");
             }
-            
+
             // 验证新密码和确认密码是否一致
             if (!passwordChangeRequest.getNewPassword().equals(passwordChangeRequest.getConfirmPassword())) {
                 return ApiResponse.error("新密码和确认密码不一致");
             }
-            
+
             // 更新密码
             currentUser.setPassword(passwordEncoder.encode(passwordChangeRequest.getNewPassword()));
             userRepository.save(currentUser);
-            
+
             log.info("用户 {} 修改密码成功", currentUser.getUsername());
             return ApiResponse.success();
         } catch (Exception e) {
             log.error("修改密码失败: {}", e.getMessage());
             return ApiResponse.error("修改密码失败");
+        }
+    }
+
+    /**
+     * 密码修改请求DTO
+     */
+    public static class PasswordChangeRequest {
+        private String oldPassword;
+        private String newPassword;
+        private String confirmPassword;
+
+        public String getOldPassword() {
+            return oldPassword;
+        }
+
+        public void setOldPassword(String oldPassword) {
+            this.oldPassword = oldPassword;
+        }
+
+        public String getNewPassword() {
+            return newPassword;
+        }
+
+        public void setNewPassword(String newPassword) {
+            this.newPassword = newPassword;
+        }
+
+        public String getConfirmPassword() {
+            return confirmPassword;
+        }
+
+        public void setConfirmPassword(String confirmPassword) {
+            this.confirmPassword = confirmPassword;
         }
     }
 }

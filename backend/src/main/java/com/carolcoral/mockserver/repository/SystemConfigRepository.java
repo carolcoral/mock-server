@@ -12,6 +12,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 /**
  * 系统配置Repository
  *
@@ -30,5 +32,5 @@ public interface SystemConfigRepository extends JpaRepository<SystemConfig, Long
      * @return 配置Optional
      */
     @Operation(summary = "根据配置键查找配置")
-    SystemConfig findByConfigKey(String configKey);
+    Optional<SystemConfig> findByConfigKey(String configKey);
 }

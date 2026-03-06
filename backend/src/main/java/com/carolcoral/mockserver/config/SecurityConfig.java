@@ -115,13 +115,6 @@ public class SecurityConfig {
                 )
                 // JWT过滤器 - 只拦截需要认证的请求
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-                        // 允许所有OPTIONS预检请求
-                        .requestMatchers(request -> "OPTIONS".equals(request.getMethod())).permitAll()
-                        // 其他所有请求需要认证
-                        .anyRequest().authenticated()
-                )
-                // JWT过滤器 - 只拦截需要认证的请求
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

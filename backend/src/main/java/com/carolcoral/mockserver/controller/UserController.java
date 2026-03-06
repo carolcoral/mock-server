@@ -88,41 +88,8 @@ public class UserController {
      */
     @PostMapping("/change-password")
     @Operation(summary = "修改密码", description = "需要登录，原密码必须正确")
-    public ApiResponse<Void> changePassword(@RequestBody UserController.PasswordChangeRequest passwordChangeRequest) {
+    public ApiResponse<Void> changePassword(@RequestBody UserService.PasswordChangeRequest passwordChangeRequest) {
         return userService.changePassword(passwordChangeRequest);
-    }
-
-    /**
-     * 密码修改请求DTO
-     */
-    public static class PasswordChangeRequest {
-        private String oldPassword;
-        private String newPassword;
-        private String confirmPassword;
-
-        public String getOldPassword() {
-            return oldPassword;
-        }
-
-        public void setOldPassword(String oldPassword) {
-            this.oldPassword = oldPassword;
-        }
-
-        public String getNewPassword() {
-            return newPassword;
-        }
-
-        public void setNewPassword(String newPassword) {
-            this.newPassword = newPassword;
-        }
-
-        public String getConfirmPassword() {
-            return confirmPassword;
-        }
-
-        public void setConfirmPassword(String confirmPassword) {
-            this.confirmPassword = confirmPassword;
-        }
     }
 
     /**

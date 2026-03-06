@@ -226,6 +226,24 @@ public class User implements UserDetails {
     }
 
     /**
+     * 获取用户语言偏好
+     *
+     * @return 用户语言
+     */
+    public String getLanguage() {
+        return language;
+    }
+
+    /**
+     * 设置用户语言偏好
+     *
+     * @param language 用户语言
+     */
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
+    /**
      * 获取用户角色
      *
      * @return 用户角色
