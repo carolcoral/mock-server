@@ -80,5 +80,44 @@ public class DatabaseMigration implements CommandLineRunner {
         } catch (Exception e) {
             log.warn("创建t_response_request_param表失败: {}", e.getMessage());
         }
+
+        try {
+            // 添加language字段到t_user表（允许NULL，然后更新现有记录）
+            jdbcTemplate.execute("ALTER TABLE t_user ADD COLUMN language varchar(10)");
+            log.info("成功添加language字段到t_user表");
+            // 为现有用户设置默认语言
+            jdbcTemplate.update("UPDATE t_user SET language = 'zh-CN' WHERE language IS NULL");
+            log.info("为现有用户设置默认语言");
+        } catch (Exception e) {
+            String errorMsg = e.getMessage();
+            if (errorMsg != null && errorMsg.contains("duplicate column name")) {
+                log.info("language字段已存在，跳过迁移");
+            } else {
+                log.warn("添加language字段失败: {}", errorMsg);
+            }
+        }
+
+        try {
+            // 创建t_system_config表
+            jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS t_system_config (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    config_key VARCHAR(100) NOT NULL UNIQUE,
+                    config_value VARCHAR(500) NOT NULL,
+                    description VARCHAR(500),
+                    create_time DATETIME NOT NULL,
+                    update_time DATETIME NOT NULL
+                )
+                """);
+            log.info("成功创建t_system_config表");
+            // 插入默认配置（如果不存在）
+            jdbcTemplate.execute("""
+                INSERT OR IGNORE INTO t_system_config (config_key, config_value, description, create_time, update_time)
+                VALUES ('defaultLanguage', 'zh-CN', '系统默认语言', datetime('now'), datetime('now'))
+                """);
+            log.info("插入默认系统配置");
+        } catch (Exception e) {
+            log.warn("创建t_system_config表失败: {}", e.getMessage());
+        }
     }
 }
