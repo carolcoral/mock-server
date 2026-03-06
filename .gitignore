@@ -11,9 +11,9 @@
 *.log
 
 # 数据
-*/data/
-*.db
-*.sqlite
+# */data/
+# *.db
+# *.sqlite
 
 # 环境变量
 # .env
