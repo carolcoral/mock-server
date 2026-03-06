@@ -5,6 +5,7 @@ import com.carolcoral.mockserver.dto.MockResponseDTO;
 import com.carolcoral.mockserver.entity.MockApi;
 import com.carolcoral.mockserver.entity.MockResponse;
 import com.carolcoral.mockserver.entity.Project;
+import com.carolcoral.mockserver.entity.ResponseRequestParam;
 import com.carolcoral.mockserver.util.CacheUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,15 +37,18 @@ public class MockService {
     /**
      * 构造器
      */
-    public MockService(CacheUtil cacheUtil, ObjectMapper objectMapper, RequestLogService requestLogService) {
+    public MockService(CacheUtil cacheUtil, ObjectMapper objectMapper, RequestLogService requestLogService,
+                      ResponseRequestParamService responseRequestParamService) {
         this.cacheUtil = cacheUtil;
         this.objectMapper = objectMapper;
         this.requestLogService = requestLogService;
+        this.responseRequestParamService = responseRequestParamService;
     }
 
     private final CacheUtil cacheUtil;
     private final ObjectMapper objectMapper;
     private final RequestLogService requestLogService;
+    private final ResponseRequestParamService responseRequestParamService;
 
     /**
      * 处理Mock请求
@@ -120,7 +124,7 @@ public class MockService {
                 return createErrorResponse(500, "接口未配置启用状态的响应");
             }
 
-            // 根据条件匹配响应
+            // 根据条件匹配响应（优先级最高）
             MockResponse matchedResponse = matchResponseByCondition(enabledResponses, mockRequest);
             if (matchedResponse != null) {
                 MockResponseDTO responseDTO = buildMockResponse(mockApi, matchedResponse);
@@ -128,12 +132,25 @@ public class MockService {
                 return responseDTO;
             }
 
+            // 优先返回默认响应
+            MockResponse defaultResponse = enabledResponses.stream()
+                    .filter(r -> r.getIsDefault() != null && r.getIsDefault())
+                    .findFirst()
+                    .orElse(null);
+            if (defaultResponse != null) {
+                log.info("返回默认响应: 状态码={}", defaultResponse.getStatusCode());
+                MockResponseDTO responseDTO = buildMockResponse(mockApi, defaultResponse);
+                statusCode = responseDTO.getStatusCode();
+                return responseDTO;
+            }
+
             // 如果启用了随机返回，从所有启用且激活的响应中按权重随机选择
             if (mockApi.getEnableRandom() != null && mockApi.getEnableRandom()) {
-                // 过滤出启用且激活的响应
+                // 过滤出启用且激活的响应（排除默认响应）
                 List<MockResponse> enabledActiveResponses = new ArrayList<>();
                 for (MockResponse response : enabledResponses) {
-                    if (response.getActive() != null && response.getActive()) {
+                    if (response.getActive() != null && response.getActive() &&
+                        (response.getIsDefault() == null || !response.getIsDefault())) {
                         enabledActiveResponses.add(response);
                     }
                 }
@@ -149,7 +166,7 @@ public class MockService {
                 }
             }
 
-            // 优先返回激活的响应
+            // 返回激活的响应
             MockResponse activeResponse = enabledResponses.stream()
                     .filter(r -> r.getActive() != null && r.getActive())
                     .findFirst()
@@ -161,9 +178,9 @@ public class MockService {
                 return responseDTO;
             }
 
-            // 默认返回第一个响应（通常是200状态码）
-            MockResponse defaultResponse = enabledResponses.get(0);
-            MockResponseDTO responseDTO = buildMockResponse(mockApi, defaultResponse);
+            // 最后返回第一个响应（兜底）
+            MockResponse fallbackResponse = enabledResponses.get(0);
+            MockResponseDTO responseDTO = buildMockResponse(mockApi, fallbackResponse);
             statusCode = responseDTO.getStatusCode();
             return responseDTO;
 
@@ -193,7 +210,8 @@ public class MockService {
     private Optional<MockApi> findMockApi(Long projectId, String path, String method) {
         try {
             MockApi.HttpMethod httpMethod = MockApi.HttpMethod.valueOf(method.toUpperCase());
-            return cacheUtil.getApiFromCache(path, httpMethod);
+            // 使用项目ID来查找接口
+            return cacheUtil.getApiFromCache(projectId, path, httpMethod);
         } catch (Exception e) {
             log.error("查找接口失败: {}", e.getMessage());
             return Optional.empty();
@@ -209,14 +227,157 @@ public class MockService {
      */
     private MockResponse matchResponseByCondition(List<MockResponse> responses, MockRequest mockRequest) {
         for (MockResponse response : responses) {
+            // 跳过默认响应，默认响应应该在其他逻辑中处理
+            if (response.getIsDefault() != null && response.getIsDefault()) {
+                continue;
+            }
+
+            boolean conditionMatched = false;
+
+            // 首先检查是否有条件表达式
             if (response.getCondition() != null && !response.getCondition().isEmpty()) {
                 try {
                     if (evaluateCondition(response.getCondition(), mockRequest)) {
-                        log.info("根据条件匹配到响应: {}", response.getCondition());
-                        return response;
+                        conditionMatched = true;
                     }
                 } catch (Exception e) {
                     log.warn("条件表达式评估失败: {}", e.getMessage());
+                }
+            }
+
+            // 如果条件匹配，或者没有条件，则检查请求参数
+            if (conditionMatched || (response.getCondition() == null || response.getCondition().isEmpty())) {
+                if (matchRequestParams(response, mockRequest)) {
+                    log.info("匹配到响应: 响应ID={}, 条件={}", response.getId(), response.getCondition());
+                    return response;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 根据请求参数匹配响应
+     *
+     * @param response    响应
+     * @param mockRequest Mock请求
+     * @return 是否匹配
+     */
+    private boolean matchRequestParams(MockResponse response, MockRequest mockRequest) {
+        try {
+            var result = responseRequestParamService.getParamsByResponseId(response.getId());
+            if (result.getCode() != 200 || result.getData() == null || result.getData().isEmpty()) {
+                // 没有请求参数，直接返回true
+                return true;
+            }
+
+            var params = result.getData();
+            for (var param : params) {
+                if (!matchRequestParam(param, mockRequest)) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            log.warn("请求参数匹配失败: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 匹配单个请求参数
+     *
+     * @param param       请求参数DTO
+     * @param mockRequest Mock请求
+     * @return 是否匹配
+     */
+    private boolean matchRequestParam(com.carolcoral.mockserver.dto.ResponseRequestParamDTO param,
+                                   MockRequest mockRequest) {
+        try {
+            ResponseRequestParam.ParamType paramType = ResponseRequestParam.ParamType.valueOf(param.getParamType());
+            String expectedValue = param.getParamValue();
+            String paramName = param.getParamName();
+
+            Object actualValue = null;
+
+            switch (paramType) {
+                case PATH:
+                    // 从路径中获取值（RESTful风格）
+                    actualValue = mockRequest.getPathParams() != null ? mockRequest.getPathParams().get(paramName) : null;
+                    break;
+
+                case QUERY:
+                    // 从请求参数中获取值
+                    if (mockRequest.getParams() != null) {
+                        actualValue = mockRequest.getParams().get(paramName);
+                    }
+                    break;
+
+                case REQUEST_BODY:
+                    // 从请求体中获取值
+                    if (mockRequest.getBody() != null) {
+                        try {
+                            String jsonBody = objectMapper.writeValueAsString(mockRequest.getBody());
+                            actualValue = JsonPath.read(jsonBody, "$." + paramName);
+                        } catch (Exception e) {
+                            log.debug("从请求体获取值失败: {}", e.getMessage());
+                        }
+                    }
+                    break;
+
+                case HEADER:
+                    // 从请求头中获取值
+                    if (mockRequest.getHeaders() != null) {
+                        actualValue = mockRequest.getHeaders().get(paramName);
+                    }
+                    break;
+
+                case FILE:
+                    // 文件类型直接返回true，不需要匹配值
+                    log.debug("文件类型参数，跳过匹配");
+                    return true;
+            }
+
+            // 如果参数是必填的，但是没有匹配到值，返回false
+            if (param.getRequired() && actualValue == null) {
+                return false;
+            }
+
+            // 如果参数不是必填的，且没有值，跳过这个参数
+            if (!param.getRequired() && actualValue == null) {
+                return true;
+            }
+
+            // 比较值
+            if (expectedValue != null && actualValue != null) {
+                return actualValue.toString().equals(expectedValue);
+            }
+
+            return false;
+        } catch (Exception e) {
+            log.warn("请求参数匹配失败: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 从路径中提取RESTful参数
+     *
+     * @param path      路径
+     * @param paramName 参数名
+     * @return 参数值
+     */
+    private String extractPathParam(String path, String paramName) {
+        // 假设路径格式为: /api/users/{userId}/posts/{postId}
+        // 提取 {userId} 或 {postId} 中的值
+        String[] parts = path.split("/");
+        for (String part : parts) {
+            if (part.startsWith("{") && part.endsWith("}")) {
+                String name = part.substring(1, part.length() - 1);
+                if (name.equals(paramName)) {
+                    // 这里需要根据实际请求路径来提取值
+                    // 暂时返回null，需要从实际请求中获取
+                    return null;
                 }
             }
         }
@@ -332,9 +493,16 @@ public class MockService {
             }
         }
 
-        // 设置响应延迟
-        if (response.getStatusCode() == 200 && mockApi.getResponseDelay() != null && mockApi.getResponseDelay() > 0) {
-            builder.delay(mockApi.getResponseDelay());
+        // 设置响应延迟（优先使用响应级别的延迟，如果没有则使用接口级别的延迟）
+        Integer delay = null;
+        if (response.getResponseDelay() != null && response.getResponseDelay() > 0) {
+            delay = response.getResponseDelay();
+        } else if (mockApi.getResponseDelay() != null && mockApi.getResponseDelay() > 0) {
+            delay = mockApi.getResponseDelay();
+        }
+
+        if (delay != null && delay > 0) {
+            builder.delay(delay);
         }
 
         MockResponseDTO mockResponseDTO = builder.build();

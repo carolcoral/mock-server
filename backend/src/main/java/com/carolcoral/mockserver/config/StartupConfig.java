@@ -145,38 +145,38 @@ public class StartupConfig implements CommandLineRunner {
     @Operation(summary = "初始化示例项目")
     private void initExampleProject() {
         try {
-            // 检查示例项目是否已存在
-            String projectCode = "demo";
+            // 检查test项目是否已存在
+            String projectCode = "test";
             if (projectRepository.existsByCode(projectCode)) {
-                log.info("示例项目已存在: {}", projectCode);
+                log.info("test项目已存在: {}", projectCode);
                 return;
             }
 
             // 获取管理员用户
             User admin = userRepository.findByUsername(adminUsername).orElse(null);
             if (admin == null) {
-                log.error("管理员用户不存在，无法创建示例项目");
+                log.error("管理员用户不存在，无法创建test项目");
                 return;
             }
 
-            // 创建示例项目
+            // 创建test项目
             Project project = new Project();
-            project.setName("示例项目");
+            project.setName("测试项目");
             project.setCode(projectCode);
-            project.setDescription("这是一个示例项目，包含一些常用的Mock接口");
+            project.setDescription("这是一个测试项目，包含一些常用的Mock接口");
             project.setEnabled(true);
             project.setCreateUserId(admin.getId());
             project.setCreateTime(LocalDateTime.now());
             project.setUpdateTime(LocalDateTime.now());
 
             Project savedProject = projectRepository.save(project);
-            log.info("创建示例项目成功: {}", projectCode);
+            log.info("创建test项目成功: {}", projectCode);
 
             // 创建示例接口
             initExampleApis(savedProject, admin.getId());
 
         } catch (Exception e) {
-            log.error("初始化示例项目失败: {}", e.getMessage(), e);
+            log.error("初始化test项目失败: {}", e.getMessage(), e);
         }
     }
 
@@ -189,12 +189,12 @@ public class StartupConfig implements CommandLineRunner {
     @Operation(summary = "初始化示例接口")
     private void initExampleApis(Project project, Long userId) {
         try {
-            // 创建用户登录接口
-            MockApi loginApi = createMockApi(project, "用户登录接口", "/user/login", MockApi.HttpMethod.POST, userId);
-            createMockResponse(loginApi, 200, "{\"code\": 200, \"message\": \"登录成功\", \"data\": {\"token\": \"mock-token-123\", \"userId\": 1, \"username\": \"admin\"}}", userId, true);
+            // 创建登录接口
+            MockApi loginApi = createMockApi(project, "登录接口", "/login", MockApi.HttpMethod.POST, userId);
+            createMockResponse(loginApi, 200, "{\"code\": 200, \"message\": \"登录成功\", \"data\": {\"token\": \"test-token-123\", \"userId\": 1, \"username\": \"admin\"}}", userId, true);
             createMockResponse(loginApi, 401, "{\"code\": 401, \"message\": \"用户名或密码错误\"}", userId, false);
 
-            // 创建获取用户信息接口
+            // 创建用户登录接口
             MockApi userInfoApi = createMockApi(project, "获取用户信息", "/user/info", MockApi.HttpMethod.GET, userId);
             createMockResponse(userInfoApi, 200, "{\"code\": 200, \"message\": \"成功\", \"data\": {\"userId\": 1, \"username\": \"admin\", \"email\": \"admin@example.com\", \"role\": \"ADMIN\"}}", userId, true);
 

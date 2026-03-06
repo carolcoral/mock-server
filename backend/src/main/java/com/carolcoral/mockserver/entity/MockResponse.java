@@ -77,6 +77,14 @@ public class MockResponse {
     @Column(nullable = false)
     private Boolean active = false;
 
+    @Schema(description = "是否为默认响应", example = "true")
+    @Column(nullable = false)
+    private Boolean isDefault = false;
+
+    @Schema(description = "响应耗时（毫秒）", example = "100")
+    @Column
+    private Integer responseDelay = 0;
+
     @Schema(description = "创建时间")
     @Column(nullable = false, updatable = false)
     private LocalDateTime createTime;
@@ -311,6 +319,42 @@ public class MockResponse {
     }
 
     /**
+     * 获取是否为默认响应
+     *
+     * @return 是否为默认响应
+     */
+    public Boolean getIsDefault() {
+        return isDefault;
+    }
+
+    /**
+     * 设置是否为默认响应
+     *
+     * @param isDefault 是否为默认响应
+     */
+    public void setIsDefault(Boolean isDefault) {
+        this.isDefault = isDefault;
+    }
+
+    /**
+     * 获取响应耗时
+     *
+     * @return 响应耗时（毫秒）
+     */
+    public Integer getResponseDelay() {
+        return responseDelay;
+    }
+
+    /**
+     * 设置响应耗时
+     *
+     * @param responseDelay 响应耗时（毫秒）
+     */
+    public void setResponseDelay(Integer responseDelay) {
+        this.responseDelay = responseDelay;
+    }
+
+    /**
      * 获取创建时间
      *
      * @return 创建时间
@@ -406,6 +450,9 @@ public class MockResponse {
                 ", condition='" + condition + '\'' +
                 ", conditionDesc='" + conditionDesc + '\'' +
                 ", enabled=" + enabled +
+                ", active=" + active +
+                ", isDefault=" + isDefault +
+                ", responseDelay=" + responseDelay +
                 ", createTime=" + createTime +
                 ", updateTime=" + updateTime +
                 ", mockApi=" + mockApi +

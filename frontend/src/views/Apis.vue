@@ -70,9 +70,14 @@
         <el-table-column prop="name" label="接口名称" min-width="150" />
         <el-table-column label="接口路径" min-width="320" show-overflow-tooltip>
           <template #default="{ row }">
-            <span style="font-family: monospace; color: #409EFF;">
+            <el-button
+              type="primary"
+              link
+              @click="handleCopyPath(row)"
+              style="font-family: monospace;"
+            >
               /api/mock-server/{{ row.project?.code }}{{ row.path }}
-            </span>
+            </el-button>
           </template>
         </el-table-column>
         <el-table-column prop="method" label="请求方法" width="100">
@@ -138,7 +143,13 @@
           <el-input v-model="form.name" placeholder="请输入接口名称" />
         </el-form-item>
         <el-form-item label="接口路径" prop="path">
-          <el-input v-model="form.path" placeholder="例如: /api/user/login" :disabled="isEdit" />
+          <el-input v-model="form.path" placeholder="例如: /api/user/login 或 /api/user/{userId}" :disabled="isEdit">
+            <template #append>
+              <el-tooltip content="支持RESTful风格，例如 /api/user/{userId}，其中userId为参数名" placement="top">
+                <el-icon><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </template>
+          </el-input>
         </el-form-item>
         <el-form-item label="请求方法" prop="method">
           <el-select v-model="form.method" placeholder="请选择请求方法" style="width: 100%">
@@ -234,15 +245,23 @@
         row-key="id"
       >
         <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="statusCode" label="状态码" width="100" />
+        <el-table-column prop="statusCode" label="状态码" width="80" />
         <el-table-column label="响应内容" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.responseBody }}
           </template>
         </el-table-column>
-        <el-table-column prop="contentType" label="内容类型" width="150" />
-        <el-table-column prop="weight" label="权重" width="80" align="center" />
-        <el-table-column prop="enabled" label="启用" width="80" align="center">
+        <el-table-column prop="contentType" label="内容类型" width="130" />
+        <el-table-column prop="weight" label="权重" width="70" align="center" />
+        <el-table-column prop="responseDelay" label="延迟(ms)" width="80" align="center" />
+        <el-table-column prop="isDefault" label="默认" width="70" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.isDefault ? 'warning' : 'info'" size="small">
+              {{ row.isDefault ? '是' : '否' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="enabled" label="启用" width="70" align="center">
           <template #default="{ row }">
             <el-switch
               v-model="row.enabled"
@@ -250,7 +269,7 @@
             />
           </template>
         </el-table-column>
-        <el-table-column prop="active" label="是否激活" width="90" align="center">
+        <el-table-column prop="active" label="激活" width="70" align="center">
           <template #default="{ row }">
             <el-switch
               v-model="row.active"
@@ -258,7 +277,7 @@
             />
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120" align="center">
+        <el-table-column label="操作" width="180" align="center" fixed="right">
           <template #default="{ row }">
             <el-button
               type="primary"
@@ -267,6 +286,14 @@
               @click="handleEditResponse(row)"
             >
               编辑
+            </el-button>
+            <el-button
+              type="success"
+              link
+              size="small"
+              @click="handleRequestParams(row)"
+            >
+              参数
             </el-button>
             <el-button
               type="danger"
@@ -282,7 +309,7 @@
     </el-dialog>
 
     <!-- 添加/编辑响应对话框 -->
-    <el-dialog v-model="responseFormDialogVisible" :title="responseFormTitle" width="600px" @close="handleResponseFormDialogClose">
+    <el-dialog v-model="responseFormDialogVisible" :title="responseFormTitle" width="700px" @close="handleResponseFormDialogClose">
       <el-form ref="responseFormRef" :model="responseForm" :rules="responseRules" label-width="100px">
         <el-form-item label="状态码" prop="statusCode">
           <el-input-number v-model="responseForm.statusCode" :min="100" :max="599" style="width: 100%" />
@@ -313,10 +340,122 @@
             </el-form-item>
           </el-col>
         </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="响应延迟" prop="responseDelay">
+              <el-input-number v-model="responseForm.responseDelay" :min="0" :max="60000" placeholder="0" style="width: 100%">
+                <template #append>ms</template>
+              </el-input-number>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="是否默认" prop="isDefault">
+              <el-switch v-model="responseForm.isDefault" />
+              <span style="margin-left: 10px; font-size: 12px; color: #909399;">默认响应无需匹配参数</span>
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-form>
       <template #footer>
         <el-button @click="responseFormDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="responseSubmitLoading" @click="handleResponseSubmit">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 请求参数管理对话框 -->
+    <el-dialog v-model="requestParamDialogVisible" :title="`请求参数管理 - ${currentResponse?.statusCode || ''}`" width="80%" @close="handleRequestParamDialogClose">
+      <div style="margin-bottom: 16px;">
+        <el-alert
+          title="提示"
+          type="info"
+          :closable="false"
+          style="margin-bottom: 12px;">
+          <template #default>
+            <p style="margin: 4px 0;">• PATH: RESTful路径参数，如 /api/users/{userId}</p>
+            <p style="margin: 4px 0;">• QUERY: URL查询参数，如 ?userId=123</p>
+            <p style="margin: 4px 0;">• REQUEST_BODY: 请求体参数，如 JSON body中的字段</p>
+            <p style="margin: 4px 0;">• HEADER: 请求头参数</p>
+            <p style="margin: 4px 0;">• FILE: 文件上传参数</p>
+          </template>
+        </el-alert>
+        <el-button type="primary" @click="handleAddRequestParam">
+          <Plus :width="'1em'" :height="'1em'" />
+          添加参数
+        </el-button>
+      </div>
+
+      <el-table
+        v-loading="requestParamLoading"
+        :data="requestParamList"
+        border
+        style="width: 100%;"
+        :header-cell-style="{ background: '#f5f7fa' }"
+      >
+        <el-table-column prop="paramName" label="参数名称" width="150" />
+        <el-table-column prop="paramType" label="参数类型" width="130">
+          <template #default="{ row }">
+            <el-tag :type="getParamTypeTagType(row.paramType)">
+              {{ getParamTypeLabel(row.paramType) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="paramValue" label="参数值" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="required" label="必填" width="80" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.required ? 'danger' : 'info'" size="small">
+              {{ row.required ? '是' : '否' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="100" align="center">
+          <template #default="{ row }">
+            <el-button
+              type="danger"
+              link
+              size="small"
+              @click="handleDeleteRequestParam(row)"
+            >
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
+
+    <!-- 添加/编辑请求参数对话框 -->
+    <el-dialog v-model="requestParamFormDialogVisible" :title="requestParamFormTitle" width="500px" @close="handleRequestParamFormDialogClose">
+      <el-form ref="requestParamFormRef" :model="requestParamForm" :rules="requestParamRules" label-width="100px">
+        <el-form-item label="参数名称" prop="paramName">
+          <el-input v-model="requestParamForm.paramName" placeholder="例如: userId" />
+        </el-form-item>
+        <el-form-item label="参数类型" prop="paramType">
+          <el-select v-model="requestParamForm.paramType" placeholder="请选择参数类型" style="width: 100%">
+            <el-option label="PATH (RESTful路径)" value="PATH" />
+            <el-option label="QUERY (URL查询参数)" value="QUERY" />
+            <el-option label="REQUEST_BODY (请求体)" value="REQUEST_BODY" />
+            <el-option label="HEADER (请求头)" value="HEADER" />
+            <el-option label="FILE (文件上传)" value="FILE" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="参数值" prop="paramValue">
+          <el-input v-model="requestParamForm.paramValue" placeholder="例如: 123" :disabled="requestParamForm.paramType === 'FILE'" />
+          <div v-show="requestParamForm.paramType === 'FILE'" style="font-size: 12px; color: #909399; margin-top: 4px;">
+            文件类型不需要设置参数值
+          </div>
+          <div v-show="requestParamForm.paramType !== 'FILE'" style="font-size: 12px; color: #909399; margin-top: 4px;">
+            当请求的该参数值与此值匹配时，返回对应的响应
+          </div>
+        </el-form-item>
+        <el-form-item label="是否必填" prop="required">
+          <el-switch v-model="requestParamForm.required" />
+          <div style="font-size: 12px; color: #909399; margin-top: 4px;">
+            如果勾选且请求中没有该参数，则匹配失败
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="requestParamFormDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="requestParamSubmitLoading" @click="handleRequestParamSubmit">确定</el-button>
       </template>
     </el-dialog>
   </div>
@@ -400,7 +539,7 @@ const rules = {
   path: [
     { required: true, message: '请输入接口路径', trigger: 'blur' },
     { min: 1, max: 200, message: '长度在 1 到 200 个字符', trigger: 'blur' },
-    { pattern: /^\/[a-zA-Z0-9/_-]*$/, message: '路径格式不正确，必须以/开头', trigger: 'blur' }
+    { pattern: /^\/(?:[a-zA-Z0-9_-]+|\{[a-zA-Z0-9_]+\})*(?:\/(?:[a-zA-Z0-9_-]+|\{[a-zA-Z0-9_]+\}))*$/, message: '路径格式不正确，必须以/开头', trigger: 'blur' }
   ],
   method: [
     { required: true, message: '请选择请求方法', trigger: 'change' }
@@ -418,7 +557,10 @@ const responseForm = reactive({
   headers: '',
   responseBody: '',
   weight: 50,
-  enabled: true
+  enabled: true,
+  active: false,
+  isDefault: false,
+  responseDelay: 0
 })
 
 // 响应表单验证规则
@@ -432,6 +574,74 @@ const responseRules = {
   responseBody: [
     { required: true, message: '请输入响应体内容', trigger: 'blur' }
   ]
+}
+
+// 请求参数管理相关
+const requestParamDialogVisible = ref(false)
+const requestParamLoading = ref(false)
+const requestParamFormDialogVisible = ref(false)
+const requestParamSubmitLoading = ref(false)
+const requestParamFormRef = ref()
+const requestParamList = ref([])
+const currentResponse = ref(null)
+const requestParamFormTitle = ref('添加参数')
+
+// 请求参数表单数据
+const requestParamForm = reactive({
+  id: null,
+  paramName: '',
+  paramType: 'REQUEST_BODY',
+  paramValue: '',
+  required: true
+})
+
+// 请求参数表单验证规则
+const requestParamRules = {
+  paramName: [
+    { required: true, message: '请输入参数名称', trigger: 'blur' }
+  ],
+  paramType: [
+    { required: true, message: '请选择参数类型', trigger: 'change' }
+  ],
+  paramValue: [
+    { required: true, message: '请输入参数值', trigger: 'blur' }
+  ]
+}
+
+// 提取接口路径中的RESTful参数名称
+const extractPathParamNames = (path) => {
+  const paramNames = []
+  const parts = path.split('/')
+  for (const part of parts) {
+    if (part.startsWith('{') && part.endsWith('}')) {
+      paramNames.push(part.substring(1, part.length() - 1))
+    }
+  }
+  return paramNames
+}
+
+// 获取参数类型标签
+const getParamTypeLabel = (type) => {
+  const labels = {
+    'PATH': 'PATH',
+    'QUERY': 'QUERY',
+    'REQUEST_BODY': 'BODY',
+    'HEADER': 'HEADER',
+    'FILE': 'FILE'
+  }
+  return labels[type] || type
+}
+
+// 获取参数类型标签类型
+const getParamTypeTagType = (type) => {
+  const types = {
+    'PATH': 'success',
+    'QUERY': 'primary',
+    'REQUEST_BODY': 'warning',
+    'HEADER': 'info',
+    'FILE': 'danger'
+  }
+  return types[type] || 'info'
 }
 
 // 获取请求方法标签类型
@@ -662,6 +872,9 @@ const handleEditResponse = (row) => {
   responseForm.responseBody = row.responseBody
   responseForm.weight = row.weight || 50
   responseForm.enabled = row.enabled
+  responseForm.active = row.active || false
+  responseForm.isDefault = row.isDefault || false
+  responseForm.responseDelay = row.responseDelay || 0
   responseFormDialogVisible.value = true
 }
 
@@ -827,6 +1040,119 @@ const handleResponseFormDialogClose = () => {
   responseFormRef.value?.resetFields()
 }
 
+// 打开请求参数管理
+const handleRequestParams = async (row) => {
+  currentResponse.value = row
+  requestParamDialogVisible.value = true
+  await fetchRequestParams(row.id)
+}
+
+// 获取请求参数列表
+const fetchRequestParams = async (responseId) => {
+  requestParamLoading.value = true
+  try {
+    const response = await request({
+      url: `/responses/${responseId}/params`,
+      method: 'get'
+    })
+    if (response.code === 200) {
+      requestParamList.value = response.data || []
+    }
+  } catch (error) {
+    console.error('获取请求参数失败:', error)
+    ElMessage.error('获取请求参数失败')
+  } finally {
+    requestParamLoading.value = false
+  }
+}
+
+// 添加请求参数
+const handleAddRequestParam = () => {
+  requestParamFormTitle.value = '添加参数'
+  
+  // 提取路径中的RESTful参数名称
+  const pathParamNames = extractPathParamNames(form.path || currentApi.value?.path || '')
+  
+  // 如果有路径参数，设置第一个作为参数名称
+  const defaultParamName = pathParamNames.length > 0 ? pathParamNames[0] : ''
+  
+  Object.assign(requestParamForm, {
+    id: null,
+    paramName: defaultParamName,
+    paramType: 'REQUEST_BODY',
+    paramValue: '',
+    required: true
+  })
+  requestParamFormDialogVisible.value = true
+}
+
+// 删除请求参数
+const handleDeleteRequestParam = async (row) => {
+  try {
+    await ElMessageBox.confirm('确认删除该参数吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+
+    const response = await request({
+      url: `/responses/params/${row.id}`,
+      method: 'delete'
+    })
+    if (response.code === 200) {
+      ElMessage.success('删除成功')
+      fetchRequestParams(currentResponse.value.id)
+    } else {
+      ElMessage.error('删除失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除失败:', error)
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
+// 提交请求参数表单
+const handleRequestParamSubmit = async () => {
+  if (!requestParamFormRef.value) return
+
+  try {
+    await requestParamFormRef.value.validate()
+
+    requestParamSubmitLoading.value = true
+    const response = await request({
+      url: `/responses/${currentResponse.value.id}/params`,
+      method: 'post',
+      data: requestParamForm
+    })
+
+    if (response.code === 200) {
+      ElMessage.success('添加成功')
+      requestParamFormDialogVisible.value = false
+      fetchRequestParams(currentResponse.value.id)
+    } else {
+      ElMessage.error(response.message || '添加失败')
+    }
+  } catch (error) {
+    console.error('添加失败:', error)
+    ElMessage.error('添加失败')
+  } finally {
+    requestParamSubmitLoading.value = false
+  }
+}
+
+// 关闭请求参数表单对话框
+const handleRequestParamFormDialogClose = () => {
+  requestParamFormRef.value?.resetFields()
+}
+
+// 关闭请求参数管理对话框
+const handleRequestParamDialogClose = () => {
+  requestParamList.value = []
+  currentResponse.value = null
+}
+
 // 删除接口
 const handleDelete = async (row) => {
   try {
@@ -851,6 +1177,18 @@ const handleDelete = async (row) => {
       console.error('删除失败:', error)
       ElMessage.error('删除失败')
     }
+  }
+}
+
+// 复制接口路径
+const handleCopyPath = async (row) => {
+  const path = `/api/mock-server/${row.project?.code}${row.path}`
+  try {
+    await navigator.clipboard.writeText(path)
+    ElMessage.success('复制成功')
+  } catch (error) {
+    console.error('复制失败:', error)
+    ElMessage.error('复制失败')
   }
 }
 

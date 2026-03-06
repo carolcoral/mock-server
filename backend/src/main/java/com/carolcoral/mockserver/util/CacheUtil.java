@@ -154,6 +154,32 @@ public class CacheUtil {
     }
 
     /**
+     * 从缓存获取接口（根据项目ID）
+     *
+     * @param projectId 项目ID
+     * @param path      接口路径
+     * @param method    请求方法
+     * @return 接口Optional
+     */
+    @Operation(summary = "从缓存获取接口（根据项目ID）")
+    public Optional<MockApi> getApiFromCache(Long projectId, String path, MockApi.HttpMethod method) {
+        // 构建包含项目ID的缓存键
+        String cacheKey = buildApiCacheKey(projectId, path, method);
+        MockApi cachedApi = apiPathCache.get(cacheKey);
+        if (cachedApi != null) {
+            log.debug("从缓存获取接口（项目ID={}）: {}", projectId, cacheKey);
+            return Optional.of(cachedApi);
+        }
+
+        // 从数据库查询并缓存
+        Optional<MockApi> apiOpt = mockApiRepository.findByProjectIdAndPathAndMethod(projectId, path, method);
+        apiOpt.ifPresent(api -> {
+            cacheApiWithProject(api, projectId);
+        });
+        return apiOpt;
+    }
+
+    /**
      * 从缓存获取接口（根据路径）
      *
      * @param path 接口路径
@@ -320,6 +346,33 @@ public class CacheUtil {
     @Operation(summary = "构建接口缓存Key")
     private String buildApiCacheKey(String path, MockApi.HttpMethod method) {
         return path + ":" + method.name();
+    }
+
+    /**
+     * 构建接口缓存Key（包含项目ID）
+     *
+     * @param projectId 项目ID
+     * @param path      接口路径
+     * @param method    请求方法
+     * @return 缓存Key
+     */
+    @Operation(summary = "构建接口缓存Key（包含项目ID）")
+    private String buildApiCacheKey(Long projectId, String path, MockApi.HttpMethod method) {
+        return projectId + ":" + path + ":" + method.name();
+    }
+
+    /**
+     * 缓存接口（包含项目ID）
+     *
+     * @param api       Mock接口
+     * @param projectId 项目ID
+     */
+    @Operation(summary = "缓存接口（包含项目ID）")
+    private void cacheApiWithProject(MockApi api, Long projectId) {
+        String cacheKey = buildApiCacheKey(projectId, api.getPath(), api.getMethod());
+        apiPathCache.put(cacheKey, api);
+        putCache(API_CACHE, cacheKey, api);
+        log.debug("缓存接口（项目ID={}）: {}", projectId, cacheKey);
     }
 
     /**

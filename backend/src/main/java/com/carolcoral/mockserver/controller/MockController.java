@@ -70,36 +70,50 @@ public class MockController {
 
             log.info("Mock请求详情 - fullPath: {}, servletPath: {}, projectCode: {}", fullPath, servletPath, projectCode);
 
+            // 由于应用有context-path=/api，fullPath会是/api/mock-server/test/login
+            // 我们需要从中提取/mock-server/test/login部分
+            String contextPath = request.getContextPath(); // /api
+            String pathWithoutContext = fullPath.startsWith(contextPath)
+                ? fullPath.substring(contextPath.length())
+                : fullPath;
+
             // 构建路径前缀 /mock-server/{projectCode}/
             String pathPrefix = "/mock-server/" + projectCode + "/";
             String path;
 
-            if (fullPath.startsWith(pathPrefix)) {
-                path = fullPath.substring(pathPrefix.length() - 1); // 保留开头的 /
-            } else if (fullPath.startsWith("/mock-server/")) {
+            if (pathWithoutContext.startsWith(pathPrefix)) {
+                path = pathWithoutContext.substring(pathPrefix.length() - 1); // 保留开头的 /
+            } else if (pathWithoutContext.startsWith("/mock-server/")) {
                 // 兼容 /mock-server/ 前缀
                 String mockPathPrefix = "/mock-server/" + projectCode;
-                if (fullPath.startsWith(mockPathPrefix + "/")) {
-                    path = fullPath.substring(mockPathPrefix.length());
+                if (pathWithoutContext.startsWith(mockPathPrefix + "/")) {
+                    path = pathWithoutContext.substring(mockPathPrefix.length());
+                } else if (pathWithoutContext.equals(mockPathPrefix)) {
+                    path = "/";
                 } else {
                     path = "/";
                 }
-            } else {
+            } else if (servletPath.startsWith("/mock-server/")) {
                 // 使用 servletPath 作为备选
                 if (servletPath.startsWith(pathPrefix)) {
                     path = servletPath.substring(pathPrefix.length() - 1);
                 } else {
-                    path = "/";
+                    path = servletPath;
                 }
+            } else {
+                // 如果以上都不匹配，使用剩余的路径
+                path = pathWithoutContext.startsWith("/mock-server/")
+                    ? pathWithoutContext.substring("/mock-server/".length())
+                    : pathWithoutContext;
             }
 
-            if (path.isEmpty()) {
+            if (path == null || path.isEmpty()) {
                 path = "/";
             }
 
             String method = request.getMethod();
 
-            log.info("Mock请求: {} {} 项目: {}", method, path, projectCode);
+            log.info("Mock请求: {} {} 项目: {} (解析后的路径)", method, path, projectCode);
 
             // 构建Mock请求
             MockRequest mockRequest = buildMockRequest(projectCode, path, method, request);
@@ -153,6 +167,38 @@ public class MockController {
             }
         }
         mockRequest.setParams(params);
+
+        // 获取路径参数（RESTful风格）
+        Map<String, String> pathParams = new HashMap<>();
+        String requestURI = request.getRequestURI();
+        String contextPath = request.getContextPath();
+        String pathWithoutContext = requestURI.startsWith(contextPath) ? requestURI.substring(contextPath.length()) : requestURI;
+        
+        // 从请求URI中提取mock-server后的部分
+        String afterMockServer = "";
+        if (pathWithoutContext.startsWith("/mock-server/")) {
+            int idx = pathWithoutContext.indexOf("/", "/mock-server/".length());
+            if (idx != -1) {
+                afterMockServer = pathWithoutContext.substring(idx + 1);
+            }
+        }
+        
+        // 解析路径参数
+        if (!afterMockServer.isEmpty()) {
+            String[] parts = afterMockServer.split("/");
+            for (int i = 1; i < parts.length; i++) {
+                String part = parts[i];
+                if (part.startsWith("{") && part.endsWith("}")) {
+                    String paramName = part.substring(1, part.length() - 1);
+                    // 提取实际值（例如 /api/mock-server/test/user/123 -> 123）
+                    String[] subParts = afterMockServer.split("/");
+                    if (i < subParts.length) {
+                        pathParams.put(paramName, subParts[i]);
+                    }
+                }
+            }
+        }
+        mockRequest.setPathParams(pathParams);
 
         // TODO: 获取请求体（需要读取request的inputStream）
         // 这里简化处理，实际需要配置HttpServletRequest的包装类来多次读取body

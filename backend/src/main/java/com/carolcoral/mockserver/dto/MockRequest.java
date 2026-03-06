@@ -35,6 +35,9 @@ public class MockRequest {
     @Schema(description = "项目编码", example = "ecmall")
     private String projectCode;
 
+    @Schema(description = "路径参数（RESTful风格）")
+    private Map<String, String> pathParams;
+
     // Getters and Setters
     public String getPath() {
         return path;
@@ -82,5 +85,13 @@ public class MockRequest {
 
     public void setProjectCode(String projectCode) {
         this.projectCode = projectCode;
+    }
+
+    public Map<String, String> getPathParams() {
+        return pathParams;
+    }
+
+    public void setPathParams(Map<String, String> pathParams) {
+        this.pathParams = pathParams;
     }
 }
