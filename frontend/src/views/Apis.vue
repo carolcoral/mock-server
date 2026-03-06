@@ -426,23 +426,36 @@
     <el-dialog v-model="requestParamFormDialogVisible" :title="requestParamFormTitle" width="500px" @close="handleRequestParamFormDialogClose">
       <el-form ref="requestParamFormRef" :model="requestParamForm" :rules="requestParamRules" label-width="100px">
         <el-form-item label="参数名称" prop="paramName">
-          <el-input v-model="requestParamForm.paramName" placeholder="例如: userId" />
+          <el-input v-model="requestParamForm.paramName" placeholder="例如: userId" @blur="handleParamNameBlur" />
+          <div v-show="requestParamForm.isPathParam" style="font-size: 12px; color: #909399; margin-top: 4px;">
+            该参数名为 RESTful 路径参数
+          </div>
         </el-form-item>
         <el-form-item label="参数类型" prop="paramType">
-          <el-select v-model="requestParamForm.paramType" placeholder="请选择参数类型" style="width: 100%">
+          <el-select v-model="requestParamForm.paramType" placeholder="请选择参数类型" style="width: 100%" :disabled="requestParamForm.isPathParam || requestParamForm.isQueryParam">
             <el-option label="PATH (RESTful路径)" value="PATH" />
             <el-option label="QUERY (URL查询参数)" value="QUERY" />
             <el-option label="REQUEST_BODY (请求体)" value="REQUEST_BODY" />
             <el-option label="HEADER (请求头)" value="HEADER" />
             <el-option label="FILE (文件上传)" value="FILE" />
           </el-select>
+          <div v-show="requestParamForm.isPathParam" style="font-size: 12px; color: #909399; margin-top: 4px;">
+            该参数名为 RESTful 路径参数，类型自动设置为 PATH
+          </div>
+          <div v-show="requestParamForm.isQueryParam" style="font-size: 12px; color: #909399; margin-top: 4px;">
+            该参数名为 GET 请求查询字符串中的占位符参数，类型自动设置为 QUERY
+          </div>
         </el-form-item>
         <el-form-item label="参数值" prop="paramValue">
           <el-input v-model="requestParamForm.paramValue" placeholder="例如: 123" :disabled="requestParamForm.paramType === 'FILE'" />
           <div v-show="requestParamForm.paramType === 'FILE'" style="font-size: 12px; color: #909399; margin-top: 4px;">
             文件类型不需要设置参数值
           </div>
-          <div v-show="requestParamForm.paramType !== 'FILE'" style="font-size: 12px; color: #909399; margin-top: 4px;">
+          <div v-show="requestParamForm.paramType === 'PATH'" style="font-size: 12px; color: #909399; margin-top: 4px;">
+            • 设置为"通用"或"*"：匹配任意参数值<br/>
+            • 设置为具体值：仅当请求参数值等于该值时匹配
+          </div>
+          <div v-show="requestParamForm.paramType !== 'FILE' && requestParamForm.paramType !== 'PATH'" style="font-size: 12px; color: #909399; margin-top: 4px;">
             当请求的该参数值与此值匹配时，返回对应的响应
           </div>
         </el-form-item>
@@ -539,7 +552,11 @@ const rules = {
   path: [
     { required: true, message: '请输入接口路径', trigger: 'blur' },
     { min: 1, max: 200, message: '长度在 1 到 200 个字符', trigger: 'blur' },
-    { pattern: /^\/(?:[a-zA-Z0-9_-]+|\{[a-zA-Z0-9_]+\})*(?:\/(?:[a-zA-Z0-9_-]+|\{[a-zA-Z0-9_]+\}))*$/, message: '路径格式不正确，必须以/开头', trigger: 'blur' }
+    {
+      pattern: /^\/[a-zA-Z0-9_/?{}?=&\-]*$/,
+      message: '路径格式不正确，必须以/开头',
+      trigger: 'blur'
+    }
   ],
   method: [
     { required: true, message: '请选择请求方法', trigger: 'change' }
@@ -592,7 +609,9 @@ const requestParamForm = reactive({
   paramName: '',
   paramType: 'REQUEST_BODY',
   paramValue: '',
-  required: true
+  required: true,
+  isPathParam: false,
+  isQueryParam: false
 })
 
 // 请求参数表单验证规则
@@ -614,7 +633,24 @@ const extractPathParamNames = (path) => {
   const parts = path.split('/')
   for (const part of parts) {
     if (part.startsWith('{') && part.endsWith('}')) {
-      paramNames.push(part.substring(1, part.length() - 1))
+      paramNames.push(part.substring(1, part.length - 1))
+    }
+  }
+  return paramNames
+}
+
+// 提取查询字符串中的占位符参数名称
+const extractQueryParamNames = (path) => {
+  const paramNames = []
+  // 查找查询参数部分的占位符，格式如 ?name={name}&age={age}
+  const queryMatch = path.match(/\?.+/)
+  if (queryMatch) {
+    const queryString = queryMatch[0]
+    // 匹配 {paramName} 格式的占位符
+    const placeholderRegex = /\{([^}]+)\}/g
+    let match
+    while ((match = placeholderRegex.exec(queryString)) !== null) {
+      paramNames.push(match[1])
     }
   }
   return paramNames
@@ -1069,21 +1105,63 @@ const fetchRequestParams = async (responseId) => {
 // 添加请求参数
 const handleAddRequestParam = () => {
   requestParamFormTitle.value = '添加参数'
-  
+
+  const apiPath = form.path || currentApi.value?.path || ''
+  const apiMethod = form.method || currentApi.value?.method || 'GET'
+
   // 提取路径中的RESTful参数名称
-  const pathParamNames = extractPathParamNames(form.path || currentApi.value?.path || '')
-  
-  // 如果有路径参数，设置第一个作为参数名称
-  const defaultParamName = pathParamNames.length > 0 ? pathParamNames[0] : ''
-  
+  const pathParamNames = extractPathParamNames(apiPath)
+
+  // 提取查询字符串中的占位符参数名称（仅针对 GET 请求）
+  const queryParamNames = apiMethod === 'GET' ? extractQueryParamNames(apiPath) : []
+
+  // 合并所有占位符参数名称（优先使用查询参数）
+  const allParamNames = [...queryParamNames, ...pathParamNames]
+
+  // 如果有参数，设置第一个作为参数名称
+  const defaultParamName = allParamNames.length > 0 ? allParamNames[0] : ''
+  const isPathParam = pathParamNames.includes(defaultParamName)
+  const isQueryParam = queryParamNames.includes(defaultParamName)
+
   Object.assign(requestParamForm, {
     id: null,
     paramName: defaultParamName,
-    paramType: 'REQUEST_BODY',
+    paramType: isPathParam ? 'PATH' : (isQueryParam ? 'QUERY' : 'REQUEST_BODY'),
     paramValue: '',
-    required: true
+    required: true,
+    isPathParam: isPathParam,
+    isQueryParam: isQueryParam
   })
   requestParamFormDialogVisible.value = true
+}
+
+// 参数名称变化时判断是否为路径参数或查询参数
+const handleParamNameBlur = () => {
+  const apiPath = form.path || currentApi.value?.path || ''
+  const apiMethod = form.method || currentApi.value?.method || 'GET'
+
+  const pathParamNames = extractPathParamNames(apiPath)
+  const queryParamNames = apiMethod === 'GET' ? extractQueryParamNames(apiPath) : []
+
+  const isPathParam = pathParamNames.includes(requestParamForm.paramName)
+  const isQueryParam = queryParamNames.includes(requestParamForm.paramName)
+
+  if (isPathParam) {
+    requestParamForm.paramType = 'PATH'
+    requestParamForm.isPathParam = true
+    requestParamForm.isQueryParam = false
+  } else if (isQueryParam) {
+    requestParamForm.paramType = 'QUERY'
+    requestParamForm.isPathParam = false
+    requestParamForm.isQueryParam = true
+  } else if (requestParamForm.paramType === 'PATH' || requestParamForm.paramType === 'QUERY') {
+    requestParamForm.paramType = 'REQUEST_BODY'
+    requestParamForm.isPathParam = false
+    requestParamForm.isQueryParam = false
+  } else {
+    requestParamForm.isPathParam = false
+    requestParamForm.isQueryParam = false
+  }
 }
 
 // 删除请求参数
@@ -1096,7 +1174,7 @@ const handleDeleteRequestParam = async (row) => {
     })
 
     const response = await request({
-      url: `/responses/params/${row.id}`,
+      url: `/responses/${currentResponse.value.id}/params/${row.id}`,
       method: 'delete'
     })
     if (response.code === 200) {

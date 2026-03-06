@@ -173,7 +173,7 @@ public class MockController {
         String requestURI = request.getRequestURI();
         String contextPath = request.getContextPath();
         String pathWithoutContext = requestURI.startsWith(contextPath) ? requestURI.substring(contextPath.length()) : requestURI;
-        
+
         // 从请求URI中提取mock-server后的部分
         String afterMockServer = "";
         if (pathWithoutContext.startsWith("/mock-server/")) {
@@ -182,20 +182,14 @@ public class MockController {
                 afterMockServer = pathWithoutContext.substring(idx + 1);
             }
         }
-        
-        // 解析路径参数
+
+        // 解析路径参数 - 从实际请求路径中提取值
         if (!afterMockServer.isEmpty()) {
-            String[] parts = afterMockServer.split("/");
-            for (int i = 1; i < parts.length; i++) {
-                String part = parts[i];
-                if (part.startsWith("{") && part.endsWith("}")) {
-                    String paramName = part.substring(1, part.length() - 1);
-                    // 提取实际值（例如 /api/mock-server/test/user/123 -> 123）
-                    String[] subParts = afterMockServer.split("/");
-                    if (i < subParts.length) {
-                        pathParams.put(paramName, subParts[i]);
-                    }
-                }
+            String[] requestParts = afterMockServer.split("/");
+            // 需要找到对应的接口模板路径来知道哪些段是占位符
+            // 这里先简单处理：将所有段值都记录下来，后续匹配时会用到
+            for (int i = 0; i < requestParts.length; i++) {
+                log.debug("路径段 {}: {}", i, requestParts[i]);
             }
         }
         mockRequest.setPathParams(pathParams);

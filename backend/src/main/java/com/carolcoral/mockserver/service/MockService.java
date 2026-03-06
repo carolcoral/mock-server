@@ -6,6 +6,7 @@ import com.carolcoral.mockserver.entity.MockApi;
 import com.carolcoral.mockserver.entity.MockResponse;
 import com.carolcoral.mockserver.entity.Project;
 import com.carolcoral.mockserver.entity.ResponseRequestParam;
+import com.carolcoral.mockserver.repository.MockApiRepository;
 import com.carolcoral.mockserver.util.CacheUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -38,17 +39,19 @@ public class MockService {
      * 构造器
      */
     public MockService(CacheUtil cacheUtil, ObjectMapper objectMapper, RequestLogService requestLogService,
-                      ResponseRequestParamService responseRequestParamService) {
+                      ResponseRequestParamService responseRequestParamService, MockApiRepository mockApiRepository) {
         this.cacheUtil = cacheUtil;
         this.objectMapper = objectMapper;
         this.requestLogService = requestLogService;
         this.responseRequestParamService = responseRequestParamService;
+        this.mockApiRepository = mockApiRepository;
     }
 
     private final CacheUtil cacheUtil;
     private final ObjectMapper objectMapper;
     private final RequestLogService requestLogService;
     private final ResponseRequestParamService responseRequestParamService;
+    private final MockApiRepository mockApiRepository;
 
     /**
      * 处理Mock请求
@@ -98,6 +101,11 @@ public class MockService {
 
             MockApi mockApi = apiOpt.get();
             matchedApi = mockApi;
+
+            // 根据接口模板路径提取 RESTful 路径参数
+            Map<String, String> pathParams = extractPathParams(mockRequest.getPath(), mockApi.getPath());
+            mockRequest.setPathParams(pathParams);
+            log.info("提取路径参数: 路径={}, 模板={}, 参数={}", mockRequest.getPath(), mockApi.getPath(), pathParams);
 
             if (!mockApi.getEnabled()) {
                 statusCode = 503;
@@ -210,12 +218,111 @@ public class MockService {
     private Optional<MockApi> findMockApi(Long projectId, String path, String method) {
         try {
             MockApi.HttpMethod httpMethod = MockApi.HttpMethod.valueOf(method.toUpperCase());
-            // 使用项目ID来查找接口
-            return cacheUtil.getApiFromCache(projectId, path, httpMethod);
+
+            // 先尝试精确匹配
+            Optional<MockApi> apiOpt = cacheUtil.getApiFromCache(projectId, path, httpMethod);
+            if (apiOpt.isPresent()) {
+                return apiOpt;
+            }
+
+            // 精确匹配失败，尝试 RESTful 路径模板匹配
+            List<MockApi> apis = mockApiRepository.findByProjectIdAndMethod(projectId, httpMethod);
+            for (MockApi api : apis) {
+                if (isPathMatch(path, api.getPath())) {
+                    log.debug("RESTful 路径模板匹配: {} -> {}", path, api.getPath());
+                    return Optional.of(api);
+                }
+            }
+
+            return Optional.empty();
         } catch (Exception e) {
             log.error("查找接口失败: {}", e.getMessage());
             return Optional.empty();
         }
+    }
+
+    /**
+     * 从请求路径中提取 RESTful 路径参数
+     *
+     * @param requestPath  请求路径，如 /user/admin
+     * @param templatePath 模板路径，如 /user/{id}
+     * @return 路径参数映射
+     */
+    private Map<String, String> extractPathParams(String requestPath, String templatePath) {
+        Map<String, String> pathParams = new HashMap<>();
+
+        // 分离路径和查询字符串
+        String requestPathOnly = requestPath.split("\\?")[0];
+        String templatePathOnly = templatePath.split("\\?")[0];
+
+        // 分割路径为段
+        String[] requestParts = requestPathOnly.split("/");
+        String[] templateParts = templatePathOnly.split("/");
+
+        // 如果段数不匹配，返回空
+        if (requestParts.length != templateParts.length) {
+            return pathParams;
+        }
+
+        // 逐段匹配并提取参数
+        for (int i = 0; i < templateParts.length; i++) {
+            String templatePart = templateParts[i];
+            String requestPart = requestParts[i];
+
+            // 如果模板段是占位符 {param}，则提取值
+            if (templatePart.startsWith("{") && templatePart.endsWith("}")) {
+                String paramName = templatePart.substring(1, templatePart.length() - 1);
+                pathParams.put(paramName, requestPart);
+            }
+        }
+
+        return pathParams;
+    }
+
+    /**
+     * 判断请求路径是否匹配模板路径（支持 RESTful 风格）
+     *
+     * @param requestPath 请求路径，如 /user/admin 或 /user?name={name}
+     * @param templatePath 模板路径，如 /user/{id} 或 /user?name={name}
+     * @return 是否匹配
+     */
+    private boolean isPathMatch(String requestPath, String templatePath) {
+        // 分离路径和查询字符串
+        String requestPathOnly = requestPath.split("\\?")[0];
+        String templatePathOnly = templatePath.split("\\?")[0];
+
+        // 分割路径为段
+        String[] requestParts = requestPathOnly.split("/");
+        String[] templateParts = templatePathOnly.split("/");
+
+        // 路径段数量必须相同
+        if (requestParts.length != templateParts.length) {
+            return false;
+        }
+
+        // 逐段匹配路径部分
+        for (int i = 0; i < templateParts.length; i++) {
+            String templatePart = templateParts[i];
+            String requestPart = requestParts[i];
+
+            // 如果模板段是占位符 {param}，则跳过值检查
+            if (templatePart.startsWith("{") && templatePart.endsWith("}")) {
+                continue;
+            }
+
+            // 非占位符段必须完全匹配
+            if (!templatePart.equals(requestPart)) {
+                return false;
+            }
+        }
+
+        // 检查查询参数部分
+        String requestQuery = requestPath.contains("?") ? requestPath.substring(requestPath.indexOf("?")) : "";
+        String templateQuery = templatePath.contains("?") ? templatePath.substring(templatePath.indexOf("?")) : "";
+
+        // 如果都有查询参数或都没有查询参数，则匹配成功
+        // 查询参数的具体值匹配在后续的请求参数匹配逻辑中处理
+        return true;
     }
 
     /**
@@ -267,16 +374,20 @@ public class MockService {
         try {
             var result = responseRequestParamService.getParamsByResponseId(response.getId());
             if (result.getCode() != 200 || result.getData() == null || result.getData().isEmpty()) {
+                log.debug("响应 {} 没有配置请求参数，直接匹配", response.getId());
                 // 没有请求参数，直接返回true
                 return true;
             }
 
             var params = result.getData();
+            log.debug("响应 {} 有 {} 个请求参数", response.getId(), params.size());
             for (var param : params) {
                 if (!matchRequestParam(param, mockRequest)) {
+                    log.debug("响应 {} 参数匹配失败", response.getId());
                     return false;
                 }
             }
+            log.debug("响应 {} 所有参数匹配成功", response.getId());
             return true;
         } catch (Exception e) {
             log.warn("请求参数匹配失败: {}", e.getMessage());
@@ -297,6 +408,8 @@ public class MockService {
             ResponseRequestParam.ParamType paramType = ResponseRequestParam.ParamType.valueOf(param.getParamType());
             String expectedValue = param.getParamValue();
             String paramName = param.getParamName();
+
+            log.debug("匹配请求参数: 名称={}, 类型={}, 期望值={}", paramName, paramType, expectedValue);
 
             Object actualValue = null;
 
@@ -350,7 +463,14 @@ public class MockService {
 
             // 比较值
             if (expectedValue != null && actualValue != null) {
-                return actualValue.toString().equals(expectedValue);
+                // 特殊处理"通用"值，表示匹配任意值
+                if ("通用".equals(expectedValue) || "*".equals(expectedValue)) {
+                    log.debug("参数值匹配（通用模式）: 参数={}, 实际值={}", paramName, actualValue);
+                    return true;
+                }
+                boolean matched = actualValue.toString().equals(expectedValue);
+                log.debug("参数值匹配: 参数={}, 期望值={}, 实际值={}, 匹配={}", paramName, expectedValue, actualValue, matched);
+                return matched;
             }
 
             return false;

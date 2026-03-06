@@ -195,9 +195,13 @@ public class MockApiService {
     @Transactional
     public ApiResponse<Void> deleteMockApi(@Parameter(description = "接口ID", example = "1") Long apiId) {
         try {
-            if (!mockApiRepository.existsById(apiId)) {
+            Optional<MockApi> apiOpt = mockApiRepository.findById(apiId);
+            if (!apiOpt.isPresent()) {
                 return ApiResponse.error("接口不存在");
             }
+
+            MockApi api = apiOpt.get();
+            Long projectId = api.getProject() != null ? api.getProject().getId() : null;
 
             // 删除接口下的所有响应
             mockResponseRepository.deleteByMockApiId(apiId);
@@ -207,6 +211,11 @@ public class MockApiService {
 
             // 清除缓存
             cacheUtil.evictApiCache(apiId);
+
+            // 清除项目接口缓存
+            if (projectId != null) {
+                cacheUtil.evictProjectCache(projectId);
+            }
 
             log.info("删除接口成功: {}", apiId);
             return ApiResponse.success();

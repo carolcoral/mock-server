@@ -183,4 +183,14 @@ public interface MockApiRepository extends JpaRepository<MockApi, Long> {
      */
     @Operation(summary = "根据接口路径删除接口")
     void deleteByPath(String path);
+
+    /**
+     * 根据项目ID和请求方法查询接口列表
+     *
+     * @param projectId 项目ID
+     * @param method     请求方法
+     * @return 接口列表
+     */
+    @Operation(summary = "根据项目ID和请求方法查询接口列表")
+    List<MockApi> findByProjectIdAndMethod(Long projectId, MockApi.HttpMethod method);
 }
