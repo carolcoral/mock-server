@@ -89,7 +89,23 @@ public class SecurityConfig {
                                 "/api/mock/**",
                                 "/api/ws/**",
                                 "/api/error",
-                                "/api/system-config/**"
+                                "/api/system-config/**",
+                                "/api/actuator/**",
+                                "/actuator/**",
+                                // 前端静态资源（Docker 一体化部署）
+                                "/",
+                                "/index.html",
+                                "/favicon.ico",
+                                "/robots.txt",
+                                "/assets/**",
+                                // SPA 常见路由
+                                "/home",
+                                "/projects",
+                                "/apis",
+                                "/users",
+                                "/settings",
+                                "/guide",
+                                "/login"
                         ).permitAll()
                         // Swagger UI 页面（需要认证，但由JWT过滤器处理）
                         .requestMatchers(

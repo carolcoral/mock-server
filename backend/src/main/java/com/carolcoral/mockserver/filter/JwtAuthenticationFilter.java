@@ -57,6 +57,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String MOCK_SERVER_PATH_PREFIX = "/mock-server/";
     private static final String AUTH_LOGIN_PATH = "/auth/login";
     private static final String AUTH_REGISTER_PATH = "/auth/register";
+    private static final String ACTUATOR_PATH_PREFIX = "/actuator/";
 
     private final JwtTokenUtil jwtTokenUtil;
     private final UserRepository userRepository;
@@ -212,6 +213,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                ("/api" + AUTH_REGISTER_PATH).equals(requestUri) ||
                requestUri.startsWith(MOCK_SERVER_PATH_PREFIX) ||
                requestUri.startsWith("/api" + MOCK_SERVER_PATH_PREFIX) ||
+               requestUri.startsWith(ACTUATOR_PATH_PREFIX) ||
+               requestUri.startsWith("/api" + ACTUATOR_PATH_PREFIX) ||
                requestUri.equals("/error") ||
                requestUri.equals("/api/error");
     }

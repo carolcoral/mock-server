@@ -1,0 +1,70 @@
+# ========================================
+# Docker 构建忽略文件
+# ========================================
+
+# 后端
+backend/target/
+backend/.mvn/
+backend/mvnw
+backend/mvnw.cmd
+backend/*.iml
+backend/.idea/
+backend/.vscode/
+backend/*.log
+backend/data/
+backend/logs/
+
+# 前端
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.nuxt/
+frontend/.cache/
+frontend/.DS_Store
+frontend/.env.local
+frontend/.env.*.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+
+# 数据和日志
+data/
+logs/
+*.log
+*.db
+*.db-shm
+*.db-wal
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker
+docker/
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# 文档
+README.md
+*.md
+docs/
+
+# 测试
+test_*.sh
+*.test.js
+*.spec.js
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+
+# 操作系统
+.DS_Store
+Thumbs.db

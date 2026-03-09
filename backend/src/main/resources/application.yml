@@ -3,6 +3,21 @@ server:
   servlet:
     context-path: /api
 
+# Actuator 配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      enabled: true
+      show-details: when-authorized
+  health:
+    defaults:
+      enabled: true
+
 spring:
   application:
     name: mock-server
