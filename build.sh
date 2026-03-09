@@ -188,7 +188,7 @@ cd backend || exit 1
 # 检查是否需要更新依赖
 if [ ! -d "target" ] || [ "pom.xml" -nt "target/.last-build" ]; then
     print_info "检测到依赖变更，更新Maven依赖..."
-    mvn dependency:resolve -Djava.home="$INTERNAL_JAVA_HOME"
+    mvn dependency:resolve
     if [ $? -ne 0 ]; then
         print_error "Maven依赖解析失败"
         exit 1
@@ -196,12 +196,12 @@ if [ ! -d "target" ] || [ "pom.xml" -nt "target/.last-build" ]; then
 fi
 
 print_info "清理并编译..."
-mvn clean compile -Djava.home="$INTERNAL_JAVA_HOME" -q
+mvn clean compile -q
 
 if [ $? -ne 0 ]; then
     print_error "后端编译失败，尝试更新依赖..."
-    print_info "执行 mvn clean install -U..."
-    mvn clean install -U -DskipTests -Djava.home="$INTERNAL_JAVA_HOME"
+print_info "执行 mvn clean install -U..."
+mvn clean install -U -DskipTests
     if [ $? -ne 0 ]; then
         print_error "后端编译失败"
         exit 1
@@ -209,7 +209,7 @@ if [ $? -ne 0 ]; then
 fi
 
 print_info "打包..."
-mvn package -DskipTests -Djava.home="$INTERNAL_JAVA_HOME" -q
+mvn package -DskipTests -q
 
 if [ $? -ne 0 ]; then
     print_error "后端打包失败"
