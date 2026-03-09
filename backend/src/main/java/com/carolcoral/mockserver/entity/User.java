@@ -74,7 +74,7 @@ public class User implements UserDetails {
      * 用户语言偏好，默认为中文
      */
     @Schema(description = "用户语言", example = "zh-CN", allowableValues = {"zh-CN", "en-US", "ja-JP"})
-    @Column(nullable = false, length = 10)
+    @Column(nullable = false, length = 10, columnDefinition = "VARCHAR(10) DEFAULT 'zh-CN'")
     private String language = "zh-CN";
 
     /**
