@@ -1,10 +1,11 @@
-# Mock Server - API接口模拟服务器
+。/apt# Mock Server - API接口模拟服务器
 
 基于Spring Boot + Vue 3的API接口模拟服务器，支持自定义接口配置、多项目管理、权限控制和高并发。
 
 ## 🌟 主要特性
 
 - 前后端分离架构（Vue 3 + Spring Boot）
+- 一键构建部署，前端静态文件集成到后端 JAR 包
 - 支持HTTP和WebSocket请求
 - 自定义接口配置（多状态码、随机响应、条件响应）
 - 多项目管理和用户权限控制
@@ -22,24 +23,48 @@
 
 ### 启动项目
 
-```bash
-# 完整启动（前后端）
-./run.sh
+#### 方式一：一键构建和运行（推荐）
 
-# 或分别启动
+```bash
+./run.sh
+```
+
+此脚本会自动构建前后端，并将前端静态文件集成到后端 JAR 包中，只需一个命令即可启动完整服务。
+
+服务地址：
+- 前端界面: http://localhost:8080
+- 后端API: http://localhost:8080/api
+- Swagger文档: http://localhost:8080/swagger-ui.html
+
+#### 方式二：手动构建和运行
+
+```bash
+# 1. 构建项目（包含前后端）
+./build-all-in-one.sh
+
+# 2. 运行 JAR 包
+java -jar backend/target/mock-server-1.0.0.jar
+```
+
+#### 方式三：开发模式（前后端分离）
+
+```bash
+# 构建脚本
+./build.sh
 
 # 后端
-./build.sh
 cd backend && mvn spring-boot:run
 
-# 前端
+# 前端（新终端）
 cd frontend && npm install && npm run dev
 ```
 
 服务地址：
-- 前端: http://localhost:5173
+- 前端: http://localhost:3000
 - 后端API: http://localhost:8080/api
 - Swagger: http://localhost:8080/api/swagger-ui.html
+
+> **详细构建说明**请参考 [BUILD_README.md](./BUILD_README.md)
 
 ### Docker部署
 
