@@ -76,7 +76,7 @@ FRONTEND_PORT=3000
 
 ## 系统要求
 
-- **JDK**: 17
+- **JDK**: 21
 - **Maven**: 3.6+
 - **Node.js**: 18+
 - **npm**: 9+
@@ -99,7 +99,7 @@ A: 日志文件位于 `backend/logs/server.log`，可以使用 `tail -f backend/
 ### Q: 构建失败怎么办？
 
 A: 请检查以下事项：
-1. 确保已安装 JDK 17、Maven、Node.js 和 npm
+1. 确保已安装 JDK 21、Maven、Node.js 和 npm
 2. 确保 `.env` 文件存在且配置正确
 3. 检查网络连接，确保能够下载依赖
 4. 查看构建日志中的错误信息

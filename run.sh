@@ -78,64 +78,64 @@ case "${OS}" in
     *)          PLATFORM="UNKNOWN:${OS}"
 esac
 
-# 自动检测并设置INTERNAL_JAVA_HOME（检测Java 17）
+# 自动检测并设置INTERNAL_JAVA_HOME（检测Java 21）
 auto_set_java_home() {
     print_info "检测Java环境..."
     
     # 优先检查INTERNAL_JAVA_HOME是否已设置
     if [ -n "$INTERNAL_JAVA_HOME" ] && [ -x "$INTERNAL_JAVA_HOME/bin/java" ]; then
         JAVA_VERSION=$($INTERNAL_JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
-        if [ "$JAVA_VERSION" = "17" ]; then
+        if [ "$JAVA_VERSION" = "21" ]; then
             print_success "使用已配置的INTERNAL_JAVA_HOME: $INTERNAL_JAVA_HOME (Java $JAVA_VERSION)"
             return 0
         fi
     fi
     
-    # 检查全局JAVA_HOME是否为Java 17，如果是则复制到INTERNAL_JAVA_HOME
+    # 检查全局JAVA_HOME是否为Java 21，如果是则复制到INTERNAL_JAVA_HOME
     if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
         JAVA_VERSION=$($JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
-        if [ "$JAVA_VERSION" = "17" ]; then
+        if [ "$JAVA_VERSION" = "21" ]; then
             INTERNAL_JAVA_HOME="$JAVA_HOME"
             print_success "从全局JAVA_HOME复制: $INTERNAL_JAVA_HOME (Java $JAVA_VERSION)"
             return 0
         fi
     fi
     
-    # 根据操作系统查找Java 17
+    # 根据操作系统查找Java 21
     case "${PLATFORM}" in
         Mac)
-            # macOS: 使用java_home命令查找Java 17
+            # macOS: 使用java_home命令查找Java 21
             if command -v /usr/libexec/java_home >/dev/null 2>&1; then
-                INTERNAL_JAVA_HOME=$(/usr/libexec/java_home -v 17 2>/dev/null)
+                INTERNAL_JAVA_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null)
                 if [ -n "$INTERNAL_JAVA_HOME" ] && [ -x "$INTERNAL_JAVA_HOME/bin/java" ]; then
-                    print_success "通过java_home命令检测到Java 17: $INTERNAL_JAVA_HOME"
+                    print_success "通过java_home命令检测到Java 21: $INTERNAL_JAVA_HOME"
                     return 0
                 fi
             fi
             
-            # 备用方案：查找Homebrew安装的Java 17
-            if [ -d "/usr/local/Cellar/openjdk@17" ]; then
-                INTERNAL_JAVA_HOME=$(find /usr/local/Cellar/openjdk@17 -name "libexec" -type d 2>/dev/null | head -n 1)
+            # 备用方案：查找Homebrew安装的Java 21
+            if [ -d "/usr/local/Cellar/openjdk@21" ]; then
+                INTERNAL_JAVA_HOME=$(find /usr/local/Cellar/openjdk@21 -name "libexec" -type d 2>/dev/null | head -n 1)
                 if [ -n "$INTERNAL_JAVA_HOME" ]; then
                     INTERNAL_JAVA_HOME="${INTERNAL_JAVA_HOME}/openjdk.jdk/Contents/Home"
                 fi
-            elif [ -d "/opt/homebrew/Cellar/openjdk@17" ]; then
+            elif [ -d "/opt/homebrew/Cellar/openjdk@21" ]; then
                 # Apple Silicon Mac
-                INTERNAL_JAVA_HOME=$(find /opt/homebrew/Cellar/openjdk@17 -name "libexec" -type d 2>/dev/null | head -n 1)
+                INTERNAL_JAVA_HOME=$(find /opt/homebrew/Cellar/openjdk@21 -name "libexec" -type d 2>/dev/null | head -n 1)
                 if [ -n "$INTERNAL_JAVA_HOME" ]; then
                     INTERNAL_JAVA_HOME="${INTERNAL_JAVA_HOME}/openjdk.jdk/Contents/Home"
                 fi
             fi
             ;;
         Linux)
-            # Linux: 查找常见Java 17安装路径
+            # Linux: 查找常见Java 21安装路径
             for java_path in \
-                "/usr/lib/jvm/java-17-openjdk-amd64" \
-                "/usr/lib/jvm/java-17-openjdk" \
-                "/usr/lib/jvm/jdk-17" \
-                "/opt/jdk-17" \
-                "/usr/lib/jvm/temurin-17-jdk-amd64" \
-                "/usr/lib/jvm/jdk-17-oracle-x64"; do
+                "/usr/lib/jvm/java-21-openjdk-amd64" \
+                "/usr/lib/jvm/java-21-openjdk" \
+                "/usr/lib/jvm/jdk-21" \
+                "/opt/jdk-21" \
+                "/usr/lib/jvm/temurin-21-jdk-amd64" \
+                "/usr/lib/jvm/jdk-21-oracle-x64"; do
                 if [ -d "$java_path" ]; then
                     INTERNAL_JAVA_HOME="$java_path"
                     break
@@ -143,13 +143,13 @@ auto_set_java_home() {
             done
             ;;
         Windows)
-            # Windows: 查找常见Java 17安装路径
-            if [ -d "/c/Program Files/Java/jdk-17" ]; then
-                INTERNAL_JAVA_HOME="/c/Program Files/Java/jdk-17"
-            elif [ -d "/c/Program Files (x86)/Java/jdk-17" ]; then
-                INTERNAL_JAVA_HOME="/c/Program Files (x86)/Java/jdk-17"
-            elif [ -d "/c/Program Files/Java/jdk-17.0" ]; then
-                INTERNAL_JAVA_HOME="/c/Program Files/Java/jdk-17.0"
+            # Windows: 查找常见Java 21安装路径
+            if [ -d "/c/Program Files/Java/jdk-21" ]; then
+                INTERNAL_JAVA_HOME="/c/Program Files/Java/jdk-21"
+            elif [ -d "/c/Program Files (x86)/Java/jdk-21" ]; then
+                INTERNAL_JAVA_HOME="/c/Program Files (x86)/Java/jdk-21"
+            elif [ -d "/c/Program Files/Java/jdk-21.0" ]; then
+                INTERNAL_JAVA_HOME="/c/Program Files/Java/jdk-21.0"
             fi
             ;;
     esac
@@ -157,8 +157,8 @@ auto_set_java_home() {
     # 验证Java版本
     if [ -n "$INTERNAL_JAVA_HOME" ] && [ -x "$INTERNAL_JAVA_HOME/bin/java" ]; then
         JAVA_VERSION=$($INTERNAL_JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
-        if [ "$JAVA_VERSION" = "17" ]; then
-            print_success "自动检测到Java 17: $INTERNAL_JAVA_HOME"
+        if [ "$JAVA_VERSION" = "21" ]; then
+            print_success "自动检测到Java 21: $INTERNAL_JAVA_HOME"
             return 0
         else
             print_info "检测到的Java版本不是17: $JAVA_VERSION"
@@ -166,7 +166,7 @@ auto_set_java_home() {
         fi
     fi
     
-    print_error "未找到Java 17，请确保已安装JDK 17"
+    print_error "未找到Java 21，请确保已安装JDK 21"
     return 1
 }
 

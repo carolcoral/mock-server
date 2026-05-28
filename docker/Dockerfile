@@ -26,7 +26,7 @@ RUN npm run build
 # ========================================
 # 阶段 2: 构建后端
 # ========================================
-FROM maven:3.9-eclipse-temurin-17 AS backend-builder
+FROM maven:3.9-eclipse-temurin-21 AS backend-builder
 
 # 设置工作目录
 WORKDIR /app/backend
@@ -46,7 +46,7 @@ RUN mvn clean package -DskipTests -B
 # ========================================
 # 阶段 3: 最终运行镜像
 # ========================================
-FROM openjdk:17-jdk-slim
+FROM openjdk:21-jdk-slim
 
 # 作者信息
 LABEL maintainer="carolcoral <github.com/carolcoral>"
