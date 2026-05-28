@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "项目成员管理", description = "项目成员管理相关接口")
 @SecurityRequirement(name = "bearerAuth")
 @RestController
-@RequestMapping("/project-members")
+@RequestMapping("/api/project-members")
 public class ProjectMemberController {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ProjectMemberController.class);
 

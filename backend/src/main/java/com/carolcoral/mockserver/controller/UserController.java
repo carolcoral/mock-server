@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "用户管理", description = "用户管理相关接口")
 @SecurityRequirement(name = "bearerAuth")
 @RestController
-@RequestMapping("/users")
+@RequestMapping("/api/users")
 @Validated
 public class UserController {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(UserController.class);

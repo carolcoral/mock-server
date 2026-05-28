@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @Tag(name = "系统配置", description = "系统配置管理接口")
 @RestController
-@RequestMapping("/system-config")
+@RequestMapping("/api/system-config")
 public class SystemConfigController {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SystemConfigController.class);

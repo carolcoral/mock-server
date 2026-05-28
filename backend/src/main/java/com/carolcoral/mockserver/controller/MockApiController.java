@@ -34,7 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "接口管理", description = "自定义接口管理相关接口")
 @SecurityRequirement(name = "bearerAuth")
 @RestController
-@RequestMapping("/mock-apis")
+@RequestMapping("/api/mock-apis")
 public class MockApiController {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MockApiController.class);
 

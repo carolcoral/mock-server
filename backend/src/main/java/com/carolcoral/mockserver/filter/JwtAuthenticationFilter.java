@@ -206,7 +206,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      * 判断是否是公开路径（不需要认证）
      */
     private boolean isPublicPath(String requestUri) {
-        // 支持完整路径和去除context-path后的路径
+        // 前端静态资源 - 直接放行
+        if (requestUri.equals("/") || requestUri.equals("/index.html") ||
+            requestUri.equals("/favicon.ico") || requestUri.equals("/robots.txt") ||
+            requestUri.startsWith("/assets/")) {
+            return true;
+        }
+
+        // SPA 路由（Vue Router history 模式） - 直接放行，让前端处理
+        if (requestUri.equals("/login") || requestUri.equals("/dashboard") ||
+            requestUri.equals("/home") || requestUri.equals("/projects") ||
+            requestUri.startsWith("/projects/") || requestUri.equals("/apis") ||
+            requestUri.equals("/users") || requestUri.equals("/settings") ||
+            requestUri.equals("/guide")) {
+            return true;
+        }
+
+        // API 公开接口
         return AUTH_LOGIN_PATH.equals(requestUri) ||
                ("/api" + AUTH_LOGIN_PATH).equals(requestUri) ||
                AUTH_REGISTER_PATH.equals(requestUri) ||

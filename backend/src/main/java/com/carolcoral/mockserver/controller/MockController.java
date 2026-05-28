@@ -32,7 +32,7 @@ import java.util.Map;
  */
 @Tag(name = "Mock请求", description = "Mock请求处理接口（无需认证）")
 @RestController
-@RequestMapping("/mock-server")
+@RequestMapping("/api/mock-server")
 @Validated
 public class MockController {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MockController.class);
@@ -70,41 +70,32 @@ public class MockController {
 
             log.info("Mock请求详情 - fullPath: {}, servletPath: {}, projectCode: {}", fullPath, servletPath, projectCode);
 
-            // 由于应用有context-path=/api，fullPath会是/api/mock-server/test/login
-            // 我们需要从中提取/mock-server/test/login部分
-            String contextPath = request.getContextPath(); // /api
-            String pathWithoutContext = fullPath.startsWith(contextPath)
-                ? fullPath.substring(contextPath.length())
-                : fullPath;
-
-            // 构建路径前缀 /mock-server/{projectCode}/
-            String pathPrefix = "/mock-server/" + projectCode + "/";
+            // fullPath 为 /api/mock-server/test/login
+            // 构建路径前缀 /api/mock-server/{projectCode}/
+            String pathPrefix = "/api/mock-server/" + projectCode + "/";
             String path;
 
-            if (pathWithoutContext.startsWith(pathPrefix)) {
-                path = pathWithoutContext.substring(pathPrefix.length() - 1); // 保留开头的 /
-            } else if (pathWithoutContext.startsWith("/mock-server/")) {
-                // 兼容 /mock-server/ 前缀
-                String mockPathPrefix = "/mock-server/" + projectCode;
-                if (pathWithoutContext.startsWith(mockPathPrefix + "/")) {
-                    path = pathWithoutContext.substring(mockPathPrefix.length());
-                } else if (pathWithoutContext.equals(mockPathPrefix)) {
+            if (fullPath.startsWith(pathPrefix)) {
+                path = fullPath.substring(pathPrefix.length() - 1); // 保留开头的 /
+            } else if (fullPath.startsWith("/api/mock-server/")) {
+                String mockPathPrefix = "/api/mock-server/" + projectCode;
+                if (fullPath.startsWith(mockPathPrefix + "/")) {
+                    path = fullPath.substring(mockPathPrefix.length());
+                } else if (fullPath.equals(mockPathPrefix)) {
                     path = "/";
                 } else {
                     path = "/";
                 }
             } else if (servletPath.startsWith("/mock-server/")) {
-                // 使用 servletPath 作为备选
                 if (servletPath.startsWith(pathPrefix)) {
                     path = servletPath.substring(pathPrefix.length() - 1);
                 } else {
                     path = servletPath;
                 }
             } else {
-                // 如果以上都不匹配，使用剩余的路径
-                path = pathWithoutContext.startsWith("/mock-server/")
-                    ? pathWithoutContext.substring("/mock-server/".length())
-                    : pathWithoutContext;
+                path = fullPath.startsWith("/api/mock-server/")
+                    ? fullPath.substring("/api/mock-server/".length())
+                    : fullPath;
             }
 
             if (path == null || path.isEmpty()) {

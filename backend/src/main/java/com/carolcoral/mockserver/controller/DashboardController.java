@@ -37,7 +37,7 @@ import java.util.Map;
  */
 @Tag(name = "仪表盘管理", description = "首页统计数据相关接口")
 @RestController
-@RequestMapping("/dashboard")
+@RequestMapping("/api/dashboard")
 public class DashboardController {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DashboardController.class);
 

@@ -69,48 +69,39 @@ public class SecurityConfig {
                 .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::deny))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authz -> authz
-                        // 完全公开接口（不需要认证）- 注意：由于设置了context-path=/api，这些路径实际上是相对于/api的
+                        // 完全公开接口（不需要认证）
                         .requestMatchers(
-                                "/v3/api-docs/**",
-                                "/swagger-resources/**",
-                                "/webjars/**",
-                                "/auth/login",
-                                "/auth/register",
-                                "/auth/swagger-auto-login",
-                                "/mock-server/**",
-                                "/mock/**",
-                                "/ws/**",
-                                "/error",
-                                "/api/v3/api-docs/**",
-                                "/api/swagger-resources/**",
-                                "/api/webjars/**",
+                                // API 接口
                                 "/api/auth/**",
                                 "/api/mock-server/**",
+                                "/api/mock-apis/**",
                                 "/api/mock/**",
                                 "/api/ws/**",
                                 "/api/error",
                                 "/api/system-config/**",
                                 "/api/actuator/**",
-                                "/actuator/**",
-                                // 前端静态资源（Docker 一体化部署）
+                                "/api/v3/api-docs/**",
+                                "/api/swagger-resources/**",
+                                "/api/webjars/**",
+                                // 前端静态资源
                                 "/",
                                 "/index.html",
                                 "/favicon.ico",
                                 "/robots.txt",
                                 "/assets/**",
-                                // SPA 常见路由
+                                // SPA 路由（Vue Router history 模式）
+                                "/login",
+                                "/dashboard",
                                 "/home",
                                 "/projects",
+                                "/projects/**",
                                 "/apis",
                                 "/users",
                                 "/settings",
-                                "/guide",
-                                "/login"
+                                "/guide"
                         ).permitAll()
-                        // Swagger UI 页面（需要认证，但由JWT过滤器处理）
+                        // Swagger UI 页面
                         .requestMatchers(
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
                                 "/api/swagger-ui/**",
                                 "/api/swagger-ui.html"
                         ).authenticated()
@@ -120,9 +111,9 @@ public class SecurityConfig {
                         ).hasRole("ADMIN")
                         // 用户信息接口 - 需要认证
                         .requestMatchers(
-                                "/api/user/profile",
-                                "/api/user/update-profile",
-                                "/api/user/change-password"
+                                "/api/users/profile",
+                                "/api/users/update-profile",
+                                "/api/users/change-password"
                         ).authenticated()
                         // 允许所有OPTIONS预检请求
                         .requestMatchers(request -> "OPTIONS".equals(request.getMethod())).permitAll()

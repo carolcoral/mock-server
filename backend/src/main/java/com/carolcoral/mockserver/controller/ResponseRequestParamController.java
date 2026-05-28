@@ -26,7 +26,7 @@ import java.util.List;
  */
 @Tag(name = "响应请求参数管理", description = "响应请求参数管理接口")
 @RestController
-@RequestMapping("/responses/{responseId}/params")
+@RequestMapping("/api/responses/{responseId}/params")
 public class ResponseRequestParamController {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ResponseRequestParamController.class);

@@ -35,7 +35,7 @@ import java.util.Map;
 @Tag(name = "系统公告管理", description = "系统公告管理相关接口")
 @SecurityRequirement(name = "bearerAuth")
 @RestController
-@RequestMapping("/system-announcement")
+@RequestMapping("/api/system-announcement")
 public class SystemAnnouncementController {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SystemAnnouncementController.class);
 
