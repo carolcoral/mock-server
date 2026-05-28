@@ -24,6 +24,16 @@ print_info() {
     echo -e "${YELLOW}[信息]${NC} $1"
 }
 
+print_warning() {
+    echo -e "${YELLOW}[警告]${NC} $1"
+}
+
+# 项目版本要求
+REQUIRED_NODE_MAJOR=18
+REQUIRED_NPM_MAJOR=9
+REQUIRED_MAVEN_MAJOR=3
+REQUIRED_MAVEN_MINOR=6
+
 # 获取脚本所在目录的绝对路径（项目根目录）
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_ROOT"
@@ -235,14 +245,327 @@ check_java21() {
 
 check_java21
 
-# 检测 Maven
-check_command "mvn" "Maven"
+# ==========================================
+# 多版本 Maven 自动检测与切换
+# ==========================================
+check_maven() {
+    print_info "检测 Maven 环境（支持多版本 Maven，要求 >= ${REQUIRED_MAVEN_MAJOR}.${REQUIRED_MAVEN_MINOR}）..."
 
-# 检测 Node.js
-check_command "node" "Node.js"
+    # 查找最佳 Maven 版本的函数
+    find_best_mvn() {
+        local best_home=""
+        local best_major=0
+        local best_minor=0
 
-# 检测 npm
-check_command "npm" "npm"
+        for candidate_home in "$@"; do
+            if [ -d "$candidate_home" ] && [ -x "$candidate_home/bin/mvn" ]; then
+                local ver_output
+                ver_output=$("$candidate_home/bin/mvn" --version 2>&1 | head -n 1)
+                local ver
+                ver=$(echo "$ver_output" | grep -oP 'Apache Maven \K[0-9]+\.[0-9]+' 2>/dev/null)
+                if [ -n "$ver" ]; then
+                    local major minor
+                    major=$(echo "$ver" | cut -d'.' -f1)
+                    minor=$(echo "$ver" | cut -d'.' -f2)
+                    # 必须满足最低版本要求
+                    if [ "$major" -gt "$REQUIRED_MAVEN_MAJOR" ] || \
+                       ([ "$major" -eq "$REQUIRED_MAVEN_MAJOR" ] && [ "$minor" -ge "$REQUIRED_MAVEN_MINOR" ]); then
+                        # 选择满足要求的最高版本
+                        if [ "$major" -gt "$best_major" ] || \
+                           ([ "$major" -eq "$best_major" ] && [ "$minor" -gt "$best_minor" ]); then
+                            best_major=$major
+                            best_minor=$minor
+                            best_home="$candidate_home"
+                        fi
+                    fi
+                fi
+            fi
+        done
+        echo "$best_home"
+    }
+
+    # 方法1: 检查当前 PATH 中的 mvn
+    if command -v mvn >/dev/null 2>&1; then
+        local current_ver
+        current_ver=$(mvn --version 2>&1 | head -n 1 | grep -oP 'Apache Maven \K[0-9]+\.[0-9]+' 2>/dev/null)
+        if [ -n "$current_ver" ]; then
+            local cur_major cur_minor
+            cur_major=$(echo "$current_ver" | cut -d'.' -f1)
+            cur_minor=$(echo "$current_ver" | cut -d'.' -f2)
+            if [ "$cur_major" -gt "$REQUIRED_MAVEN_MAJOR" ] || \
+               ([ "$cur_major" -eq "$REQUIRED_MAVEN_MAJOR" ] && [ "$cur_minor" -ge "$REQUIRED_MAVEN_MINOR" ]); then
+                print_success "Maven $current_ver 已就绪 (系统默认)"
+                print_info "  $(mvn --version 2>&1 | head -n 1)"
+                return 0
+            else
+                print_warning "系统默认 Maven $current_ver 低于要求的 ${REQUIRED_MAVEN_MAJOR}.${REQUIRED_MAVEN_MINOR}，搜索其他版本..."
+            fi
+        fi
+    fi
+
+    # 方法2: 扫描常见 Maven 安装路径
+    local maven_candidates=""
+
+    # Linux 常见路径
+    if [ "$PLATFORM" = "Linux" ]; then
+        for base in /usr/share/maven /opt/maven /usr/local/maven /usr/local/apache-maven "$HOME/maven" "$HOME/apache-maven"; do
+            if [ -d "$base" ] && [ -x "$base/bin/mvn" ]; then
+                maven_candidates="$maven_candidates $base"
+            fi
+        done
+        # 通配符匹配版本号目录
+        for pattern in /usr/share/maven-* /opt/maven-* /opt/apache-maven-* /usr/local/maven-* /usr/local/apache-maven-* "$HOME/maven-*" "$HOME/apache-maven-*"; do
+            for candidate in $pattern; do
+                if [ -d "$candidate" ] && [ -x "$candidate/bin/mvn" ]; then
+                    maven_candidates="$maven_candidates $candidate"
+                fi
+            done
+        done
+    fi
+
+    # macOS Homebrew 路径
+    if [ "$PLATFORM" = "Mac" ]; then
+        for prefix in /opt/homebrew /usr/local; do
+            for pattern in "$prefix/Cellar/maven"/* "$prefix/opt/maven"*; do
+                if [ -d "$pattern" ]; then
+                    local libexec="$pattern/libexec"
+                    if [ -d "$libexec" ] && [ -x "$libexec/bin/mvn" ]; then
+                        maven_candidates="$maven_candidates $libexec"
+                    elif [ -x "$pattern/bin/mvn" ]; then
+                        maven_candidates="$maven_candidates $pattern"
+                    fi
+                fi
+            done
+        done
+    fi
+
+    # sdkman 安装的 Maven
+    if [ -d "$HOME/.sdkman/candidates/maven" ]; then
+        for sdk_maven in "$HOME/.sdkman/candidates/maven"/*/; do
+            if [ -d "$sdk_maven" ] && [ -x "$sdk_maven/bin/mvn" ]; then
+                maven_candidates="$maven_candidates $sdk_maven"
+            fi
+        done
+    fi
+
+    # 搜索并选择最佳版本
+    local best_maven
+    best_maven=$(find_best_mvn $maven_candidates)
+
+    if [ -n "$best_maven" ]; then
+        export M2_HOME="$best_maven"
+        export MAVEN_HOME="$best_maven"
+        export PATH="$best_maven/bin:$PATH"
+        local best_ver
+        best_ver=$(mvn --version 2>&1 | head -n 1 | grep -oP 'Apache Maven \K[0-9]+\.[0-9]+' 2>/dev/null)
+        print_success "Maven $best_ver 已就绪 (多版本切换): $best_maven"
+        print_info "  $(mvn --version 2>&1 | head -n 1)"
+        return 0
+    fi
+
+    # 未找到合适版本
+    print_error "未找到 Maven ${REQUIRED_MAVEN_MAJOR}.${REQUIRED_MAVEN_MINOR}+"
+    echo ""
+    if command -v mvn >/dev/null 2>&1; then
+        print_info "系统当前 Maven 版本: $(mvn --version 2>&1 | head -n 1)"
+    fi
+    print_info "安装方式:"
+    print_info "  1. 运行 ./setup-env.sh 自动安装 Maven"
+    print_info "  2. 手动下载: https://maven.apache.org/download.cgi"
+    print_info "  3. 使用 SDKMAN: sdk install maven"
+    exit 1
+}
+
+check_maven
+
+# ==========================================
+# 多版本 Node.js 自动检测与切换（含 nvm）
+# ==========================================
+check_nodejs() {
+    print_info "检测 Node.js 环境（支持多版本 Node.js，要求 >= ${REQUIRED_NODE_MAJOR}）..."
+
+    # 方法1: 检查当前 PATH 中的 node 版本
+    if command -v node >/dev/null 2>&1; then
+        local node_ver
+        node_ver=$(node --version 2>&1 | sed 's/v//')
+        local node_major
+        node_major=$(echo "$node_ver" | cut -d'.' -f1)
+        if [ "$node_major" -ge "$REQUIRED_NODE_MAJOR" ] 2>/dev/null; then
+            print_success "Node.js $node_ver 已就绪 (系统默认)"
+            print_info "  $(node --version 2>&1)"
+            return 0
+        else
+            print_warning "系统默认 Node.js v$node_ver 低于要求的 v${REQUIRED_NODE_MAJOR}，搜索其他版本..."
+        fi
+    fi
+
+    # 方法2: 尝试使用 nvm 切换版本
+    local nvm_loaded=false
+
+    # 加载 nvm
+    load_nvm() {
+        if [ -n "$NVM_DIR" ] && [ -s "$NVM_DIR/nvm.sh" ]; then
+            \. "$NVM_DIR/nvm.sh" 2>/dev/null
+            return $?
+        fi
+        for nvm_init in "$HOME/.nvm/nvm.sh" "/usr/local/nvm/nvm.sh"; do
+            if [ -s "$nvm_init" ]; then
+                export NVM_DIR="$(dirname "$nvm_init")"
+                \. "$nvm_init" 2>/dev/null
+                return $?
+            fi
+        done
+        return 1
+    }
+
+    if load_nvm; then
+        nvm_loaded=true
+        print_info "检测到 nvm，尝试切换到 Node.js $REQUIRED_NODE_MAJOR..."
+
+        # 检查是否已安装目标版本
+        if nvm ls "$REQUIRED_NODE_MAJOR" >/dev/null 2>&1; then
+            nvm use "$REQUIRED_NODE_MAJOR" 2>/dev/null
+            if [ $? -eq 0 ]; then
+                local node_ver
+                node_ver=$(node --version 2>&1 | sed 's/v//')
+                print_success "Node.js $node_ver 已就绪 (nvm 切换)"
+                print_info "  $(node --version 2>&1)"
+                return 0
+            fi
+        else
+            print_info "nvm 中未安装 Node.js $REQUIRED_NODE_MAJOR，尝试安装..."
+            nvm install "$REQUIRED_NODE_MAJOR" 2>/dev/null
+            if [ $? -eq 0 ]; then
+                nvm use "$REQUIRED_NODE_MAJOR" 2>/dev/null
+                local node_ver
+                node_ver=$(node --version 2>&1 | sed 's/v//')
+                print_success "Node.js $node_ver 已就绪 (nvm 安装)"
+                print_info "  $(node --version 2>&1)"
+                return 0
+            fi
+        fi
+    fi
+
+    # 方法3: 扫描常见多版本 Node.js 安装路径
+    local node_candidates=""
+
+    # Linux: n 版本管理器
+    if [ "$PLATFORM" = "Linux" ] || [ "$PLATFORM" = "Mac" ]; then
+        if [ -d "/usr/local/n/versions/node" ]; then
+            for n_node in /usr/local/n/versions/node/*/; do
+                if [ -x "$n_node/bin/node" ]; then
+                    node_candidates="$node_candidates $n_node"
+                fi
+            done
+        fi
+        if [ -d "$HOME/n" ]; then
+            for n_node in "$HOME/n/versions/node"/*/; do
+                if [ -x "$n_node/bin/node" ]; then
+                    node_candidates="$node_candidates $n_node"
+                fi
+            done
+        fi
+    fi
+
+    # macOS: Homebrew 多版本
+    if [ "$PLATFORM" = "Mac" ]; then
+        for prefix in /opt/homebrew /usr/local; do
+            for pattern in "$prefix/Cellar/node@$REQUIRED_NODE_MAJOR"* "$prefix/Cellar/node"/$REQUIRED_NODE_MAJOR* "$prefix/opt/node@$REQUIRED_NODE_MAJOR"; do
+                if [ -d "$pattern" ] && [ -x "$pattern/bin/node" ]; then
+                    node_candidates="$node_candidates $pattern"
+                fi
+            done
+        done
+    fi
+
+    # 搜索最佳版本
+    local best_node=""
+    local best_ver=0
+    for candidate in $node_candidates; do
+        if [ -x "$candidate/bin/node" ]; then
+            local ver
+            ver=$("$candidate/bin/node" --version 2>&1 | sed 's/v//' | cut -d'.' -f1)
+            if [ "$ver" -ge "$REQUIRED_NODE_MAJOR" ] 2>/dev/null && [ "$ver" -gt "$best_ver" ] 2>/dev/null; then
+                best_ver=$ver
+                best_node="$candidate"
+            fi
+        fi
+    done
+
+    if [ -n "$best_node" ]; then
+        export PATH="$best_node/bin:$PATH"
+        local node_ver
+        node_ver=$(node --version 2>&1 | sed 's/v//')
+        print_success "Node.js $node_ver 已就绪 (多版本切换): $best_node"
+        print_info "  $(node --version 2>&1)"
+        return 0
+    fi
+
+    # 方法4: 自动安装（作为最后手段）
+    if [ "$nvm_loaded" = true ]; then
+        print_info "使用 nvm 安装 Node.js $REQUIRED_NODE_MAJOR..."
+        nvm install "$REQUIRED_NODE_MAJOR" 2>/dev/null
+        if [ $? -eq 0 ]; then
+            nvm use "$REQUIRED_NODE_MAJOR" 2>/dev/null
+            print_success "Node.js $(node --version 2>&1 | sed 's/v//') 已就绪 (nvm 安装)"
+            return 0
+        fi
+    fi
+
+    # 未找到合适版本
+    print_error "未找到 Node.js ${REQUIRED_NODE_MAJOR}+"
+    echo ""
+    if command -v node >/dev/null 2>&1; then
+        print_info "系统当前 Node.js 版本: $(node --version 2>&1)"
+    fi
+    if [ "$nvm_loaded" != true ]; then
+        print_info "提示: 安装 nvm 可方便管理多版本 Node.js"
+        print_info "  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash"
+    fi
+    print_info "安装方式:"
+    print_info "  1. 运行 ./setup-env.sh 自动安装 Node.js"
+    print_info "  2. 手动下载: https://nodejs.org/"
+    exit 1
+}
+
+check_nodejs
+
+# ==========================================
+# 多版本 npm 自动检测与切换
+# ==========================================
+check_npm() {
+    print_info "检测 npm 环境（要求 >= ${REQUIRED_NPM_MAJOR}）..."
+
+    if command -v npm >/dev/null 2>&1; then
+        local npm_ver
+        npm_ver=$(npm --version 2>&1)
+        local npm_major
+        npm_major=$(echo "$npm_ver" | cut -d'.' -f1)
+        if [ "$npm_major" -ge "$REQUIRED_NPM_MAJOR" ] 2>/dev/null; then
+            print_success "npm $npm_ver 已就绪"
+            return 0
+        else
+            print_warning "npm v$npm_ver 低于要求的 v${REQUIRED_NPM_MAJOR}，尝试升级..."
+            # npm 随 Node.js 安装，尝试更新 npm 自身
+            print_info "执行 npm install -g npm@${REQUIRED_NPM_MAJOR}..."
+            npm install -g "npm@${REQUIRED_NPM_MAJOR}" 2>/dev/null
+            if [ $? -eq 0 ]; then
+                npm_ver=$(npm --version 2>&1)
+                print_success "npm 已升级至 $npm_ver"
+                return 0
+            fi
+        fi
+    fi
+
+    print_error "未找到 npm ${REQUIRED_NPM_MAJOR}+"
+    if command -v npm >/dev/null 2>&1; then
+        print_info "系统当前 npm 版本: v$(npm --version 2>&1)"
+    fi
+    print_info "npm 通常随 Node.js 一起安装，请确保 Node.js ${REQUIRED_NODE_MAJOR}+ 已正确安装"
+    exit 1
+}
+
+check_npm
 
 print_success "基础环境检测通过"
 

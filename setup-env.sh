@@ -780,6 +780,583 @@ verify_java() {
     fi
 }
 
+# ==========================================
+# Maven 相关函数
+# ==========================================
+
+# 项目要求的 Maven 最低版本
+REQUIRED_MAVEN_MAJOR=3
+REQUIRED_MAVEN_MINOR=9
+
+# 检查 Maven 是否已安装且版本符合要求
+check_maven_installed() {
+    print_step "检查 Maven 环境..."
+    
+    if command -v mvn >/dev/null 2>&1; then
+        MAVEN_VERSION_OUTPUT=$(mvn --version 2>&1 | head -n 1)
+        MAVEN_VERSION=$(echo "$MAVEN_VERSION_OUTPUT" | grep -oP 'Apache Maven \K[0-9]+\.[0-9]+' 2>/dev/null)
+        
+        if [ -n "$MAVEN_VERSION" ]; then
+            MAVEN_MAJOR=$(echo "$MAVEN_VERSION" | cut -d'.' -f1)
+            MAVEN_MINOR=$(echo "$MAVEN_VERSION" | cut -d'.' -f2)
+            
+            if [ "$MAVEN_MAJOR" -gt "$REQUIRED_MAVEN_MAJOR" ] || \
+               ([ "$MAVEN_MAJOR" -eq "$REQUIRED_MAVEN_MAJOR" ] && [ "$MAVEN_MINOR" -ge "$REQUIRED_MAVEN_MINOR" ]); then
+                print_success "Maven $MAVEN_VERSION 已安装 (要求 >= $REQUIRED_MAVEN_MAJOR.$REQUIRED_MAVEN_MINOR)"
+                print_info "$MAVEN_VERSION_OUTPUT"
+                return 0
+            else
+                print_warning "Maven 版本 $MAVEN_VERSION 低于要求的 $REQUIRED_MAVEN_MAJOR.$REQUIRED_MAVEN_MINOR"
+                return 1
+            fi
+        fi
+    fi
+    
+    print_warning "未检测到 Maven $REQUIRED_MAVEN_MAJOR.$REQUIRED_MAVEN_MINOR+"
+    return 1
+}
+
+# 在 macOS 上安装 Maven
+install_maven_mac() {
+    print_step "在 macOS 上安装 Maven..."
+    
+    if command -v brew >/dev/null 2>&1; then
+        print_info "使用 Homebrew 安装 Maven..."
+        brew install maven
+        
+        if [ $? -eq 0 ]; then
+            print_success "Maven 安装完成"
+            MAVEN_VERSION_OUTPUT=$(mvn --version 2>&1 | head -n 1)
+            print_info "$MAVEN_VERSION_OUTPUT"
+            return 0
+        else
+            print_error "Homebrew 安装 Maven 失败"
+            return 1
+        fi
+    else
+        print_error "未找到 Homebrew，请先安装 Homebrew: https://brew.sh"
+        return 1
+    fi
+}
+
+# 在 Debian/Ubuntu 上安装 Maven
+install_maven_debian() {
+    print_step "在 Debian/Ubuntu 上安装 Maven..."
+    
+    sudo apt-get update -qq
+    sudo apt-get install -y -qq maven
+    
+    if [ $? -eq 0 ]; then
+        print_success "Maven 安装完成"
+        MAVEN_VERSION_OUTPUT=$(mvn --version 2>&1 | head -n 1)
+        print_info "$MAVEN_VERSION_OUTPUT"
+        return 0
+    else
+        print_error "Maven 安装失败"
+        return 1
+    fi
+}
+
+# 在 RHEL/CentOS/Fedora 上安装 Maven
+install_maven_rhel() {
+    print_step "在 RHEL/CentOS/Fedora 上安装 Maven..."
+    
+    if command -v dnf >/dev/null 2>&1; then
+        sudo dnf install -y maven
+    elif command -v yum >/dev/null 2>&1; then
+        sudo yum install -y maven
+    else
+        print_error "未找到 dnf 或 yum 包管理器"
+        return 1
+    fi
+    
+    if [ $? -eq 0 ]; then
+        print_success "Maven 安装完成"
+        MAVEN_VERSION_OUTPUT=$(mvn --version 2>&1 | head -n 1)
+        print_info "$MAVEN_VERSION_OUTPUT"
+        return 0
+    else
+        print_error "Maven 安装失败"
+        return 1
+    fi
+}
+
+# 在 openSUSE 上安装 Maven
+install_maven_suse() {
+    print_step "在 openSUSE 上安装 Maven..."
+    
+    sudo zypper install -y maven
+    
+    if [ $? -eq 0 ]; then
+        print_success "Maven 安装完成"
+        MAVEN_VERSION_OUTPUT=$(mvn --version 2>&1 | head -n 1)
+        print_info "$MAVEN_VERSION_OUTPUT"
+        return 0
+    else
+        print_error "Maven 安装失败"
+        return 1
+    fi
+}
+
+# 在 Alpine 上安装 Maven
+install_maven_alpine() {
+    print_step "在 Alpine Linux 上安装 Maven..."
+    
+    sudo apk add maven
+    
+    if [ $? -eq 0 ]; then
+        print_success "Maven 安装完成"
+        MAVEN_VERSION_OUTPUT=$(mvn --version 2>&1 | head -n 1)
+        print_info "$MAVEN_VERSION_OUTPUT"
+        return 0
+    else
+        print_error "Maven 安装失败"
+        return 1
+    fi
+}
+
+# 在 Arch 上安装 Maven
+install_maven_arch() {
+    print_step "在 Arch Linux 上安装 Maven..."
+    
+    sudo pacman -S --noconfirm maven
+    
+    if [ $? -eq 0 ]; then
+        print_success "Maven 安装完成"
+        MAVEN_VERSION_OUTPUT=$(mvn --version 2>&1 | head -n 1)
+        print_info "$MAVEN_VERSION_OUTPUT"
+        return 0
+    else
+        print_error "Maven 安装失败"
+        return 1
+    fi
+}
+
+# 在 Linux 上自动选择 Maven 安装方式
+install_maven_linux() {
+    DISTRO=$(detect_linux_distro)
+    DISTRO_LIKE="${DISTRO_LIKE:-$DISTRO}"
+    
+    print_info "检测到 Linux 发行版: $DISTRO"
+    
+    case "$DISTRO" in
+        ubuntu|debian|linuxmint|pop|elementary|zorin)
+            install_maven_debian
+            return $?
+            ;;
+        rhel|centos|fedora|rocky|almalinux|ol|amzn)
+            install_maven_rhel
+            return $?
+            ;;
+        suse|opensuse*|sled|sles)
+            install_maven_suse
+            return $?
+            ;;
+        alpine)
+            install_maven_alpine
+            return $?
+            ;;
+        arch|manjaro|endeavouros)
+            install_maven_arch
+            return $?
+            ;;
+        *)
+            case "$DISTRO_LIKE" in
+                *debian*|*ubuntu*)
+                    install_maven_debian
+                    return $?
+                    ;;
+                *rhel*|*fedora*|*centos*)
+                    install_maven_rhel
+                    return $?
+                    ;;
+                *suse*)
+                    install_maven_suse
+                    return $?
+                    ;;
+                *arch*)
+                    install_maven_arch
+                    return $?
+                    ;;
+            esac
+            
+            print_warning "未识别的 Linux 发行版: $DISTRO"
+            print_info "请手动安装 Maven $REQUIRED_MAVEN_MAJOR.$REQUIRED_MAVEN_MINOR+: https://maven.apache.org/download.cgi"
+            return 1
+            ;;
+    esac
+}
+
+# ==========================================
+# Node.js 和 npm 相关函数
+# ==========================================
+
+# 项目要求的 Node.js 最低版本
+REQUIRED_NODE_MAJOR=18
+# npm 最低版本（随 Node.js 18 自带 npm 9+）
+REQUIRED_NPM_MAJOR=9
+
+# 检查 Node.js 是否已安装且版本符合要求
+check_nodejs_installed() {
+    print_step "检查 Node.js 环境..."
+    
+    if command -v node >/dev/null 2>&1; then
+        NODE_VERSION_OUTPUT=$(node --version 2>&1 | sed 's/v//')
+        NODE_MAJOR=$(echo "$NODE_VERSION_OUTPUT" | cut -d'.' -f1)
+        
+        if [ "$NODE_MAJOR" -ge "$REQUIRED_NODE_MAJOR" ] 2>/dev/null; then
+            print_success "Node.js $NODE_VERSION_OUTPUT 已安装 (要求 >= $REQUIRED_NODE_MAJOR)"
+            return 0
+        else
+            print_warning "Node.js 版本 v$NODE_VERSION_OUTPUT 低于要求的 v$REQUIRED_NODE_MAJOR"
+            return 1
+        fi
+    fi
+    
+    print_warning "未检测到 Node.js $REQUIRED_NODE_MAJOR+"
+    return 1
+}
+
+# 检查 npm 是否已安装且版本符合要求
+check_npm_installed() {
+    print_step "检查 npm 环境..."
+    
+    if command -v npm >/dev/null 2>&1; then
+        NPM_VERSION_OUTPUT=$(npm --version 2>&1)
+        NPM_MAJOR=$(echo "$NPM_VERSION_OUTPUT" | cut -d'.' -f1)
+        
+        if [ "$NPM_MAJOR" -ge "$REQUIRED_NPM_MAJOR" ] 2>/dev/null; then
+            print_success "npm $NPM_VERSION_OUTPUT 已安装 (要求 >= $REQUIRED_NPM_MAJOR)"
+            return 0
+        else
+            print_warning "npm 版本 $NPM_VERSION_OUTPUT 低于要求的 $REQUIRED_NPM_MAJOR"
+            return 1
+        fi
+    fi
+    
+    print_warning "未检测到 npm $REQUIRED_NPM_MAJOR+"
+    return 1
+}
+
+# 在 macOS 上安装 Node.js (使用 NodeSource 安装指定主版本)
+install_nodejs_mac() {
+    print_step "在 macOS 上安装 Node.js $REQUIRED_NODE_MAJOR..."
+    
+    if command -v brew >/dev/null 2>&1; then
+        print_info "使用 Homebrew 安装 Node.js $REQUIRED_NODE_MAJOR..."
+        brew install node@$REQUIRED_NODE_MAJOR
+        
+        if [ $? -eq 0 ]; then
+            # 链接到 PATH
+            print_info "链接 Node.js $REQUIRED_NODE_MAJOR 到系统 PATH..."
+            brew link --force --overwrite node@$REQUIRED_NODE_MAJOR 2>/dev/null || true
+            
+            print_success "Node.js 安装完成"
+            NODE_VERSION_OUTPUT=$(node --version 2>&1)
+            print_info "Node.js: $NODE_VERSION_OUTPUT"
+            NPM_VERSION_OUTPUT=$(npm --version 2>&1)
+            print_info "npm: v$NPM_VERSION_OUTPUT"
+            return 0
+        else
+            print_error "Homebrew 安装 Node.js 失败"
+            return 1
+        fi
+    else
+        print_error "未找到 Homebrew，请先安装 Homebrew: https://brew.sh"
+        return 1
+    fi
+}
+
+# 使用 NodeSource 安装 Node.js (通用方法，适用于大多数 Linux 发行版)
+install_nodejs_nodesource() {
+    print_step "使用 NodeSource 安装 Node.js $REQUIRED_NODE_MAJOR.x..."
+    
+    print_info "下载并执行 NodeSource 安装脚本..."
+    curl -fsSL "https://deb.nodesource.com/setup_${REQUIRED_NODE_MAJOR}.x" -o /tmp/nodesource_setup.sh
+    sudo bash /tmp/nodesource_setup.sh
+    rm -f /tmp/nodesource_setup.sh
+    
+    sudo apt-get install -y nodejs
+    
+    if [ $? -eq 0 ]; then
+        print_success "Node.js 安装完成"
+        NODE_VERSION_OUTPUT=$(node --version 2>&1)
+        print_info "Node.js: $NODE_VERSION_OUTPUT"
+        NPM_VERSION_OUTPUT=$(npm --version 2>&1)
+        print_info "npm: v$NPM_VERSION_OUTPUT"
+        return 0
+    else
+        print_error "Node.js 安装失败"
+        return 1
+    fi
+}
+
+# 在 Debian/Ubuntu 上安装 Node.js
+install_nodejs_debian() {
+    print_step "在 Debian/Ubuntu 上安装 Node.js $REQUIRED_NODE_MAJOR..."
+    print_info "发行版版本: ${DISTRO_VERSION:-未知}"
+    
+    case "$DISTRO" in
+        ubuntu|linuxmint|pop|elementary|zorin)
+            UBUNTU_MAJOR=$(echo "$DISTRO_VERSION" | cut -d'.' -f1)
+            
+            if [ "$UBUNTU_MAJOR" -ge 20 ] 2>/dev/null; then
+                # Ubuntu 20.04+ 使用 NodeSource
+                install_nodejs_nodesource
+                return $?
+            else
+                # 老版本 Ubuntu
+                print_warning "Ubuntu $DISTRO_VERSION 较旧，尝试使用 NodeSource..."
+                install_nodejs_nodesource
+                return $?
+            fi
+            ;;
+        debian)
+            DEBIAN_MAJOR=$(echo "$DISTRO_VERSION" | cut -d'.' -f1)
+            
+            if [ "$DEBIAN_MAJOR" -ge 11 ] 2>/dev/null; then
+                install_nodejs_nodesource
+                return $?
+            else
+                print_warning "Debian $DISTRO_VERSION 较旧，尝试使用 NodeSource..."
+                install_nodejs_nodesource
+                return $?
+            fi
+            ;;
+        *)
+            install_nodejs_nodesource
+            return $?
+            ;;
+    esac
+}
+
+# 在 RHEL/CentOS/Fedora 上安装 Node.js
+install_nodejs_rhel() {
+    print_step "在 RHEL/CentOS/Fedora 上安装 Node.js $REQUIRED_NODE_MAJOR..."
+    print_info "发行版版本: ${DISTRO_VERSION:-未知}"
+    
+    case "$DISTRO" in
+        fedora)
+            print_info "Fedora $DISTRO_VERSION，使用 dnf 安装..."
+            sudo dnf module install -y nodejs:$REQUIRED_NODE_MAJOR 2>/dev/null || \
+            sudo dnf install -y nodejs
+            ;;
+        rhel|centos|rocky|almalinux|ol)
+            RHEL_MAJOR=$(echo "$DISTRO_VERSION" | cut -d'.' -f1)
+            
+            if [ "$RHEL_MAJOR" -ge 8 ] 2>/dev/null; then
+                print_info "RHEL $DISTRO_VERSION (>=8)，使用 dnf module 安装..."
+                sudo dnf module install -y nodejs:$REQUIRED_NODE_MAJOR 2>/dev/null || \
+                sudo dnf install -y nodejs
+            elif [ "$RHEL_MAJOR" -ge 7 ] 2>/dev/null; then
+                print_info "RHEL/CentOS 7，使用 NodeSource 安装..."
+                curl -fsSL "https://rpm.nodesource.com/setup_${REQUIRED_NODE_MAJOR}.x" -o /tmp/nodesource_setup.sh
+                sudo bash /tmp/nodesource_setup.sh
+                rm -f /tmp/nodesource_setup.sh
+                sudo yum install -y nodejs
+            else
+                print_warning "版本过旧，尝试使用 NodeSource..."
+                curl -fsSL "https://rpm.nodesource.com/setup_${REQUIRED_NODE_MAJOR}.x" -o /tmp/nodesource_setup.sh
+                sudo bash /tmp/nodesource_setup.sh
+                rm -f /tmp/nodesource_setup.sh
+                if command -v yum >/dev/null 2>&1; then
+                    sudo yum install -y nodejs
+                elif command -v dnf >/dev/null 2>&1; then
+                    sudo dnf install -y nodejs
+                fi
+            fi
+            ;;
+        amzn)
+            if command -v dnf >/dev/null 2>&1; then
+                sudo dnf install -y nodejs
+            else
+                curl -fsSL "https://rpm.nodesource.com/setup_${REQUIRED_NODE_MAJOR}.x" -o /tmp/nodesource_setup.sh
+                sudo bash /tmp/nodesource_setup.sh
+                rm -f /tmp/nodesource_setup.sh
+                sudo yum install -y nodejs
+            fi
+            ;;
+        *)
+            if command -v dnf >/dev/null 2>&1; then
+                sudo dnf module install -y nodejs:$REQUIRED_NODE_MAJOR 2>/dev/null || \
+                sudo dnf install -y nodejs
+            elif command -v yum >/dev/null 2>&1; then
+                curl -fsSL "https://rpm.nodesource.com/setup_${REQUIRED_NODE_MAJOR}.x" -o /tmp/nodesource_setup.sh
+                sudo bash /tmp/nodesource_setup.sh
+                rm -f /tmp/nodesource_setup.sh
+                sudo yum install -y nodejs
+            fi
+            ;;
+    esac
+    
+    if [ $? -eq 0 ]; then
+        print_success "Node.js 安装完成"
+        NODE_VERSION_OUTPUT=$(node --version 2>&1)
+        print_info "Node.js: $NODE_VERSION_OUTPUT"
+        NPM_VERSION_OUTPUT=$(npm --version 2>&1)
+        print_info "npm: v$NPM_VERSION_OUTPUT"
+        return 0
+    else
+        print_error "Node.js 安装失败"
+        return 1
+    fi
+}
+
+# 在 openSUSE 上安装 Node.js
+install_nodejs_suse() {
+    print_step "在 openSUSE 上安装 Node.js $REQUIRED_NODE_MAJOR..."
+    
+    sudo zypper install -y nodejs$REQUIRED_NODE_MAJOR 2>/dev/null || \
+    sudo zypper install -y nodejs
+    
+    if [ $? -eq 0 ]; then
+        print_success "Node.js 安装完成"
+        NODE_VERSION_OUTPUT=$(node --version 2>&1)
+        print_info "Node.js: $NODE_VERSION_OUTPUT"
+        NPM_VERSION_OUTPUT=$(npm --version 2>&1)
+        print_info "npm: v$NPM_VERSION_OUTPUT"
+        return 0
+    else
+        print_error "Node.js 安装失败"
+        return 1
+    fi
+}
+
+# 在 Alpine 上安装 Node.js
+install_nodejs_alpine() {
+    print_step "在 Alpine Linux 上安装 Node.js $REQUIRED_NODE_MAJOR..."
+    
+    sudo apk add nodejs npm
+    
+    if [ $? -eq 0 ]; then
+        print_success "Node.js 安装完成"
+        NODE_VERSION_OUTPUT=$(node --version 2>&1)
+        print_info "Node.js: $NODE_VERSION_OUTPUT"
+        NPM_VERSION_OUTPUT=$(npm --version 2>&1)
+        print_info "npm: v$NPM_VERSION_OUTPUT"
+        return 0
+    else
+        print_error "Node.js 安装失败"
+        return 1
+    fi
+}
+
+# 在 Arch 上安装 Node.js
+install_nodejs_arch() {
+    print_step "在 Arch Linux 上安装 Node.js..."
+    
+    sudo pacman -S --noconfirm nodejs npm
+    
+    if [ $? -eq 0 ]; then
+        print_success "Node.js 安装完成"
+        NODE_VERSION_OUTPUT=$(node --version 2>&1)
+        print_info "Node.js: $NODE_VERSION_OUTPUT"
+        NPM_VERSION_OUTPUT=$(npm --version 2>&1)
+        print_info "npm: v$NPM_VERSION_OUTPUT"
+        return 0
+    else
+        print_error "Node.js 安装失败"
+        return 1
+    fi
+}
+
+# 在 Linux 上自动选择 Node.js 安装方式
+install_nodejs_linux() {
+    DISTRO=$(detect_linux_distro)
+    DISTRO_LIKE="${DISTRO_LIKE:-$DISTRO}"
+    
+    print_info "检测到 Linux 发行版: $DISTRO"
+    
+    case "$DISTRO" in
+        ubuntu|debian|linuxmint|pop|elementary|zorin)
+            install_nodejs_debian
+            return $?
+            ;;
+        rhel|centos|fedora|rocky|almalinux|ol|amzn)
+            install_nodejs_rhel
+            return $?
+            ;;
+        suse|opensuse*|sled|sles)
+            install_nodejs_suse
+            return $?
+            ;;
+        alpine)
+            install_nodejs_alpine
+            return $?
+            ;;
+        arch|manjaro|endeavouros)
+            install_nodejs_arch
+            return $?
+            ;;
+        *)
+            case "$DISTRO_LIKE" in
+                *debian*|*ubuntu*)
+                    install_nodejs_debian
+                    return $?
+                    ;;
+                *rhel*|*fedora*|*centos*)
+                    install_nodejs_rhel
+                    return $?
+                    ;;
+                *suse*)
+                    install_nodejs_suse
+                    return $?
+                    ;;
+                *arch*)
+                    install_nodejs_arch
+                    return $?
+                    ;;
+            esac
+            
+            print_warning "未识别的 Linux 发行版: $DISTRO"
+            print_info "请手动安装 Node.js $REQUIRED_NODE_MAJOR+: https://nodejs.org/"
+            return 1
+            ;;
+    esac
+}
+
+# 使用 nvm 安装 Node.js (跨平台兜底方案)
+install_nodejs_nvm() {
+    print_step "使用 nvm 安装 Node.js $REQUIRED_NODE_MAJOR..."
+    
+    NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+    
+    # 检查 nvm 是否已安装
+    if [ ! -d "$NVM_DIR" ]; then
+        print_info "安装 nvm..."
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+        
+        if [ $? -ne 0 ]; then
+            print_error "nvm 安装失败"
+            return 1
+        fi
+    else
+        print_info "nvm 已安装"
+    fi
+    
+    # 加载 nvm
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+    
+    if command -v nvm >/dev/null 2>&1; then
+        print_info "使用 nvm 安装 Node.js $REQUIRED_NODE_MAJOR LTS..."
+        nvm install $REQUIRED_NODE_MAJOR
+        nvm use $REQUIRED_NODE_MAJOR
+        nvm alias default $REQUIRED_NODE_MAJOR
+        
+        print_success "Node.js 安装完成"
+        NODE_VERSION_OUTPUT=$(node --version 2>&1)
+        print_info "Node.js: $NODE_VERSION_OUTPUT"
+        NPM_VERSION_OUTPUT=$(npm --version 2>&1)
+        print_info "npm: v$NPM_VERSION_OUTPUT"
+        return 0
+    else
+        print_error "nvm 加载失败"
+        return 1
+    fi
+}
+
 # 打印使用说明
 print_usage_guide() {
     JAVA21_HOME=$(get_java21_home)
@@ -790,6 +1367,7 @@ print_usage_guide() {
     print_info "=========================================="
     echo ""
     
+    # Java 21 信息
     if [ -n "$JAVA21_HOME" ]; then
         print_info "Java 21 安装路径: $JAVA21_HOME"
         echo ""
@@ -814,6 +1392,20 @@ print_usage_guide() {
         fi
     fi
     
+    # Maven 信息
+    if command -v mvn >/dev/null 2>&1; then
+        print_info "Maven: $(mvn --version 2>&1 | head -n 1)"
+    fi
+    
+    # Node.js 信息
+    if command -v node >/dev/null 2>&1; then
+        print_info "Node.js: $(node --version 2>&1)"
+    fi
+    if command -v npm >/dev/null 2>&1; then
+        print_info "npm: v$(npm --version 2>&1)"
+    fi
+    
+    echo ""
     print_info "下一步操作："
     print_info "  1. 执行 './build-all-in-one.sh' 构建项目"
     print_info "  2. 执行 './run.sh' 启动服务"
@@ -839,73 +1431,258 @@ if [ "$PLATFORM" = "Linux" ]; then
     echo ""
 fi
 
-# 1. 检查是否已安装 Java 21
+# 安装状态追踪
+NEED_INSTALL=false
+JAVA_READY=false
+MAVEN_READY=false
+NODE_READY=false
+NPM_READY=false
+
+# ==========================================
+# 1. 检查 Java 21
+# ==========================================
 if check_java21_installed; then
-    echo ""
-    print_success "Java 21 环境已就绪，无需安装"
+    JAVA_READY=true
     JAVA21_HOME=$(get_java21_home)
     if [ -n "$JAVA21_HOME" ]; then
         export JAVA_HOME="$JAVA21_HOME"
         export PATH="$JAVA_HOME/bin:$PATH"
         print_info "JAVA_HOME 已设置为: $JAVA_HOME"
     fi
+else
+    NEED_INSTALL=true
+fi
+
+echo ""
+
+# ==========================================
+# 2. 检查 Maven
+# ==========================================
+if check_maven_installed; then
+    MAVEN_READY=true
+else
+    NEED_INSTALL=true
+fi
+
+echo ""
+
+# ==========================================
+# 3. 检查 Node.js
+# ==========================================
+if check_nodejs_installed; then
+    NODE_READY=true
+else
+    NEED_INSTALL=true
+fi
+
+echo ""
+
+# ==========================================
+# 4. 检查 npm
+# ==========================================
+if check_npm_installed; then
+    NPM_READY=true
+else
+    NEED_INSTALL=true
+fi
+
+echo ""
+
+# 如果所有工具都已就绪，直接退出
+if [ "$JAVA_READY" = true ] && [ "$MAVEN_READY" = true ] && [ "$NODE_READY" = true ] && [ "$NPM_READY" = true ]; then
+    print_success "所有依赖环境已就绪，无需安装"
     print_info "可直接运行 ./build-all-in-one.sh 构建项目"
     exit 0
 fi
 
-# 2. 确认需要安装
+# 如果有需要安装的，汇总显示
 echo ""
-print_info "即将安装 JDK 21，需要管理员权限"
+print_step "=========================================="
+print_step "  环境检测总结"
+print_step "=========================================="
+[ "$JAVA_READY" = true ] && print_success "Java 21     - 已就绪" || print_warning "Java 21     - 需要安装"
+[ "$MAVEN_READY" = true ] && print_success "Maven $REQUIRED_MAVEN_MAJOR.$REQUIRED_MAVEN_MINOR+  - 已就绪" || print_warning "Maven $REQUIRED_MAVEN_MAJOR.$REQUIRED_MAVEN_MINOR+  - 需要安装"
+[ "$NODE_READY" = true ] && print_success "Node.js $REQUIRED_NODE_MAJOR+ - 已就绪" || print_warning "Node.js $REQUIRED_NODE_MAJOR+ - 需要安装"
+[ "$NPM_READY" = true ] && print_success "npm $REQUIRED_NPM_MAJOR+    - 已就绪" || print_warning "npm $REQUIRED_NPM_MAJOR+    - 需要安装"
 echo ""
-read -p "是否继续安装？[Y/n] " -n 1 -r
-echo ""
-if [[ ! $REPLY =~ ^[Yy]$ ]] && [ -n "$REPLY" ]; then
-    print_info "安装已取消"
-    exit 0
+
+# 确认安装
+if [ "$NEED_INSTALL" = true ]; then
+    print_info "即将安装缺失的依赖工具，部分操作需要管理员权限"
+    echo ""
+    read -p "是否继续安装？[Y/n] " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]] && [ -n "$REPLY" ]; then
+        print_info "安装已取消"
+        exit 0
+    fi
 fi
 
-# 3. 根据操作系统安装
-echo ""
-case "${PLATFORM}" in
-    Mac)
-        install_java21_mac
-        INSTALL_RESULT=$?
-        ;;
-    Linux)
-        install_java21_linux
-        INSTALL_RESULT=$?
-        ;;
-    Windows)
-        print_error "Windows 系统暂不支持自动安装"
-        print_info "请手动下载安装 JDK 21: https://adoptium.net/download/"
-        print_info "或者使用 winget: winget install EclipseAdoptium.Temurin.17.JDK"
-        exit 1
-        ;;
-    *)
-        print_error "不支持的操作系统: $PLATFORM"
-        print_info "请手动安装 JDK 21: https://adoptium.net/download/"
-        exit 1
-        ;;
-esac
+INSTALL_HAS_ERROR=false
 
-# 4. 验证安装
-echo ""
-if [ $INSTALL_RESULT -eq 0 ]; then
-    verify_java
-    if [ $? -eq 0 ]; then
-        print_usage_guide
-        exit 0
-    else
-        print_error "Java 安装后验证失败"
-        print_info "请尝试手动安装 JDK 21: https://adoptium.net/download/"
-        exit 1
-    fi
-else
-    print_error "JDK 21 安装失败"
+# ==========================================
+# 5. 安装 Java 21（如需要）
+# ==========================================
+if [ "$JAVA_READY" != true ]; then
     echo ""
-    print_info "替代安装方案："
-    print_info "  1. 手动下载: https://adoptium.net/download/"
-    print_info "  2. 使用 SDKMAN: curl -s \"https://get.sdkman.io\" | bash && sdk install java 21.0.5-tem"
-    print_info "  3. 使用 Docker: docker pull eclipse-temurin:21-jdk"
+    print_info "----------------------------------------"
+    print_step "开始安装 Java 21"
+    print_info "----------------------------------------"
+    echo ""
+    
+    case "${PLATFORM}" in
+        Mac)
+            install_java21_mac || INSTALL_HAS_ERROR=true
+            ;;
+        Linux)
+            install_java21_linux || INSTALL_HAS_ERROR=true
+            ;;
+        Windows)
+            print_error "Windows 系统暂不支持自动安装 Java 21"
+            print_info "请手动下载安装 JDK 21: https://adoptium.net/download/"
+            INSTALL_HAS_ERROR=true
+            ;;
+        *)
+            print_error "不支持的操作系统: $PLATFORM"
+            INSTALL_HAS_ERROR=true
+            ;;
+    esac
+    
+    if [ "$INSTALL_HAS_ERROR" != true ]; then
+        verify_java || INSTALL_HAS_ERROR=true
+        # 安装后设置环境变量
+        JAVA21_HOME=$(get_java21_home)
+        if [ -n "$JAVA21_HOME" ]; then
+            export JAVA_HOME="$JAVA21_HOME"
+            export PATH="$JAVA_HOME/bin:$PATH"
+            print_info "JAVA_HOME 已设置为: $JAVA_HOME"
+        fi
+    fi
+fi
+
+# ==========================================
+# 6. 安装 Maven（如需要）
+# ==========================================
+if [ "$MAVEN_READY" != true ]; then
+    echo ""
+    print_info "----------------------------------------"
+    print_step "开始安装 Maven $REQUIRED_MAVEN_MAJOR.$REQUIRED_MAVEN_MINOR+"
+    print_info "----------------------------------------"
+    echo ""
+    
+    case "${PLATFORM}" in
+        Mac)
+            install_maven_mac || INSTALL_HAS_ERROR=true
+            ;;
+        Linux)
+            install_maven_linux || INSTALL_HAS_ERROR=true
+            ;;
+        *)
+            print_error "不支持的操作系统: $PLATFORM"
+            print_info "请手动安装 Maven: https://maven.apache.org/download.cgi"
+            INSTALL_HAS_ERROR=true
+            ;;
+    esac
+fi
+
+# ==========================================
+# 7. 安装 Node.js 和 npm（如需要）
+# ==========================================
+if [ "$NODE_READY" != true ] || [ "$NPM_READY" != true ]; then
+    echo ""
+    print_info "----------------------------------------"
+    print_step "开始安装 Node.js $REQUIRED_NODE_MAJOR.x (含 npm)"
+    print_info "----------------------------------------"
+    echo ""
+    
+    INSTALL_NODE_METHOD=""
+    
+    case "${PLATFORM}" in
+        Mac)
+            install_nodejs_mac
+            NODE_RESULT=$?
+            if [ $NODE_RESULT -ne 0 ]; then
+                print_warning "Homebrew 安装失败，尝试使用 nvm..."
+                install_nodejs_nvm || INSTALL_HAS_ERROR=true
+            fi
+            ;;
+        Linux)
+            install_nodejs_linux
+            NODE_RESULT=$?
+            if [ $NODE_RESULT -ne 0 ]; then
+                print_warning "包管理器安装失败，尝试使用 nvm..."
+                install_nodejs_nvm || INSTALL_HAS_ERROR=true
+            fi
+            ;;
+        *)
+            print_error "不支持的操作系统: $PLATFORM"
+            print_info "尝试使用 nvm 安装..."
+            install_nodejs_nvm || INSTALL_HAS_ERROR=true
+            ;;
+    esac
+fi
+
+echo ""
+
+# ==========================================
+# 8. 最终验证和总结
+# ==========================================
+echo ""
+print_info "=========================================="
+print_step "  安装结果验证"
+print_info "=========================================="
+echo ""
+
+VERIFY_OK=true
+
+# 验证 Java
+if command -v java >/dev/null 2>&1; then
+    JAVA_VER=$(java -version 2>&1 | head -n 1)
+    print_success "Java:  $JAVA_VER"
+else
+    print_error "Java:  未安装"
+    VERIFY_OK=false
+fi
+
+# 验证 Maven
+if command -v mvn >/dev/null 2>&1; then
+    MAVEN_VER=$(mvn --version 2>&1 | head -n 1)
+    print_success "Maven: $MAVEN_VER"
+else
+    print_error "Maven: 未安装"
+    VERIFY_OK=false
+fi
+
+# 验证 Node.js
+if command -v node >/dev/null 2>&1; then
+    NODE_VER=$(node --version 2>&1)
+    print_success "Node:  $NODE_VER"
+else
+    print_error "Node:  未安装"
+    VERIFY_OK=false
+fi
+
+# 验证 npm
+if command -v npm >/dev/null 2>&1; then
+    NPM_VER=$(npm --version 2>&1)
+    print_success "npm:   v$NPM_VER"
+else
+    print_error "npm:   未安装"
+    VERIFY_OK=false
+fi
+
+echo ""
+
+if [ "$VERIFY_OK" = true ]; then
+    print_usage_guide
+    exit 0
+else
+    print_warning "部分工具安装失败，请检查上述错误信息"
+    echo ""
+    print_info "手动安装参考："
+    print_info "  Java 21:  https://adoptium.net/download/"
+    print_info "  Maven:    https://maven.apache.org/download.cgi"
+    print_info "  Node.js:  https://nodejs.org/"
+    print_info "  或使用 nvm: curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash"
     exit 1
 fi
