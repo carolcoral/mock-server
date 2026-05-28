@@ -28,6 +28,19 @@ print_info() {
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJECT_ROOT"
 
+# 检测操作系统
+detect_platform() {
+    local os
+    os="$(uname -s)"
+    case "${os}" in
+        Linux*)     echo "Linux";;
+        Darwin*)    echo "Mac";;
+        CYGWIN*|MINGW32*|MSYS*|MINGW*) echo "Windows";;
+        *)          echo "Unknown";;
+    esac
+}
+PLATFORM=$(detect_platform)
+
 # ==========================================
 # 第一步：检测基础环境
 # ==========================================
@@ -47,28 +60,177 @@ check_command() {
     print_success "${name} 已安装: ${version_info}"
 }
 
-# 检测 Java 21
+# 多版本 JDK 环境下自动检测并设置 Java 21
 check_java21() {
-    # 优先使用 JAVA_HOME
+    print_info "检测 JDK 21 环境（支持多版本 JDK）..."
+
+    # 方法1: 检查 JAVA_HOME 是否指向 JDK 21
     if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
-        JAVA_CMD="$JAVA_HOME/bin/java"
-    elif command -v java >/dev/null 2>&1; then
-        JAVA_CMD="java"
-    else
-        print_error "未找到 Java，请先安装 JDK 21"
-        exit 1
+        JAVA_VER=$("$JAVA_HOME/bin/java" -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
+        if [ "$JAVA_VER" = "21" ]; then
+            export JAVA_HOME="$JAVA_HOME"
+            export PATH="$JAVA_HOME/bin:$PATH"
+            print_success "JDK 21 已就绪 (JAVA_HOME): $JAVA_HOME"
+            print_info "  Java 版本: $("$JAVA_HOME/bin/java" -version 2>&1 | head -n 1)"
+            return 0
+        fi
     fi
 
-    JAVA_VERSION=$("$JAVA_CMD" -version 2>&1 | head -n 1 | cut -d'"' -f2)
-    JAVA_MAJOR=$(echo "$JAVA_VERSION" | cut -d'.' -f1)
-
-    if [ "$JAVA_MAJOR" != "21" ]; then
-        print_error "需要 JDK 21，当前版本为: ${JAVA_VERSION}，请先安装 JDK 21"
-        print_info "提示: 可运行 ./setup-env.sh 自动安装 JDK 21"
-        exit 1
+    # 方法2: 检查系统 PATH 中默认的 java 是否为 21
+    if command -v java >/dev/null 2>&1; then
+        DEFAULT_JAVA_VER=$(java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
+        if [ "$DEFAULT_JAVA_VER" = "21" ]; then
+            DEFAULT_JAVA_HOME=$(dirname "$(dirname "$(readlink -f "$(command -v java)" 2>/dev/null || command -v java)")")
+            export JAVA_HOME="$DEFAULT_JAVA_HOME"
+            export PATH="$JAVA_HOME/bin:$PATH"
+            print_success "JDK 21 已就绪 (系统默认): $JAVA_HOME"
+            print_info "  Java 版本: $(java -version 2>&1 | head -n 1)"
+            return 0
+        fi
     fi
 
-    print_success "JDK 21 已安装: ${JAVA_VERSION} (JAVA_HOME=${JAVA_HOME:-$("$JAVA_CMD" -XshowSettings:properties -version 2>&1 | grep 'java.home' | awk '{print $NF}')})"
+    # 方法3: 系统默认 java 不是 21，在多版本环境中查找 JDK 21
+    print_info "系统默认 Java 不是 JDK 21，在多版本环境中查找..."
+
+    case "${PLATFORM}" in
+        Mac)
+            # macOS: 使用 java_home 命令列出所有已安装的 JDK
+            if command -v /usr/libexec/java_home >/dev/null 2>&1; then
+                # 先尝试精确匹配 21
+                JAVA21_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null)
+                if [ -n "$JAVA21_HOME" ] && [ -x "$JAVA21_HOME/bin/java" ]; then
+                    export JAVA_HOME="$JAVA21_HOME"
+                    export PATH="$JAVA_HOME/bin:$PATH"
+                    print_success "JDK 21 已就绪 (java_home): $JAVA_HOME"
+                    print_info "  Java 版本: $("$JAVA_HOME/bin/java" -version 2>&1 | head -n 1)"
+                    return 0
+                fi
+
+                # 列出所有已安装的 JDK，查找 21
+                print_info "已安装的 JDK 列表:"
+                /usr/libexec/java_home -V 2>&1 | grep -E '^\s+\d' | while read -r line; do
+                    print_info "  $line"
+                done
+            fi
+
+            # 备用方案: 查找 Homebrew 安装的 JDK 21
+            for brew_prefix in "/opt/homebrew" "/usr/local"; do
+                if [ -d "$brew_prefix/Cellar/openjdk@21" ]; then
+                    JAVA21_HOME=$(find "$brew_prefix/Cellar/openjdk@21" -name "libexec" -type d 2>/dev/null | head -n 1)
+                    if [ -n "$JAVA21_HOME" ]; then
+                        JAVA21_HOME="${JAVA21_HOME}/openjdk.jdk/Contents/Home"
+                    fi
+                    # 也尝试直接查找 jdk 目录
+                    if [ -z "$JAVA21_HOME" ] || [ ! -x "$JAVA21_HOME/bin/java" ]; then
+                        JAVA21_HOME=$(find "$brew_prefix/Cellar/openjdk@21" -maxdepth 2 -name "Home" -path "*/Contents/*" -type d 2>/dev/null | head -n 1)
+                    fi
+                    if [ -n "$JAVA21_HOME" ] && [ -x "$JAVA21_HOME/bin/java" ]; then
+                        export JAVA_HOME="$JAVA21_HOME"
+                        export PATH="$JAVA_HOME/bin:$PATH"
+                        print_success "JDK 21 已就绪 (Homebrew): $JAVA_HOME"
+                        print_info "  Java 版本: $("$JAVA_HOME/bin/java" -version 2>&1 | head -n 1)"
+                        return 0
+                    fi
+                fi
+            done
+            ;;
+
+        Linux)
+            # Linux: 扫描常见 JDK 安装路径，检测多版本
+            JVM_BASE="/usr/lib/jvm"
+            if [ -d "$JVM_BASE" ]; then
+                print_info "扫描 $JVM_BASE 下的 JDK..."
+                # 按优先级排列的路径模式
+                for pattern in \
+                    "java-21-openjdk-amd64" \
+                    "java-21-openjdk" \
+                    "java-21-openjdk-*" \
+                    "jdk-21" \
+                    "jdk-21*" \
+                    "temurin-21-jdk-amd64" \
+                    "jdk-21-oracle-x64" \
+                    "java-21-*"; do
+                    for java_path in "$JVM_BASE"/$pattern; do
+                        if [ -d "$java_path" ] && [ -x "$java_path/bin/java" ]; then
+                            JAVA_VER=$("$java_path/bin/java" -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
+                            if [ "$JAVA_VER" = "21" ]; then
+                                export JAVA_HOME="$java_path"
+                                export PATH="$JAVA_HOME/bin:$PATH"
+                                print_success "JDK 21 已就绪: $JAVA_HOME"
+                                print_info "  Java 版本: $("$JAVA_HOME/bin/java" -version 2>&1 | head -n 1)"
+                                return 0
+                            fi
+                        fi
+                    done
+                done
+
+                # 列出所有已安装的 JDK，帮助用户排查
+                print_info "已安装的 JDK 列表:"
+                for jvm_dir in "$JVM_BASE"/*/; do
+                    if [ -x "$jvm_dir/bin/java" ]; then
+                        jvm_ver=$("$jvm_dir/bin/java" -version 2>&1 | head -n 1 | cut -d'"' -f2)
+                        print_info "  $jvm_dir ($jvm_ver)"
+                    fi
+                done
+            fi
+
+            # 额外扫描 /opt 下的 JDK
+            for opt_dir in /opt/jdk-21 /opt/jdk-21*; do
+                if [ -d "$opt_dir" ] && [ -x "$opt_dir/bin/java" ]; then
+                    JAVA_VER=$("$opt_dir/bin/java" -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
+                    if [ "$JAVA_VER" = "21" ]; then
+                        export JAVA_HOME="$opt_dir"
+                        export PATH="$JAVA_HOME/bin:$PATH"
+                        print_success "JDK 21 已就绪: $JAVA_HOME"
+                        print_info "  Java 版本: $("$JAVA_HOME/bin/java" -version 2>&1 | head -n 1)"
+                        return 0
+                    fi
+                fi
+            done
+
+            # sdkman 安装的 JDK
+            if [ -d "$HOME/.sdkman/candidates/java" ]; then
+                for sdk_java in "$HOME/.sdkman/candidates/java"/21.*/; do
+                    if [ -d "$sdk_java" ] && [ -x "$sdk_java/bin/java" ]; then
+                        JAVA_VER=$("$sdk_java/bin/java" -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
+                        if [ "$JAVA_VER" = "21" ]; then
+                            export JAVA_HOME="$sdk_java"
+                            export PATH="$JAVA_HOME/bin:$PATH"
+                            print_success "JDK 21 已就绪 (sdkman): $JAVA_HOME"
+                            print_info "  Java 版本: $("$JAVA_HOME/bin/java" -version 2>&1 | head -n 1)"
+                            return 0
+                        fi
+                    fi
+                done
+            fi
+            ;;
+
+        Windows)
+            for win_path in \
+                "/c/Program Files/Java/jdk-21" \
+                "/c/Program Files/Java/jdk-21.0" \
+                "/c/Program Files (x86)/Java/jdk-21"; do
+                if [ -d "$win_path" ] && [ -x "$win_path/bin/java" ]; then
+                    export JAVA_HOME="$win_path"
+                    export PATH="$JAVA_HOME/bin:$PATH"
+                    print_success "JDK 21 已就绪: $JAVA_HOME"
+                    print_info "  Java 版本: $("$JAVA_HOME/bin/java" -version 2>&1 | head -n 1)"
+                    return 0
+                fi
+            done
+            ;;
+    esac
+
+    # 未找到 JDK 21
+    print_error "未找到 JDK 21，请先安装 JDK 21"
+    echo ""
+    print_info "系统默认 Java 版本: $(java -version 2>&1 | head -n 1 2>/dev/null || echo '未安装')"
+    print_info ""
+    print_info "安装方式:"
+    print_info "  1. 运行 ./setup-env.sh 自动安装 JDK 21"
+    print_info "  2. 手动下载: https://adoptium.net/download/"
+    print_info "  3. 使用 SDKMAN: curl -s \"https://get.sdkman.io\" | bash && sdk install java 21.0.5-tem"
+    exit 1
 }
 
 check_java21
