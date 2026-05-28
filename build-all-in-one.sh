@@ -24,252 +24,187 @@ print_info() {
     echo -e "${YELLOW}[信息]${NC} $1"
 }
 
-# 内部JAVA_HOME变量（不污染全局环境）
-INTERNAL_JAVA_HOME=""
+# 获取脚本所在目录的绝对路径（项目根目录）
+PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+cd "$PROJECT_ROOT"
 
-# 加载.env文件中的配置
-if [ -f ".env" ]; then
-    export $(cat .env | grep -v '^#' | grep -v '^$' | xargs)
-    print_info "已加载.env配置文件"
-else
-    print_error "未找到.env配置文件"
-    exit 1
-fi
-
-# 设置默认端口（如果.env中未设置）
-SERVER_PORT=${SERVER_PORT:-8080}
-FRONTEND_PORT=${FRONTEND_PORT:-3000}
-
-# 检测操作系统
-OS="$(uname -s)"
-case "${OS}" in
-    Linux*)     PLATFORM=Linux;;
-    Darwin*)    PLATFORM=Mac;;
-    CYGWIN*|MINGW32*|MSYS*|MINGW*) PLATFORM=Windows;;
-    *)          PLATFORM="UNKNOWN:${OS}"
-esac
-
-# 自动检测并设置INTERNAL_JAVA_HOME（检测Java 21）
-auto_set_java_home() {
-    print_info "检测Java环境..."
-
-    # 优先检查INTERNAL_JAVA_HOME是否已设置
-    if [ -n "$INTERNAL_JAVA_HOME" ] && [ -x "$INTERNAL_JAVA_HOME/bin/java" ]; then
-        JAVA_VERSION=$($INTERNAL_JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
-        if [ "$JAVA_VERSION" = "21" ]; then
-            print_success "使用已配置的INTERNAL_JAVA_HOME: $INTERNAL_JAVA_HOME (Java $JAVA_VERSION)"
-            return 0
-        fi
-    fi
-
-    # 检查全局JAVA_HOME是否为Java 21，如果是则复制到INTERNAL_JAVA_HOME
-    if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
-        JAVA_VERSION=$($JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
-        if [ "$JAVA_VERSION" = "21" ]; then
-            INTERNAL_JAVA_HOME="$JAVA_HOME"
-            print_success "从全局JAVA_HOME复制: $INTERNAL_JAVA_HOME (Java $JAVA_VERSION)"
-            return 0
-        fi
-    fi
-
-    # 根据操作系统查找Java 21
-    case "${PLATFORM}" in
-        Mac)
-            # macOS: 使用java_home命令查找Java 21
-            if command -v /usr/libexec/java_home >/dev/null 2>&1; then
-                INTERNAL_JAVA_HOME=$(/usr/libexec/java_home -v 21 2>/dev/null)
-                if [ -n "$INTERNAL_JAVA_HOME" ] && [ -x "$INTERNAL_JAVA_HOME/bin/java" ]; then
-                    print_success "通过java_home命令检测到Java 21: $INTERNAL_JAVA_HOME"
-                    return 0
-                fi
-            fi
-
-            # 备用方案：查找Homebrew安装的Java 21
-            if [ -d "/usr/local/Cellar/openjdk@21" ]; then
-                INTERNAL_JAVA_HOME=$(find /usr/local/Cellar/openjdk@21 -name "libexec" -type d 2>/dev/null | head -n 1)
-                if [ -n "$INTERNAL_JAVA_HOME" ]; then
-                    INTERNAL_JAVA_HOME="${INTERNAL_JAVA_HOME}/openjdk.jdk/Contents/Home"
-                fi
-            elif [ -d "/opt/homebrew/Cellar/openjdk@21" ]; then
-                # Apple Silicon Mac
-                INTERNAL_JAVA_HOME=$(find /opt/homebrew/Cellar/openjdk@21 -name "libexec" -type d 2>/dev/null | head -n 1)
-                if [ -n "$INTERNAL_JAVA_HOME" ]; then
-                    INTERNAL_JAVA_HOME="${INTERNAL_JAVA_HOME}/openjdk.jdk/Contents/Home"
-                fi
-            fi
-            ;;
-        Linux)
-            # Linux: 查找常见Java 21安装路径
-            for java_path in \
-                "/usr/lib/jvm/java-21-openjdk-amd64" \
-                "/usr/lib/jvm/java-21-openjdk" \
-                "/usr/lib/jvm/jdk-21" \
-                "/opt/jdk-21" \
-                "/usr/lib/jvm/temurin-21-jdk-amd64" \
-                "/usr/lib/jvm/jdk-21-oracle-x64"; do
-                if [ -d "$java_path" ]; then
-                    INTERNAL_JAVA_HOME="$java_path"
-                    break
-                fi
-            done
-            ;;
-        Windows)
-            # Windows: 查找常见Java 21安装路径
-            if [ -d "/c/Program Files/Java/jdk-21" ]; then
-                INTERNAL_JAVA_HOME="/c/Program Files/Java/jdk-21"
-            elif [ -d "/c/Program Files (x86)/Java/jdk-21" ]; then
-                INTERNAL_JAVA_HOME="/c/Program Files (x86)/Java/jdk-21"
-            elif [ -d "/c/Program Files/Java/jdk-21.0" ]; then
-                INTERNAL_JAVA_HOME="/c/Program Files/Java/jdk-21.0"
-            fi
-            ;;
-    esac
-
-    # 验证Java版本
-    if [ -n "$INTERNAL_JAVA_HOME" ] && [ -x "$INTERNAL_JAVA_HOME/bin/java" ]; then
-        JAVA_VERSION=$($INTERNAL_JAVA_HOME/bin/java -version 2>&1 | head -n 1 | cut -d'"' -f2 | cut -d'.' -f1)
-        if [ "$JAVA_VERSION" = "21" ]; then
-            print_success "自动检测到Java 21: $INTERNAL_JAVA_HOME"
-            return 0
-        else
-            print_warning "检测到的Java版本不是17: $JAVA_VERSION"
-            return 1
-        fi
-    fi
-
-    print_error "未找到Java 21，请确保已安装JDK 21"
-    return 1
-}
-
-# 调用函数设置INTERNAL_JAVA_HOME
-auto_set_java_home
-if [ $? -ne 0 ]; then
-    exit 1
-fi
-
-# 检查命令是否存在
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
-}
-
-# 检查依赖
-print_info "检查依赖..."
-
-if ! command_exists java; then
-    print_error "未找到Java，请先安装JDK 21"
-    exit 1
-fi
-
-if ! command_exists mvn; then
-    print_error "未找到Maven，请先安装Maven 3.6+"
-    exit 1
-fi
-
-if ! command_exists node; then
-    print_error "未找到Node.js，请先安装Node.js 18+"
-    exit 1
-fi
-
-if ! command_exists npm; then
-    print_error "未找到npm，请先安装npm 9+"
-    exit 1
-fi
-
-print_success "依赖检查通过"
-
-# 第一步：构建前端
+# ==========================================
+# 第一步：检测基础环境
+# ==========================================
 print_info "=========================================="
-print_info "第一步：构建前端..."
+print_info "第一步：检测基础环境..."
 print_info "=========================================="
-cd frontend || exit 1
 
-# 检查是否需要安装依赖
-if [ ! -d "node_modules" ] || [ "package-lock.json" -nt "node_modules/.last-install" ] || [ "package.json" -nt "node_modules/.last-install" ]; then
-    print_info "检测到依赖变更或node_modules不存在，安装npm依赖..."
-    # 先清理旧的node_modules确保干净安装
-    if [ -d "node_modules" ]; then
-        print_info "清理旧的node_modules..."
-        rm -rf node_modules
-    fi
-    npm ci --prefer-offline --no-audit --no-fund
-
-    if [ $? -ne 0 ]; then
-        print_error "前端依赖安装失败，尝试使用npm install..."
-        npm install
-        if [ $? -ne 0 ]; then
-            print_error "前端依赖安装失败"
-            exit 1
-        fi
-    fi
-    # 记录安装时间
-    touch node_modules/.last-install
-else
-    print_info "node_modules已存在且为最新，跳过依赖安装"
-fi
-
-print_info "构建前端生产版本..."
-# 设置前端环境变量（将后端端口传递给前端）
-export VITE_SERVER_PORT=$SERVER_PORT
-export VITE_FRONTEND_PORT=$FRONTEND_PORT
-npm run build
-
-if [ $? -ne 0 ]; then
-    print_error "前端构建失败"
-    exit 1
-fi
-
-print_success "前端构建成功，静态文件位于: $(pwd)/dist"
-
-# 返回根目录
-cd ..
-
-# 第二步：构建后端（包含前端静态文件）
-print_info "=========================================="
-print_info "第二步：构建后端（包含前端静态文件）..."
-print_info "=========================================="
-cd backend || exit 1
-
-# 检查是否需要更新依赖
-if [ ! -d "target" ] || [ "pom.xml" -nt "target/.last-build" ]; then
-    print_info "检测到依赖变更，更新Maven依赖..."
-    mvn dependency:resolve
-    if [ $? -ne 0 ]; then
-        print_error "Maven依赖解析失败"
+check_command() {
+    local cmd="$1"
+    local name="$2"
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        print_error "未找到 ${name}，请先安装后重试"
         exit 1
     fi
-fi
+    local version_info
+    version_info=$("$cmd" --version 2>&1 | head -n 1)
+    print_success "${name} 已安装: ${version_info}"
+}
 
-print_info "清理并编译..."
-mvn clean compile -q
+# 检测 Java 21
+check_java21() {
+    # 优先使用 JAVA_HOME
+    if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+        JAVA_CMD="$JAVA_HOME/bin/java"
+    elif command -v java >/dev/null 2>&1; then
+        JAVA_CMD="java"
+    else
+        print_error "未找到 Java，请先安装 JDK 21"
+        exit 1
+    fi
 
-if [ $? -ne 0 ]; then
-    print_error "后端编译失败"
+    JAVA_VERSION=$("$JAVA_CMD" -version 2>&1 | head -n 1 | cut -d'"' -f2)
+    JAVA_MAJOR=$(echo "$JAVA_VERSION" | cut -d'.' -f1)
+
+    if [ "$JAVA_MAJOR" != "21" ]; then
+        print_error "需要 JDK 21，当前版本为: ${JAVA_VERSION}，请先安装 JDK 21"
+        print_info "提示: 可运行 ./setup-env.sh 自动安装 JDK 21"
+        exit 1
+    fi
+
+    print_success "JDK 21 已安装: ${JAVA_VERSION} (JAVA_HOME=${JAVA_HOME:-$("$JAVA_CMD" -XshowSettings:properties -version 2>&1 | grep 'java.home' | awk '{print $NF}')})"
+}
+
+check_java21
+
+# 检测 Maven
+check_command "mvn" "Maven"
+
+# 检测 Node.js
+check_command "node" "Node.js"
+
+# 检测 npm
+check_command "npm" "npm"
+
+print_success "基础环境检测通过"
+
+# ==========================================
+# 第二步：构建前端静态资源
+# ==========================================
+print_info ""
+print_info "=========================================="
+print_info "第二步：构建前端静态资源..."
+print_info "=========================================="
+
+FRONTEND_DIR="$PROJECT_ROOT/frontend"
+BACKEND_DIR="$PROJECT_ROOT/backend"
+
+if [ ! -d "$FRONTEND_DIR" ]; then
+    print_error "前端目录不存在: $FRONTEND_DIR"
     exit 1
 fi
 
-print_info "打包（前端静态文件将自动复制到jar包中）..."
-mvn package -DskipTests
+cd "$FRONTEND_DIR"
 
+print_info "安装前端依赖..."
+npm install
 if [ $? -ne 0 ]; then
-    print_error "后端打包失败"
+    print_error "前端依赖安装失败 (npm install)"
+    exit 1
+fi
+print_success "前端依赖安装完成"
+
+print_info "构建前端生产版本..."
+npm run build
+if [ $? -ne 0 ]; then
+    print_error "前端构建失败 (npm run build)"
+    exit 1
+fi
+print_success "前端构建成功，输出目录: $(pwd)/dist"
+
+# 返回项目根目录
+cd "$PROJECT_ROOT"
+
+# ==========================================
+# 第三步：复制前端静态资源到后端
+# ==========================================
+print_info ""
+print_info "=========================================="
+print_info "第三步：复制前端静态资源到后端..."
+print_info "=========================================="
+
+FRONTEND_DIST="$FRONTEND_DIR/dist"
+BACKEND_STATIC="$BACKEND_DIR/src/main/resources/static"
+
+if [ ! -d "$FRONTEND_DIST" ]; then
+    print_error "前端构建产物不存在: $FRONTEND_DIST"
     exit 1
 fi
 
-# 记录构建时间
-touch target/.last-build
+# 清理旧的 static 目录
+if [ -d "$BACKEND_STATIC" ]; then
+    print_info "清理旧的 static 目录..."
+    rm -rf "$BACKEND_STATIC"
+fi
 
-print_success "后端构建成功"
+# 复制 dist 并重命名为 static
+print_info "复制 dist -> src/main/resources/static..."
+cp -r "$FRONTEND_DIST" "$BACKEND_STATIC"
 
-# 返回根目录
-cd ..
+if [ $? -ne 0 ]; then
+    print_error "复制前端静态资源失败"
+    exit 1
+fi
 
+# 验证关键文件是否存在
+if [ -f "$BACKEND_STATIC/index.html" ]; then
+    print_success "前端静态资源复制完成: $BACKEND_STATIC"
+    print_info "  - index.html: $( [ -f "$BACKEND_STATIC/index.html" ] && echo '存在' || echo '不存在' )"
+    print_info "  - assets目录: $( [ -d "$BACKEND_STATIC/assets" ] && echo '存在' || echo '不存在' )"
+else
+    print_error "index.html 不存在，复制可能不完整"
+    exit 1
+fi
+
+# ==========================================
+# 第四步：Maven 打包
+# ==========================================
+print_info ""
+print_info "=========================================="
+print_info "第四步：Maven 打包..."
+print_info "=========================================="
+
+cd "$BACKEND_DIR"
+
+print_info "执行 mvn clean package..."
+mvn clean package -DskipTests
+
+if [ $? -ne 0 ]; then
+    print_error "Maven 打包失败"
+    exit 1
+fi
+
+print_success "Maven 打包完成"
+
+# 返回项目根目录
+cd "$PROJECT_ROOT"
+
+# ==========================================
+# 构建完成
+# ==========================================
+echo ""
 print_info "=========================================="
 print_success "构建完成！"
 print_info "=========================================="
-print_info "JAR包位置: backend/target/mock-server-1.0.0.jar"
-print_info ""
-print_info "运行命令:"
-print_info "  java -jar backend/target/mock-server-1.0.0.jar"
-print_info ""
-print_info "或者直接运行一键启动脚本:"
-print_info "  ./run.sh"
+
+# 查找生成的 JAR 包
+JAR_FILE=$(find "$BACKEND_DIR/target" -maxdepth 1 -name "*.jar" ! -name "*sources.jar" ! -name "*javadoc.jar" 2>/dev/null | head -n 1)
+
+if [ -n "$JAR_FILE" ]; then
+    JAR_NAME=$(basename "$JAR_FILE")
+    print_info "JAR 包位置: $JAR_FILE"
+    echo ""
+    print_info "运行命令:"
+    print_info "  java -jar $JAR_FILE"
+    echo ""
+    print_info "或者直接运行一键启动脚本:"
+    print_info "  ./run.sh"
+else
+    print_warning "未找到 JAR 包，请检查 backend/target/ 目录"
+fi

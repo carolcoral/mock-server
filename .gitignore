@@ -1,6 +1,9 @@
 # 编译输出
 */target/
+backend/target
 */dist/
+frontend/dist
+backend/src/main/resources/static
 */build/
 
 # 依赖
