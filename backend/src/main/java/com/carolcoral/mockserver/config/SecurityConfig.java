@@ -113,7 +113,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/users/profile",
                                 "/api/users/update-profile",
-                                "/api/users/change-password"
+                                "/api/users/change-password",
+                                "/api/system/info"
                         ).authenticated()
                         // 允许所有OPTIONS预检请求
                         .requestMatchers(request -> "OPTIONS".equals(request.getMethod())).permitAll()

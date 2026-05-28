@@ -176,52 +176,93 @@
           <div v-if="activeMenu === 'system'">
             <h2>系统信息</h2>
             <el-divider />
-            <el-descriptions :column="2" border>
-              <el-descriptions-item label="系统版本">{{ systemInfo.version }}</el-descriptions-item>
-              <el-descriptions-item label="构建时间">{{ systemInfo.buildTime }}</el-descriptions-item>
+            <el-alert v-if="systemInfoLoading" title="正在加载系统信息..." type="info" :closable="false" show-icon />
+            <el-descriptions :column="2" border v-loading="systemInfoLoading">
+              <el-descriptions-item label="应用名称">{{ systemInfo.appName }}</el-descriptions-item>
+              <el-descriptions-item label="应用版本">{{ systemInfo.version }}</el-descriptions-item>
+              <el-descriptions-item label="Spring Boot版本">{{ systemInfo.springBootVersion }}</el-descriptions-item>
               <el-descriptions-item label="运行环境">{{ systemInfo.environment }}</el-descriptions-item>
+              <el-descriptions-item label="启动时间">{{ systemInfo.startTime }}</el-descriptions-item>
               <el-descriptions-item label="运行时间">{{ systemInfo.uptime }}</el-descriptions-item>
               <el-descriptions-item label="Java版本">{{ systemInfo.javaVersion }}</el-descriptions-item>
-              <el-descriptions-item label="Spring Boot版本">{{ systemInfo.springBootVersion }}</el-descriptions-item>
+              <el-descriptions-item label="Java厂商">{{ systemInfo.javaVendor }}</el-descriptions-item>
               <el-descriptions-item label="数据库类型">{{ systemInfo.databaseType }}</el-descriptions-item>
               <el-descriptions-item label="数据库版本">{{ systemInfo.databaseVersion }}</el-descriptions-item>
-              <el-descriptions-item label="操作系统">{{ systemInfo.osName }}</el-descriptions-item>
+              <el-descriptions-item label="操作系统">{{ systemInfo.osName }} {{ systemInfo.osVersion }}</el-descriptions-item>
               <el-descriptions-item label="系统架构">{{ systemInfo.osArch }}</el-descriptions-item>
+              <el-descriptions-item label="可用处理器">{{ systemInfo.availableProcessors }} 核</el-descriptions-item>
+              <el-descriptions-item label="工作目录">{{ systemInfo.userDir }}</el-descriptions-item>
             </el-descriptions>
 
-            <h3 style="margin-top: 30px;">性能监控</h3>
+            <div style="margin-top: 20px; display: flex; align-items: center; gap: 12px;">
+              <h3 style="margin: 0; font-size: 18px; font-weight: 600;">性能监控</h3>
+              <el-tag size="small" type="success" effect="plain">
+                每5秒自动刷新
+              </el-tag>
+            </div>
             <el-divider />
             <el-row :gutter="20">
               <el-col :span="8">
-                <el-statistic title="CPU使用率" :value="systemInfo.cpuUsage" suffix="%" />
+                <el-card shadow="hover">
+                  <el-statistic title="CPU使用率" :value="systemInfo.cpuUsage >= 0 ? systemInfo.cpuUsage : 'N/A'" :suffix="systemInfo.cpuUsage >= 0 ? '%' : ''">
+                    <template #prefix>
+                      <span :style="{ color: cpuUsageColor }">●</span>
+                    </template>
+                  </el-statistic>
+                </el-card>
               </el-col>
               <el-col :span="8">
-                <el-statistic title="内存使用率" :value="systemInfo.memoryUsage" suffix="%" />
+                <el-card shadow="hover">
+                  <el-statistic title="内存使用率" :value="systemInfo.memoryUsage" suffix="%">
+                    <template #prefix>
+                      <span :style="{ color: memoryUsageColor }">●</span>
+                    </template>
+                  </el-statistic>
+                </el-card>
               </el-col>
               <el-col :span="8">
-                <el-statistic title="磁盘使用率" :value="systemInfo.diskUsage" suffix="%" />
+                <el-card shadow="hover">
+                  <el-statistic title="磁盘使用率" :value="systemInfo.diskUsage" suffix="%">
+                    <template #prefix>
+                      <span :style="{ color: diskUsageColor }">●</span>
+                    </template>
+                  </el-statistic>
+                </el-card>
               </el-col>
             </el-row>
 
-            <h3 style="margin-top: 30px;">环境变量（部分）</h3>
+            <div style="margin-top: 20px; display: flex; align-items: center; gap: 12px;">
+              <h3 style="margin: 0; font-size: 18px; font-weight: 600;">JVM 内存详情</h3>
+              <el-tag size="small" type="success" effect="plain">
+                每5秒自动刷新
+              </el-tag>
+            </div>
             <el-divider />
-            <el-table :data="envVars" border style="width: 100%">
-              <el-table-column prop="key" label="变量名" width="200" />
+            <el-descriptions :column="3" border>
+              <el-descriptions-item label="堆内存已用">{{ systemInfo.heapUsedMB }} MB</el-descriptions-item>
+              <el-descriptions-item label="堆内存上限">{{ systemInfo.heapMaxMB }} MB</el-descriptions-item>
+              <el-descriptions-item label="使用率">{{ systemInfo.memoryUsage }}%</el-descriptions-item>
+              <el-descriptions-item label="磁盘总空间">{{ systemInfo.diskTotalGB }} GB</el-descriptions-item>
+              <el-descriptions-item label="磁盘可用">{{ systemInfo.diskFreeGB }} GB</el-descriptions-item>
+              <el-descriptions-item label="磁盘使用率">{{ systemInfo.diskUsage }}%</el-descriptions-item>
+            </el-descriptions>
+
+            <div style="margin-top: 15px; display: flex; justify-content: flex-end; align-items: center; gap: 12px;">
+              <span style="color: #909399; font-size: 13px;">
+                <el-icon style="vertical-align: -2px;"><Timer /></el-icon>
+                自动刷新中（每5秒）
+              </span>
+              <el-button @click="refreshSystemInfo" :loading="systemInfoLoading" type="primary">
+                手动刷新
+              </el-button>
+            </div>
+
+            <h3 style="margin-top: 30px;">环境变量（安全过滤）</h3>
+            <el-divider />
+            <el-table :data="envVars" border style="width: 100%" v-loading="systemInfoLoading" empty-text="暂无环境变量数据">
+              <el-table-column prop="key" label="变量名" width="220" />
               <el-table-column prop="value" label="值" />
             </el-table>
-
-            <!-- 分页 -->
-            <div class="pagination-wrapper">
-              <el-pagination
-                v-model:current-page="pagination.page"
-                v-model:page-size="pagination.size"
-                :page-sizes="[10, 15, 20, 50, 100]"
-                :total="pagination.total"
-                layout="total, sizes, prev, pager, next, jumper"
-                @size-change="handleSizeChange"
-                @current-change="handlePageChange"
-              />
-            </div>
           </div>
 
           <!-- 系统公告 -->
@@ -326,9 +367,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, watch, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Setting, Lock, Key, Connection, InfoFilled, Bell, Edit, Delete } from '@element-plus/icons-vue'
+import { Setting, Lock, Key, Connection, InfoFilled, Bell, Edit, Delete, Refresh, Timer } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import request from '@/utils/request'
 
@@ -399,28 +440,50 @@ const mockSettings = reactive({
 
 // 系统信息
 const systemInfo = reactive({
-  version: '1.0.0',
-  buildTime: '2026-03-03 10:00:00',
-  environment: 'development',
-  uptime: '2天 3小时 15分钟',
-  javaVersion: '17.0.8',
-  springBootVersion: '3.2.0',
-  databaseType: 'SQLite',
-  databaseVersion: '3.40.1',
-  osName: 'Linux',
-  osArch: 'amd64',
-  cpuUsage: 45,
-  memoryUsage: 62,
-  diskUsage: 38
+  version: '-',
+  buildTime: '-',
+  environment: '-',
+  uptime: '-',
+  javaVersion: '-',
+  springBootVersion: '-',
+  databaseType: '-',
+  databaseVersion: '-',
+  osName: '-',
+  osArch: '-',
+  cpuUsage: -1,
+  memoryUsage: 0,
+  diskUsage: 0,
+  startTime: '-',
+  heapMaxMB: 0,
+  heapUsedMB: 0,
+  availableProcessors: 0
+})
+
+// 统一的使用率颜色：灰色(不可用) -> 绿色(正常) -> 橙色(>50%) -> 红色(>80%)
+const cpuUsageColor = computed(() => {
+  const v = systemInfo.cpuUsage
+  if (v < 0) return '#909399'
+  if (v > 80) return '#f56c6c'
+  if (v > 50) return '#e6a23c'
+  return '#67c23a'
+})
+const memoryUsageColor = computed(() => {
+  const v = systemInfo.memoryUsage
+  if (v < 0) return '#909399'
+  if (v > 80) return '#f56c6c'
+  if (v > 50) return '#e6a23c'
+  return '#67c23a'
+})
+const diskUsageColor = computed(() => {
+  const v = systemInfo.diskUsage
+  if (v < 0) return '#909399'
+  if (v > 80) return '#f56c6c'
+  if (v > 50) return '#e6a23c'
+  return '#67c23a'
 })
 
 // 环境变量
-const envVars = ref([
-  { key: 'SPRING_PROFILES_ACTIVE', value: 'development' },
-  { key: 'JAVA_OPTS', value: '-Xmx512m -Xms256m' },
-  { key: 'TZ', value: 'Asia/Shanghai' },
-  { key: 'LOG_LEVEL', value: 'INFO' }
-])
+const envVars = ref([])
 
 // 公告数据
 const announcements = ref([])
@@ -446,7 +509,17 @@ const pagination = reactive({
 
 // 菜单切换
 const handleMenuSelect = (index) => {
+  // 离开 system tab 时停止自动刷新
+  if (activeMenu.value === 'system' && index !== 'system') {
+    stopAutoRefresh()
+  }
   activeMenu.value = index
+  if (index === 'system') {
+    fetchSystemInfo()
+    startAutoRefresh()
+  } else if (index === 'announcement') {
+    fetchAnnouncements()
+  }
 }
 
 // 保存基础设置
@@ -555,16 +628,117 @@ const resetMockSettings = () => {
   ElMessage.info(t('settings.settingsReset'))
 }
 
-// 获取系统信息
+// 系统信息加载状态
+const systemInfoLoading = ref(false)
+
+// 获取系统信息（默认静默，不显示提示）
+// silent: 内部用，外部调用时不传参即为静默模式
 const fetchSystemInfo = async () => {
   try {
-    // TODO: 调用API获取真实的系统信息
-    // const response = await axios.get('/api/settings/system-info')
-    // if (response.code === 200) {
-    //   Object.assign(systemInfo, response.data)
-    // }
+    const response = await request.get('/system/info')
+    if (response.code === 200) {
+      const data = response.data
+      // 更新系统信息
+      Object.assign(systemInfo, {
+        version: data.appVersion || '-',
+        appName: data.appName || '-',
+        buildTime: data.buildTime || '-',
+        environment: data.environment || '-',
+        uptime: data.uptime || '-',
+        startTime: data.startTime || '-',
+        javaVersion: data.javaVersion || '-',
+        javaVendor: data.javaVendor || '-',
+        springBootVersion: data.springBootVersion || '-',
+        databaseType: data.databaseType || '-',
+        databaseVersion: data.databaseVersion || '-',
+        osName: data.osName || '-',
+        osVersion: data.osVersion || '-',
+        osArch: data.osArch || '-',
+        cpuUsage: data.cpuUsage != null ? data.cpuUsage : -1,
+        memoryUsage: data.memoryUsage || 0,
+        diskUsage: data.diskUsage || 0,
+        heapMaxMB: data.heapMaxMB || 0,
+        heapUsedMB: data.heapUsedMB || 0,
+        availableProcessors: data.availableProcessors || 0,
+        userDir: data.userDir || '-',
+        diskTotalGB: data.diskTotalGB || 0,
+        diskFreeGB: data.diskFreeGB || 0
+      })
+    }
   } catch (error) {
     console.error('获取系统信息失败:', error)
+  }
+}
+
+// 手动刷新系统信息（显示 loading 和提示）
+const refreshSystemInfo = async () => {
+  systemInfoLoading.value = true
+  try {
+    const response = await request.get('/system/info')
+    if (response.code === 200) {
+      const data = response.data
+      Object.assign(systemInfo, {
+        version: data.appVersion || '-',
+        appName: data.appName || '-',
+        buildTime: data.buildTime || '-',
+        environment: data.environment || '-',
+        uptime: data.uptime || '-',
+        startTime: data.startTime || '-',
+        javaVersion: data.javaVersion || '-',
+        javaVendor: data.javaVendor || '-',
+        springBootVersion: data.springBootVersion || '-',
+        databaseType: data.databaseType || '-',
+        databaseVersion: data.databaseVersion || '-',
+        osName: data.osName || '-',
+        osVersion: data.osVersion || '-',
+        osArch: data.osArch || '-',
+        cpuUsage: data.cpuUsage != null ? data.cpuUsage : -1,
+        memoryUsage: data.memoryUsage || 0,
+        diskUsage: data.diskUsage || 0,
+        heapMaxMB: data.heapMaxMB || 0,
+        heapUsedMB: data.heapUsedMB || 0,
+        availableProcessors: data.availableProcessors || 0,
+        userDir: data.userDir || '-',
+        diskTotalGB: data.diskTotalGB || 0,
+        diskFreeGB: data.diskFreeGB || 0
+      })
+      // 更新环境变量
+      const envMap = data.envVars || {}
+      const envArray = Object.entries(envMap).map(([key, value]) => ({
+        key,
+        value
+      }))
+      envVars.value = envArray
+
+      ElMessage.success('系统信息已刷新')
+    } else {
+      ElMessage.error(response.message || '获取系统信息失败')
+    }
+  } catch (error) {
+    console.error('获取系统信息失败:', error)
+    ElMessage.error('获取系统信息失败，请检查网络连接')
+  } finally {
+    systemInfoLoading.value = false
+  }
+}
+
+// 自动刷新定时器
+let autoRefreshTimer = null
+const AUTO_REFRESH_INTERVAL = 5000 // 5秒
+
+// 启动自动刷新
+const startAutoRefresh = () => {
+  stopAutoRefresh()
+  autoRefreshTimer = setInterval(() => {
+    fetchSystemInfo() // 静默刷新
+  }, AUTO_REFRESH_INTERVAL)
+}
+
+// 停止自动刷新
+const stopAutoRefresh = () => {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer)
+    autoRefreshTimer = null
   }
 }
 
@@ -723,6 +897,15 @@ const getPriorityType = (priority) => {
 onMounted(() => {
   fetchSystemInfo()
   fetchAnnouncements()
+  // 如果初始就是 system tab，启动自动刷新
+  if (activeMenu.value === 'system') {
+    startAutoRefresh()
+  }
+})
+
+// 组件卸载时清理定时器
+onBeforeUnmount(() => {
+  stopAutoRefresh()
 })
 </script>
 
