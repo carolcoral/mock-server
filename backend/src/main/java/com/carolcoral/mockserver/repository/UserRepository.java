@@ -64,6 +64,17 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByUsernameLike(String username);
 
     /**
+     * 根据用户名或邮箱模糊搜索用户
+     *
+     * @param username 用户名（模糊）
+     * @param email    邮箱（模糊）
+     * @return 用户列表
+     */
+    @Operation(summary = "根据用户名或邮箱模糊搜索用户")
+    @Query("SELECT u FROM User u WHERE u.username LIKE :username OR u.email LIKE :email")
+    List<User> findByUsernameLikeOrEmailLike(@Param("username") String username, @Param("email") String email);
+
+    /**
      * 根据角色查询用户
      *
      * @param role 角色

@@ -464,15 +464,12 @@ const searchUsers = async (query) => {
   userSearchLoading.value = true
   try {
     const response = await request({
-      url: '/users',
-      method: 'get'
+      url: '/users/search',
+      method: 'get',
+      params: { keyword: query }
     })
     if (response.code === 200) {
-      const users = response.data || []
-      userOptions.value = users.filter(user =>
-        user.username.toLowerCase().includes(query.toLowerCase()) ||
-        user.email.toLowerCase().includes(query.toLowerCase())
-      )
+      userOptions.value = response.data || []
     }
   } catch (error) {
     console.error('搜索用户失败:', error)

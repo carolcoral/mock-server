@@ -553,7 +553,7 @@ const rules = {
     { required: true, message: '请输入接口路径', trigger: 'blur' },
     { min: 1, max: 200, message: '长度在 1 到 200 个字符', trigger: 'blur' },
     {
-      pattern: /^\/[a-zA-Z0-9_/?{}?=&\-]*$/,
+      pattern: /^\/[a-zA-Z0-9_/{}?=&.\-]*$/,
       message: '路径格式不正确，必须以/开头',
       trigger: 'blur'
     }

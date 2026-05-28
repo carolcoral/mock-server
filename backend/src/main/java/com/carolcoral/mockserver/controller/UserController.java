@@ -135,6 +135,21 @@ public class UserController {
     }
 
     /**
+     * 搜索用户（支持用户名或邮箱模糊搜索，所有已认证用户可用）
+     *
+     * @param keyword 搜索关键词
+     * @return 用户列表
+     */
+    @Operation(summary = "搜索用户", description = "支持用户名或邮箱模糊搜索，所有已认证用户可用")
+    @GetMapping("/search")
+    public ApiResponse<java.util.List<User>> searchUsers(
+            @Parameter(description = "搜索关键词", example = "admin")
+            @RequestParam(required = false) String keyword) {
+        log.info("搜索用户请求，关键词: {}", keyword);
+        return userService.searchUsers(keyword);
+    }
+
+    /**
      * 查询所有用户
      *
      * @return 用户列表

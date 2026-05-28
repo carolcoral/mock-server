@@ -282,6 +282,27 @@ public class UserService {
     }
 
     /**
+     * 搜索用户（支持用户名或邮箱模糊搜索，所有已认证用户可用）
+     *
+     * @param keyword 搜索关键词
+     * @return 用户列表
+     */
+    @Operation(summary = "搜索用户")
+    public ApiResponse<List<User>> searchUsers(String keyword) {
+        try {
+            if (keyword == null || keyword.trim().isEmpty()) {
+                return ApiResponse.success(java.util.Collections.emptyList());
+            }
+            String pattern = "%" + keyword.trim() + "%";
+            List<User> users = userRepository.findByUsernameLikeOrEmailLike(pattern, pattern);
+            return ApiResponse.success(users);
+        } catch (Exception e) {
+            log.error("搜索用户失败: {}", e.getMessage(), e);
+            return ApiResponse.error("搜索用户失败，请稍后重试");
+        }
+    }
+
+    /**
      * 查询所有用户
      *
      * @return 用户列表
