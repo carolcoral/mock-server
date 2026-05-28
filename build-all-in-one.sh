@@ -363,7 +363,14 @@ if [ -n "$JAR_FILE" ]; then
     print_info "JAR 包位置: $JAR_FILE"
     echo ""
     print_info "运行命令:"
-    print_info "  java -jar $JAR_FILE"
+
+    # 根据检测到的 JDK 21 路径给出准确的 java 命令
+    if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+        JAVA_RUNTIME="$JAVA_HOME/bin/java"
+    else
+        JAVA_RUNTIME="java"
+    fi
+    print_info "  $JAVA_RUNTIME -jar $JAR_FILE"
     echo ""
     print_info "或者直接运行一键启动脚本:"
     print_info "  ./run.sh"
