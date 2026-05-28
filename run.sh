@@ -30,9 +30,13 @@ print_step() {
 
 print_step "检查是否需要构建..."
 
+# 获取脚本所在目录（确保路径始终相对于脚本位置）
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
 # 检查是否需要构建（jar包不存在或前端dist不存在）
-JAR_FILE="backend/target/mock-server-1.0.0.jar"
-if [ ! -f "$JAR_FILE" ] || [ ! -d "frontend/dist" ]; then
+JAR_FILE=$(ls backend/target/mock-server-*.jar 2>/dev/null | head -n 1)
+if [ -z "$JAR_FILE" ] || [ ! -d "frontend/dist" ]; then
     print_info "检测到jar包或前端构建产物不存在，开始构建..."
     print_info "正在运行 ./build-all-in-one.sh ..."
     bash ./build-all-in-one.sh
@@ -176,9 +180,9 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# 检查后端jar包是否存在
-JAR_FILE="backend/target/mock-server-1.0.0.jar"
-if [ ! -f "$JAR_FILE" ]; then
+# 检查后端jar包是否存在（通配符匹配，不限制版本号）
+JAR_FILE=$(ls backend/target/mock-server-*.jar 2>/dev/null | head -n 1)
+if [ -z "$JAR_FILE" ] || [ ! -f "$JAR_FILE" ]; then
     print_error "后端jar包不存在，请先运行构建脚本: ./build-all-in-one.sh"
     exit 1
 fi
