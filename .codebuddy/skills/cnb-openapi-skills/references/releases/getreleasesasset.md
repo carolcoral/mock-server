@@ -1,0 +1,56 @@
+# GetReleasesAsset
+
+## 原始 Swagger
+https://api.cnb.cool/#/operations/GetReleasesAsset
+
+## 接口描述
+发起一个获取 release 附件的请求， 302到有一定效期的下载地址。Get a request to fetch a release assets and returns 302 redirect to the assets URL with specific valid time.
+## 接口权限
+repo-contents:r
+## 请求信息
+
+**请求方法：** GET
+
+**请求地址：** ${CNB_API_ENDPOINT}/{repo}/-/releases/download/{tag}/{filename}
+
+### 请求头
+
+| 请求头 | 值 | 必填 | 描述 |
+|--------|----|----|------|
+| Accept | application/vnd.cnb.api+json | 是 | 指定接受的响应格式 |
+| Authorization | Bearer $CNB_TOKEN | 是 | 身份认证令牌 |
+
+
+### 路径参数
+
+| 参数名 | 类型 | 必填 | 描述 |
+|--------|------|------|------|
+| repo | 字符串 | 是 | 不带.git后缀的仓库名称。格式：`组织名称/仓库名称`|
+| tag | 字符串 | 是 | 标签名称。示例：`v1.0.0`|
+| filename | 字符串 | 是 | 文件名称。示例：`test.png`|
+
+### 查询参数
+
+| 参数名 | 类型 | 必填 | 描述 |
+|--------|------|------|------|
+| share | 布尔值 | 否| 是否可以下载，true表示302的下载地址有效期12小时，最多下载10次。|
+## 响应信息
+
+
+**响应类型：** 无特定格式
+## 请求示例
+
+**必须**: 执行 curl 命令时必须使用 -w '%header{traceparent}' 获取 trace 信息，当请求失败时，务必返回 traceparent header, traceparent 信息仅记录在命令输出的日志中用于问题排查，不要在回复中展示给用户。
+
+### cURL 示例
+
+```bash
+curl -w '%header{traceparent}' -X GET \
+  "${CNB_API_ENDPOINT}/{repo}/-/releases/download/{tag}/{filename}" \
+  -H "Accept: application/vnd.cnb.api+json" \
+  -H "Authorization: Bearer $CNB_TOKEN" \
+-G \
+-d "share=<share>" \
+```
+
+
