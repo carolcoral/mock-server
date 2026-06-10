@@ -9,6 +9,7 @@ package com.carolcoral.mockserver.controller;
 import com.carolcoral.mockserver.dto.ApiResponse;
 import com.carolcoral.mockserver.entity.MockApi;
 import com.carolcoral.mockserver.entity.MockResponse;
+import com.carolcoral.mockserver.plugin.TransformerRegistry;
 import com.carolcoral.mockserver.service.MockApiService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -26,6 +27,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.File;
+
 /**
  * 自定义接口控制器
  *
@@ -41,11 +44,13 @@ public class MockApiController {
     /**
      * 构造器
      */
-    public MockApiController(MockApiService mockApiService) {
+    public MockApiController(MockApiService mockApiService, TransformerRegistry transformerRegistry) {
         this.mockApiService = mockApiService;
+        this.transformerRegistry = transformerRegistry;
     }
 
     private final MockApiService mockApiService;
+    private final TransformerRegistry transformerRegistry;
 
     /**
      * 创建接口
@@ -239,5 +244,132 @@ public class MockApiController {
             @Parameter(description = "接口ID", example = "1") @PathVariable Long apiId) {
         log.info("获取接口响应列表请求: 接口={}", apiId);
         return mockApiService.getApiResponses(apiId);
+    }
+
+    /**
+     * 获取所有可用的自定义响应转换器
+     *
+     * @return 转换器名称和描述的映射
+     */
+    @Operation(summary = "获取所有自定义响应转换器", description = "获取系统中所有已注册的自定义响应转换器列表，用于接口配置时选择")
+    @GetMapping("/transformers")
+    public ApiResponse<java.util.Map<String, String>> getAvailableTransformers() {
+        log.info("获取可用转换器列表请求");
+        try {
+            java.util.Map<String, String> transformers = transformerRegistry.getAllTransformers();
+            return ApiResponse.success(transformers);
+        } catch (Exception e) {
+            log.error("获取转换器列表失败: {}", e.getMessage(), e);
+            return ApiResponse.error("获取转换器列表失败");
+        }
+    }
+
+    /**
+     * 获取接口的自定义响应处理器源码
+     *
+     * @param apiId 接口ID
+     * @return 源码内容
+     */
+    @Operation(summary = "获取接口的自定义响应处理器源码", description = "获取指定接口已保存的自定义响应处理器Java源码")
+    @GetMapping("/{apiId}/custom-response-source")
+    public ApiResponse<String> getCustomResponseSource(
+            @Parameter(description = "接口ID", example = "1") @PathVariable Long apiId) {
+        log.info("获取自定义响应处理器源码: apiId={}", apiId);
+        try {
+            var result = mockApiService.getMockApiById(apiId);
+            if (result.getCode() != 200 || result.getData() == null) {
+                return ApiResponse.error("接口不存在");
+            }
+            String source = result.getData().getCustomResponseSource();
+            return ApiResponse.success(source != null ? source : "");
+        } catch (Exception e) {
+            log.error("获取自定义响应处理器源码失败: {}", e.getMessage(), e);
+            return ApiResponse.error("获取源码失败");
+        }
+    }
+
+    /**
+     * 验证自定义响应处理器源码是否可以编译通过
+     *
+     * @param apiId      接口ID
+     * @param sourceCode Java源码
+     * @return 验证结果
+     */
+    @Operation(summary = "验证自定义响应处理器源码", description = "编译验证用户提交的Java源码是否能正常编译，不保存到数据库")
+    @PostMapping("/{apiId}/custom-response-source/validate")
+    public ApiResponse<String> validateCustomResponseSource(
+            @Parameter(description = "接口ID", example = "1") @PathVariable Long apiId,
+            @Parameter(description = "Java源码") @RequestBody java.util.Map<String, String> body) {
+        String sourceCode = body.get("sourceCode");
+        log.info("验证自定义响应处理器源码: apiId={}", apiId);
+        try {
+            if (sourceCode == null || sourceCode.trim().isEmpty()) {
+                return ApiResponse.error("源码不能为空");
+            }
+            String error = transformerRegistry.validateSourceCode(apiId, sourceCode);
+            if (error == null) {
+                return ApiResponse.success("编译验证通过");
+            } else {
+                return ApiResponse.error(error);
+            }
+        } catch (Exception e) {
+            log.error("验证源码失败: {}", e.getMessage(), e);
+            return ApiResponse.error("验证失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取动态编译器的调试信息
+     * 用于排查编译失败问题
+     */
+    @Operation(summary = "获取动态编译器调试信息", description = "获取编译器状态和classpath信息，用于排查编译问题")
+    @GetMapping("/compiler-debug")
+    public ApiResponse<java.util.Map<String, Object>> getCompilerDebugInfo() {
+        java.util.Map<String, Object> debugInfo = new java.util.HashMap<>();
+        try {
+            // 获取系统属性
+            debugInfo.put("javaHome", System.getProperty("java.home"));
+            debugInfo.put("userDir", System.getProperty("user.dir"));
+            debugInfo.put("javaClassPath", System.getProperty("java.class.path"));
+
+            // 检查 target/classes 是否存在
+            String userDir = System.getProperty("user.dir");
+            java.io.File targetClasses = new java.io.File(userDir, "target/classes");
+            debugInfo.put("targetClassesExists", targetClasses.exists());
+            debugInfo.put("targetClassesPath", targetClasses.getAbsolutePath());
+
+            // 强制触发 DynamicCompiler 类加载（通过调用一个静态方法）
+            // 这样可以确保 static 字段被正确初始化
+            try {
+                // 先检查编译器是否可用
+                boolean compilerAvailable = com.carolcoral.mockserver.plugin.DynamicCompiler.isCompilerAvailable();
+                debugInfo.put("compilerAvailable", compilerAvailable);
+
+                // 获取 classpath（强制类加载）
+                String classpath = com.carolcoral.mockserver.plugin.DynamicCompiler.getCompilationClasspath();
+                debugInfo.put("dynamicCompilerClasspath", classpath);
+                debugInfo.put("dynamicCompilerClasspathLength", classpath != null ? classpath.length() : 0);
+
+                // 检查 classpath 是否包含关键路径
+                if (classpath != null) {
+                    debugInfo.put("containsTargetClasses", classpath.contains("target/classes"));
+                    debugInfo.put("containsDot", classpath.contains("."));
+                    // 提取前几个路径
+                    String[] paths = classpath.split(File.pathSeparator);
+                    debugInfo.put("classpathPathsCount", paths.length);
+                    if (paths.length > 0) {
+                        debugInfo.put("firstClasspathEntry", paths[0]);
+                    }
+                }
+            } catch (Exception e) {
+                debugInfo.put("classpathError", e.getMessage());
+                log.error("获取动态编译器信息失败: {}", e.getMessage(), e);
+            }
+
+            return ApiResponse.success(debugInfo);
+        } catch (Exception e) {
+            log.error("获取调试信息失败: {}", e.getMessage(), e);
+            return ApiResponse.error("获取调试信息失败: " + e.getMessage());
+        }
     }
 }

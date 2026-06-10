@@ -119,5 +119,31 @@ public class DatabaseMigration implements CommandLineRunner {
         } catch (Exception e) {
             log.warn("创建t_system_config表失败: {}", e.getMessage());
         }
+
+        try {
+            // 添加custom_response_handler字段到t_mock_api表
+            jdbcTemplate.execute("ALTER TABLE t_mock_api ADD COLUMN custom_response_handler VARCHAR(500)");
+            log.info("成功添加custom_response_handler字段到t_mock_api表");
+        } catch (Exception e) {
+            String errorMsg = e.getMessage();
+            if (errorMsg != null && errorMsg.contains("duplicate column name")) {
+                log.info("custom_response_handler字段已存在，跳过迁移");
+            } else {
+                log.warn("添加custom_response_handler字段失败: {}", errorMsg);
+            }
+        }
+
+        try {
+            // 添加custom_response_source字段到t_mock_api表（TEXT类型，存储动态编译的源码）
+            jdbcTemplate.execute("ALTER TABLE t_mock_api ADD COLUMN custom_response_source TEXT");
+            log.info("成功添加custom_response_source字段到t_mock_api表");
+        } catch (Exception e) {
+            String errorMsg = e.getMessage();
+            if (errorMsg != null && errorMsg.contains("duplicate column name")) {
+                log.info("custom_response_source字段已存在，跳过迁移");
+            } else {
+                log.warn("添加custom_response_source字段失败: {}", errorMsg);
+            }
+        }
     }
 }

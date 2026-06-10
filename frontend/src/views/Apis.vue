@@ -127,7 +127,7 @@
     </el-card>
 
     <!-- 创建/编辑对话框 -->
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="700px" @close="handleDialogClose">
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="900px" @close="handleDialogClose">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
         <el-form-item label="选择项目" prop="projectId" v-if="!isEdit">
           <el-select v-model="form.projectId" placeholder="请选择项目" clearable style="width: 100%" filterable>
@@ -197,6 +197,37 @@
         </el-form-item>
         <el-form-item label="状态" prop="enabled">
           <el-switch v-model="form.enabled" active-text="启用" inactive-text="禁用" />
+        </el-form-item>
+
+        <!-- 自定义响应处理器 -->
+        <el-divider content-position="left">
+          <span style="font-size: 14px; font-weight: 600; color: #303133;">自定义响应处理器（Java代码）</span>
+        </el-divider>
+        <div style="margin-bottom: 12px; padding: 10px; background: #fdf6ec; border: 1px solid #faecd8; border-radius: 4px;">
+          <el-icon style="color: #E6A23C; margin-right: 6px;"><WarningFilled /></el-icon>
+          <span style="color: #E6A23C; font-size: 13px;">
+            在此编写Java代码对接口响应进行自定义处理。代码需包含一个实现 <b>CustomResponseTransformer</b> 接口的 public class。
+            保存后立即生效，无需重启服务。
+          </span>
+        </div>
+        <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+          <el-button size="small" @click="loadTemplateCode" :disabled="!isEdit">加载模板</el-button>
+          <el-button size="small" type="success" @click="validateCustomCode" :loading="validatingCode">编译验证</el-button>
+          <el-button size="small" type="warning" @click="clearCustomCode" :disabled="!isEdit">清空代码</el-button>
+          <span v-if="validationResult" :style="{ color: validationResult.success ? '#67C23A' : '#F56C6C', fontSize: '13px', marginLeft: '8px' }">
+            {{ validationResult.success ? '✓ 编译验证通过' : '✗ ' + validationResult.message }}
+          </span>
+        </div>
+        <el-form-item prop="customResponseSource">
+          <el-input
+            v-model="form.customResponseSource"
+            type="textarea"
+            :rows="16"
+            placeholder="在此输入Java代码..."
+            style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px; line-height: 1.5;"
+            :disabled="!isEdit"
+            spellcheck="false"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -515,6 +546,10 @@ const isEdit = ref(false)
 const submitLoading = ref(false)
 const formRef = ref()
 
+// 自定义代码相关
+const validatingCode = ref(false)
+const validationResult = ref(null)
+
 // 响应管理相关
 const responseDialogVisible = ref(false)
 const responseLoading = ref(false)
@@ -537,7 +572,8 @@ const form = reactive({
   description: '',
   enabled: true,
   responseDelay: 0,
-  enableRandom: false
+  enableRandom: false,
+  customResponseSource: ''
 })
 
 // 表单验证规则
@@ -807,6 +843,7 @@ const handleCurrentChange = (page) => {
 const handleCreate = () => {
   dialogTitle.value = '创建接口'
   isEdit.value = false
+  validationResult.value = null
   form.id = null
   form.projectId = accessibleProjects.value.length > 0 ? accessibleProjects.value[0].id : null
   form.name = ''
@@ -817,6 +854,7 @@ const handleCreate = () => {
   form.enabled = true
   form.responseDelay = 0
   form.enableRandom = false
+  form.customResponseSource = ''
   dialogVisible.value = true
 }
 
@@ -824,6 +862,7 @@ const handleCreate = () => {
 const handleEdit = async (row) => {
   dialogTitle.value = '编辑接口'
   isEdit.value = true
+  validationResult.value = null
   form.id = row.id
   form.name = row.name
   form.path = row.path
@@ -833,6 +872,7 @@ const handleEdit = async (row) => {
   form.enabled = row.enabled
   form.responseDelay = row.responseDelay || 0
   form.enableRandom = row.enableRandom || false
+  form.customResponseSource = row.customResponseSource || ''
 
   // 检查是否有多个激活响应
   await checkMultipleActiveResponses(row.id)
@@ -1312,6 +1352,90 @@ const handleSubmit = async () => {
 // 关闭对话框
 const handleDialogClose = () => {
   formRef.value?.resetFields()
+  validationResult.value = null
+}
+
+// 加载模板代码
+const loadTemplateCode = () => {
+  form.customResponseSource = `import com.carolcoral.mockserver.dto.MockRequest;
+import com.carolcoral.mockserver.dto.MockResponseDTO;
+import com.carolcoral.mockserver.plugin.CustomResponseTransformer;
+import java.util.*;
+
+/**
+ * 自定义响应处理器
+ * 对接口返回的报文进行自定义处理
+ */
+public class MyCustomTransformer implements CustomResponseTransformer {
+
+    @Override
+    public MockResponseDTO transform(MockResponseDTO mockResponse, MockRequest mockRequest,
+                                      String apiName, String apiPath) {
+        // 获取原始响应体
+        Object body = mockResponse.getBody();
+
+        // 在这里编写自定义处理逻辑
+        // 例如：包装响应、修改字段、添加时间戳等
+
+        // 示例：将响应包装为标准格式
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("code", mockResponse.getStatusCode());
+        result.put("message", "success");
+        result.put("data", body);
+        result.put("timestamp", System.currentTimeMillis());
+
+        // 返回新的响应（保留原有的状态码、响应头和延迟设置）
+        return MockResponseDTO.builder()
+                .statusCode(mockResponse.getStatusCode())
+                .headers(mockResponse.getHeaders())
+                .body(result)
+                .delay(mockResponse.getDelay())
+                .build();
+    }
+
+    @Override
+    public String getDescription() {
+        return "自定义响应处理器";
+    }
+}`
+}
+
+// 编译验证自定义代码
+const validateCustomCode = async () => {
+  if (!form.customResponseSource || !form.customResponseSource.trim()) {
+    validationResult.value = { success: false, message: '请先输入Java代码' }
+    return
+  }
+  validatingCode.value = true
+  validationResult.value = null
+  try {
+    // 使用一个临时ID进行编译验证
+    const tempId = form.id || Date.now()
+    const response = await request({
+      url: `/mock-apis/${tempId}/custom-response-source/validate`,
+      method: 'post',
+      data: { sourceCode: form.customResponseSource }
+    })
+    if (response.code === 200) {
+      validationResult.value = { success: true, message: response.data || '编译验证通过' }
+      ElMessage.success('编译验证通过，代码可以正常使用')
+    } else {
+      validationResult.value = { success: false, message: response.message || '编译验证失败' }
+      ElMessage.error(response.message || '编译验证失败')
+    }
+  } catch (error) {
+    validationResult.value = { success: false, message: error.message || '验证请求失败' }
+    ElMessage.error('验证请求失败: ' + (error.message || '未知错误'))
+  } finally {
+    validatingCode.value = false
+  }
+}
+
+// 清空自定义代码
+const clearCustomCode = () => {
+  form.customResponseSource = ''
+  validationResult.value = null
+  ElMessage.success('已清空自定义代码')
 }
 
 // 页面加载时获取数据

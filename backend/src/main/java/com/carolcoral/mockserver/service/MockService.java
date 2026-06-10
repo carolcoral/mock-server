@@ -12,6 +12,7 @@ import com.carolcoral.mockserver.entity.MockApi;
 import com.carolcoral.mockserver.entity.MockResponse;
 import com.carolcoral.mockserver.entity.Project;
 import com.carolcoral.mockserver.entity.ResponseRequestParam;
+import com.carolcoral.mockserver.plugin.TransformerRegistry;
 import com.carolcoral.mockserver.repository.MockApiRepository;
 import com.carolcoral.mockserver.util.CacheUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -45,12 +46,14 @@ public class MockService {
      * 构造器
      */
     public MockService(CacheUtil cacheUtil, ObjectMapper objectMapper, RequestLogService requestLogService,
-                      ResponseRequestParamService responseRequestParamService, MockApiRepository mockApiRepository) {
+                      ResponseRequestParamService responseRequestParamService, MockApiRepository mockApiRepository,
+                      TransformerRegistry transformerRegistry) {
         this.cacheUtil = cacheUtil;
         this.objectMapper = objectMapper;
         this.requestLogService = requestLogService;
         this.responseRequestParamService = responseRequestParamService;
         this.mockApiRepository = mockApiRepository;
+        this.transformerRegistry = transformerRegistry;
     }
 
     private final CacheUtil cacheUtil;
@@ -58,6 +61,7 @@ public class MockService {
     private final RequestLogService requestLogService;
     private final ResponseRequestParamService responseRequestParamService;
     private final MockApiRepository mockApiRepository;
+    private final TransformerRegistry transformerRegistry;
 
     /**
      * 处理Mock请求
@@ -139,27 +143,26 @@ public class MockService {
             }
 
             // 根据条件匹配响应（优先级最高）
+            MockResponseDTO responseDTO = null;
             MockResponse matchedResponse = matchResponseByCondition(enabledResponses, mockRequest);
             if (matchedResponse != null) {
-                MockResponseDTO responseDTO = buildMockResponse(mockApi, matchedResponse);
-                statusCode = responseDTO.getStatusCode();
-                return responseDTO;
+                responseDTO = buildMockResponse(mockApi, matchedResponse);
             }
 
             // 优先返回默认响应
-            MockResponse defaultResponse = enabledResponses.stream()
-                    .filter(r -> r.getIsDefault() != null && r.getIsDefault())
-                    .findFirst()
-                    .orElse(null);
-            if (defaultResponse != null) {
-                log.info("返回默认响应: 状态码={}", defaultResponse.getStatusCode());
-                MockResponseDTO responseDTO = buildMockResponse(mockApi, defaultResponse);
-                statusCode = responseDTO.getStatusCode();
-                return responseDTO;
+            if (responseDTO == null) {
+                MockResponse defaultResponse = enabledResponses.stream()
+                        .filter(r -> r.getIsDefault() != null && r.getIsDefault())
+                        .findFirst()
+                        .orElse(null);
+                if (defaultResponse != null) {
+                    log.info("返回默认响应: 状态码={}", defaultResponse.getStatusCode());
+                    responseDTO = buildMockResponse(mockApi, defaultResponse);
+                }
             }
 
             // 如果启用了随机返回，从所有启用且激活的响应中按权重随机选择
-            if (mockApi.getEnableRandom() != null && mockApi.getEnableRandom()) {
+            if (responseDTO == null && mockApi.getEnableRandom() != null && mockApi.getEnableRandom()) {
                 // 过滤出启用且激活的响应（排除默认响应）
                 List<MockResponse> enabledActiveResponses = new ArrayList<>();
                 for (MockResponse response : enabledResponses) {
@@ -173,28 +176,55 @@ public class MockService {
                     MockResponse randomResponse = selectRandomResponse(enabledActiveResponses);
                     if (randomResponse != null) {
                         log.info("启用随机返回，从激活响应中随机选择: 状态码={}", randomResponse.getStatusCode());
-                        MockResponseDTO responseDTO = buildMockResponse(mockApi, randomResponse);
-                        statusCode = responseDTO.getStatusCode();
-                        return responseDTO;
+                        responseDTO = buildMockResponse(mockApi, randomResponse);
                     }
                 }
             }
 
             // 返回激活的响应
-            MockResponse activeResponse = enabledResponses.stream()
-                    .filter(r -> r.getActive() != null && r.getActive())
-                    .findFirst()
-                    .orElse(null);
-            if (activeResponse != null) {
-                log.info("返回激活响应: 状态码={}", activeResponse.getStatusCode());
-                MockResponseDTO responseDTO = buildMockResponse(mockApi, activeResponse);
-                statusCode = responseDTO.getStatusCode();
-                return responseDTO;
+            if (responseDTO == null) {
+                MockResponse activeResponse = enabledResponses.stream()
+                        .filter(r -> r.getActive() != null && r.getActive())
+                        .findFirst()
+                        .orElse(null);
+                if (activeResponse != null) {
+                    log.info("返回激活响应: 状态码={}", activeResponse.getStatusCode());
+                    responseDTO = buildMockResponse(mockApi, activeResponse);
+                }
             }
 
             // 最后返回第一个响应（兜底）
-            MockResponse fallbackResponse = enabledResponses.get(0);
-            MockResponseDTO responseDTO = buildMockResponse(mockApi, fallbackResponse);
+            if (responseDTO == null) {
+                MockResponse fallbackResponse = enabledResponses.get(0);
+                responseDTO = buildMockResponse(mockApi, fallbackResponse);
+            }
+
+            // ========== 自定义响应转换（插件化处理） ==========
+            // 在基础响应流程完成后，执行自定义转换器
+            // 此步骤不会干扰原有的响应匹配、延迟、随机返回等功能
+            // 优先级：动态源码编译 > Spring Bean类名引用
+            if (mockApi.getCustomResponseSource() != null && !mockApi.getCustomResponseSource().trim().isEmpty()) {
+                // 使用动态编译模式：编译页面提交的Java源码并执行
+                log.info("使用动态源码编译模式: apiId={}", mockApi.getId());
+                responseDTO = transformerRegistry.transformWithSource(
+                        mockApi.getId(),
+                        mockApi.getCustomResponseSource(),
+                        responseDTO,
+                        mockRequest,
+                        mockApi.getName(),
+                        mockApi.getPath()
+                );
+            } else if (mockApi.getCustomResponseHandler() != null && !mockApi.getCustomResponseHandler().trim().isEmpty()) {
+                // 使用Spring Bean引用模式
+                responseDTO = transformerRegistry.transform(
+                        mockApi.getCustomResponseHandler(),
+                        responseDTO,
+                        mockRequest,
+                        mockApi.getName(),
+                        mockApi.getPath()
+                );
+            }
+
             statusCode = responseDTO.getStatusCode();
             return responseDTO;
 

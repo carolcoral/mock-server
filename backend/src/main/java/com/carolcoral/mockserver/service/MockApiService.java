@@ -11,6 +11,7 @@ import com.carolcoral.mockserver.entity.MockApi;
 import com.carolcoral.mockserver.entity.MockResponse;
 import com.carolcoral.mockserver.entity.Project;
 import com.carolcoral.mockserver.entity.User;
+import com.carolcoral.mockserver.plugin.DynamicCompiler;
 import com.carolcoral.mockserver.repository.MockApiRepository;
 import com.carolcoral.mockserver.repository.MockResponseRepository;
 import com.carolcoral.mockserver.repository.ProjectRepository;
@@ -176,6 +177,15 @@ public class MockApiService {
             if (mockApi.getEnableRandom() != null) {
                 existingApi.setEnableRandom(mockApi.getEnableRandom());
             }
+            if (mockApi.getCustomResponseHandler() != null) {
+                existingApi.setCustomResponseHandler(mockApi.getCustomResponseHandler());
+            }
+            if (mockApi.getCustomResponseSource() != null) {
+                existingApi.setCustomResponseSource(mockApi.getCustomResponseSource());
+                // 清除动态编译缓存，确保下次请求时重新编译新代码
+                DynamicCompiler.evictCache(mockApi.getId());
+                log.info("清除自定义响应处理器缓存: apiId={}", mockApi.getId());
+            }
 
             MockApi updatedApi = mockApiRepository.save(existingApi);
 
@@ -217,6 +227,9 @@ public class MockApiService {
 
             // 清除缓存
             cacheUtil.evictApiCache(apiId);
+
+            // 清除动态编译缓存
+            DynamicCompiler.evictCache(apiId);
 
             // 清除项目接口缓存
             if (projectId != null) {

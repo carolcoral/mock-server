@@ -83,6 +83,14 @@ public class MockApi {
     @Column(nullable = false)
     private Boolean enableRandom = false;
 
+    @Schema(description = "自定义响应处理器类名", example = "TimestampAppender")
+    @Column(length = 500)
+    private String customResponseHandler;
+
+    @Schema(description = "自定义响应处理器源码（动态编译模式）", example = "public class MyTransformer implements CustomResponseTransformer { ... }")
+    @Column(columnDefinition = "TEXT")
+    private String customResponseSource;
+
     @Schema(description = "创建时间")
     @Column(nullable = false, updatable = false)
     private LocalDateTime createTime;
@@ -123,6 +131,7 @@ public class MockApi {
      * @param enabled 是否启用
      * @param responseDelay 默认响应延迟（毫秒）
      * @param enableRandom 是否启用随机返回
+     * @param customResponseHandler 自定义响应处理器类名
      * @param createTime 创建时间
      * @param updateTime 更新时间
      * @param createUserId 创建人ID
@@ -131,6 +140,7 @@ public class MockApi {
      */
     public MockApi(Long id, String name, String path, HttpMethod method, RequestType requestType,
                    String description, Boolean enabled, Integer responseDelay, Boolean enableRandom,
+                   String customResponseHandler,
                    LocalDateTime createTime, LocalDateTime updateTime, Long createUserId,
                    Project project, List<MockResponse> responses) {
         this.id = id;
@@ -142,6 +152,7 @@ public class MockApi {
         this.enabled = enabled;
         this.responseDelay = responseDelay;
         this.enableRandom = enableRandom;
+        this.customResponseHandler = customResponseHandler;
         this.createTime = createTime;
         this.updateTime = updateTime;
         this.createUserId = createUserId;
@@ -312,6 +323,42 @@ public class MockApi {
     }
 
     /**
+     * 获取自定义响应处理器类名
+     *
+     * @return 自定义响应处理器类名
+     */
+    public String getCustomResponseHandler() {
+        return customResponseHandler;
+    }
+
+    /**
+     * 设置自定义响应处理器类名
+     *
+     * @param customResponseHandler 自定义响应处理器类名
+     */
+    public void setCustomResponseHandler(String customResponseHandler) {
+        this.customResponseHandler = customResponseHandler;
+    }
+
+    /**
+     * 获取自定义响应处理器源码
+     *
+     * @return 自定义响应处理器源码
+     */
+    public String getCustomResponseSource() {
+        return customResponseSource;
+    }
+
+    /**
+     * 设置自定义响应处理器源码
+     *
+     * @param customResponseSource 自定义响应处理器源码
+     */
+    public void setCustomResponseSource(String customResponseSource) {
+        this.customResponseSource = customResponseSource;
+    }
+
+    /**
      * 获取创建时间
      *
      * @return 创建时间
@@ -444,6 +491,7 @@ public class MockApi {
                 ", enabled=" + enabled +
                 ", responseDelay=" + responseDelay +
                 ", enableRandom=" + enableRandom +
+                ", customResponseHandler='" + customResponseHandler + '\'' +
                 ", createTime=" + createTime +
                 ", updateTime=" + updateTime +
                 ", createUserId=" + createUserId +

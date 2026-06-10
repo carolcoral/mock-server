@@ -93,8 +93,13 @@ const handleLogin = async () => {
   
   try {
     await loginFormRef.value.validate()
-    
-    loading.value = true
+  } catch {
+    // 表单验证失败，不需要额外提示（element-plus会自动显示验证错误）
+    return
+  }
+  
+  loading.value = true
+  try {
     const result = await userStore.login(loginForm.username, loginForm.password)
     
     if (result.success) {
@@ -104,7 +109,7 @@ const handleLogin = async () => {
       ElMessage.error(result.message || '登录失败')
     }
   } catch (error) {
-    // 登录验证失败
+    ElMessage.error(error.message || '登录失败，请检查网络连接')
   } finally {
     loading.value = false
   }

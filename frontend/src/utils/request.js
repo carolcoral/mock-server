@@ -27,6 +27,14 @@ service.interceptors.request.use(
   }
 )
 
+// 判断是否为登录相关请求
+const isAuthRequest = (url) => {
+  return url && (
+    url.includes('/auth/login') ||
+    url.includes('/auth/swagger-login')
+  )
+}
+
 // 响应拦截器
 service.interceptors.response.use(
   (response) => {
@@ -40,7 +48,14 @@ service.interceptors.response.use(
     // 处理响应数据
     if (res.code === 200) {
       return res
-    } else if (res.code === 401) {
+    }
+    
+    // 登录相关接口的错误，直接返回让调用方（Login.vue）处理
+    if (isAuthRequest(response.config.url)) {
+      return res
+    }
+    
+    if (res.code === 401) {
       // token过期或未授权
       ElMessage.error('登录已过期，请重新登录')
       const userStore = useUserStore()

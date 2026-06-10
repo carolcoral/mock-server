@@ -10,6 +10,7 @@ import com.carolcoral.mockserver.entity.MockApi;
 import com.carolcoral.mockserver.entity.MockResponse;
 import com.carolcoral.mockserver.entity.Project;
 import com.carolcoral.mockserver.entity.User;
+import com.carolcoral.mockserver.plugin.DynamicCompiler;
 import com.carolcoral.mockserver.repository.MockApiRepository;
 import com.carolcoral.mockserver.repository.MockResponseRepository;
 import com.carolcoral.mockserver.repository.ProjectRepository;
@@ -23,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -87,6 +89,9 @@ public class StartupConfig implements CommandLineRunner {
 
             // 初始化示例项目
             initExampleProject();
+
+            // 预编译已存储的自定义响应处理器代码
+            precompileCustomTransformers();
 
             log.info("应用数据初始化完成");
         } catch (Exception e) {
@@ -297,5 +302,62 @@ public class StartupConfig implements CommandLineRunner {
         response.setUpdateTime(LocalDateTime.now());
 
         return mockResponseRepository.save(response);
+    }
+
+    /**
+     * 预编译已存储的自定义响应处理器代码
+     * <p>
+     * 应用启动时，将数据库中存储的自定义响应处理器代码预编译到内存中，
+     * 这样第一次请求时无需等待编译时间，提升响应速度。
+     * </p>
+     */
+    @Operation(summary = "预编译自定义响应处理器")
+    private void precompileCustomTransformers() {
+        try {
+            // 检查编译器是否可用
+            if (!DynamicCompiler.isCompilerAvailable()) {
+                log.warn("Java编译器不可用，跳过自定义响应处理器预编译");
+                return;
+            }
+
+            // 查询所有包含自定义响应源码的接口
+            List<MockApi> apisWithCustomSource = mockApiRepository.findAll().stream()
+                    .filter(api -> api.getCustomResponseSource() != null
+                            && !api.getCustomResponseSource().trim().isEmpty()
+                            && api.getEnabled() != null
+                            && api.getEnabled())
+                    .toList();
+
+            if (apisWithCustomSource.isEmpty()) {
+                log.info("没有找到需要预编译的自定义响应处理器");
+                return;
+            }
+
+            log.info("开始预编译 {} 个自定义响应处理器...", apisWithCustomSource.size());
+
+            int successCount = 0;
+            int failCount = 0;
+
+            for (MockApi api : apisWithCustomSource) {
+                try {
+                    String source = api.getCustomResponseSource();
+                    if (source != null && !source.trim().isEmpty()) {
+                        // 编译并缓存
+                        DynamicCompiler.compileAndInstantiate(api.getId(), source);
+                        log.info("预编译成功: 接口={} (ID={})", api.getName(), api.getId());
+                        successCount++;
+                    }
+                } catch (Exception e) {
+                    log.error("预编译失败: 接口={} (ID={}), 错误: {}",
+                            api.getName(), api.getId(), e.getMessage());
+                    failCount++;
+                }
+            }
+
+            log.info("自定义响应处理器预编译完成: 成功={}, 失败={}", successCount, failCount);
+
+        } catch (Exception e) {
+            log.error("预编译自定义响应处理器时发生错误: {}", e.getMessage(), e);
+        }
     }
 }
