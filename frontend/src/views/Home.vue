@@ -7,7 +7,7 @@
             <Folder :width="'1.5em'" :height="'1.5em'" />
           </div>
           <div class="stat-content">
-            <h3>项目总数</h3>
+            <h3>{{ $t('home.projectCount') }}</h3>
             <p>{{ loading ? '-' : stats.projectCount }}</p>
           </div>
         </el-card>
@@ -18,7 +18,7 @@
             <Connection :width="'1.5em'" :height="'1.5em'" />
           </div>
           <div class="stat-content">
-            <h3>接口总数</h3>
+            <h3>{{ $t('home.apiCount') }}</h3>
             <p>{{ loading ? '-' : stats.apiCount }}</p>
           </div>
         </el-card>
@@ -29,7 +29,7 @@
             <User :width="'1.5em'" :height="'1.5em'" />
           </div>
           <div class="stat-content">
-            <h3>用户总数</h3>
+            <h3>{{ $t('home.userCount') }}</h3>
             <p>{{ loading ? '-' : stats.userCount }}</p>
           </div>
         </el-card>
@@ -40,7 +40,7 @@
             <Position :width="'1.5em'" :height="'1.5em'" />
           </div>
           <div class="stat-content">
-            <h3>今日请求</h3>
+            <h3>{{ $t('home.todayRequests') }}</h3>
             <p>{{ loading ? '-' : stats.requestCount }}</p>
           </div>
         </el-card>
@@ -51,7 +51,7 @@
             <DataLine :width="'1.5em'" :height="'1.5em'" />
           </div>
           <div class="stat-content">
-            <h3>历史请求</h3>
+            <h3>{{ $t('home.totalRequests') }}</h3>
             <p>{{ loading ? '-' : stats.totalRequestCount }}</p>
           </div>
         </el-card>
@@ -62,20 +62,20 @@
       <el-col :span="12">
         <el-card>
           <template #header>
-            <span>快速开始</span>
+            <span>{{ $t('home.quickStart') }}</span>
           </template>
           <div class="quick-start">
             <el-button type="primary" @click="$router.push('/projects')" style="margin: 5px;">
               <Folder :width="'1.5em'" :height="'1.5em'" />
-              创建项目
+              {{ $t('home.createProject') }}
             </el-button>
             <el-button type="success" @click="$router.push('/apis')" style="margin: 5px;">
               <Connection :width="'1.5em'" :height="'1.5em'" />
-              创建接口
+              {{ $t('home.createApi') }}
             </el-button>
             <el-button @click="$router.push('/guide')" style="margin: 5px;">
               <Document :width="'1.5em'" :height="'1.5em'" />
-              使用说明
+              {{ $t('home.userGuide') }}
             </el-button>
           </div>
         </el-card>
@@ -83,13 +83,13 @@
       <el-col :span="12">
         <el-card>
           <template #header>
-            <span>系统公告</span>
+            <span>{{ $t('home.systemAnnouncement') }}</span>
           </template>
           <div class="announcement" v-if="announcement">
             <div class="announcement-content" v-html="renderedContent"></div>
           </div>
           <div v-else class="no-announcement">
-            <el-empty description="暂无公告" :image-size="80" />
+            <el-empty :description="$t('home.noAnnouncement')" :image-size="80" />
           </div>
         </el-card>
       </el-col>
@@ -101,6 +101,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
+import { useI18n } from 'vue-i18n'
 import request from '@/utils/request'
 import {
   Folder,
@@ -111,6 +112,8 @@ import {
   DataLine
 } from '@element-plus/icons-vue'
 import { marked } from 'marked'
+
+const { t } = useI18n()
 
 // 统计数据
 const stats = ref({
@@ -152,7 +155,7 @@ const renderedContent = computed(() => {
   const showSwagger = async () => {
     const userStore = useUserStore()
     if (!userStore.isLoggedIn) {
-      ElMessage.warning('请先登录后再访问Swagger文档')
+      ElMessage.warning(t('home.swaggerLoginRequired'))
       return
     }
 
@@ -178,7 +181,6 @@ const renderedContent = computed(() => {
             if (swaggerWindow && !swaggerWindow.closed) {
               // 将token存储到Swagger页面的localStorage
               swaggerWindow.localStorage.setItem('swagger-auth-token', swaggerToken)
-              console.log('Swagger token已存储到localStorage')
               
               // 尝试自动点击Authorize按钮并填充token
               swaggerWindow.addEventListener('load', () => {
@@ -206,18 +208,18 @@ const renderedContent = computed(() => {
           }
         }, 1000)
         
-        ElMessage.success('正在跳转到Swagger文档...')
+        ElMessage.success(t('home.swaggerRedirecting'))
       } else {
-        ElMessage.error('Swagger自动登录失败：' + response.data.message)
+        ElMessage.error(t('home.swaggerLoginFailed') + response.data.message)
       }
     } catch (error) {
       console.error('Swagger自动登录失败', error)
       if (error.response && error.response.status === 401) {
-        ElMessage.error('登录已过期，请重新登录')
+        ElMessage.error(t('home.loginExpired'))
         userStore.logout()
         window.location.href = '/login'
       } else {
-        ElMessage.error('自动登录失败，请稍后重试')
+        ElMessage.error(t('home.autoLoginFailed'))
       }
     }
   }
@@ -242,12 +244,12 @@ const fetchRealStats = async () => {
         totalRequestCount: response.data.totalRequestCount || 0
       }
     } else {
-      ElMessage.error('获取统计数据失败')
+      ElMessage.error(t('home.statsFailed'))
       setDefaultStats()
     }
   } catch (error) {
     console.error('获取统计数据失败', error)
-    ElMessage.error('获取统计数据失败，请稍后重试')
+    ElMessage.error(t('home.statsFailed'))
     setDefaultStats()
   } finally {
     loading.value = false

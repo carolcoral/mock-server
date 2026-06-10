@@ -3,7 +3,7 @@
     <div class="login-card">
       <div class="login-header">
         <h1>Mock Server</h1>
-        <p>API接口模拟服务器</p>
+        <p>{{ $t('login.subtitle') }}</p>
       </div>
       
       <el-form
@@ -16,7 +16,7 @@
         <el-form-item prop="username">
           <el-input
             v-model="loginForm.username"
-            placeholder="请输入用户名"
+            :placeholder="$t('login.usernamePlaceholder')"
             prefix-icon="User"
             size="large"
           />
@@ -26,7 +26,7 @@
           <el-input
             v-model="loginForm.password"
             type="password"
-            placeholder="请输入密码"
+            :placeholder="$t('login.passwordPlaceholder')"
             prefix-icon="Lock"
             size="large"
             show-password
@@ -41,7 +41,7 @@
             class="login-button"
             native-type="submit"
           >
-            登录
+            {{ $t('login.loginButton') }}
           </el-button>
         </el-form-item>
       </el-form>
@@ -54,11 +54,13 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const router = useRouter()
 const userStore = useUserStore()
 const loginFormRef = ref()
@@ -70,22 +72,22 @@ const loginForm = reactive({
   password: ''
 })
 
-// 表单验证规则
-const rules = {
+// 表单验证规则（使用 computed 确保响应语言切换）
+const rules = computed(() => ({
   username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 50, message: '长度在 3 到 50 个字符', trigger: 'blur' }
+    { required: true, message: t('login.usernameRequired'), trigger: 'blur' },
+    { min: 3, max: 50, message: t('login.usernameLength'), trigger: 'blur' }
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 8, message: '密码长度至少8位', trigger: 'blur' },
+    { required: true, message: t('login.passwordRequired'), trigger: 'blur' },
+    { min: 8, message: t('login.passwordMinLength'), trigger: 'blur' },
     {
       pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/,
-      message: '密码必须包含大小写字母、数字和特殊字符',
+      message: t('login.passwordStrengthHint'),
       trigger: 'blur'
     }
   ]
-}
+}))
 
 // 处理登录
 const handleLogin = async () => {
@@ -103,13 +105,13 @@ const handleLogin = async () => {
     const result = await userStore.login(loginForm.username, loginForm.password)
     
     if (result.success) {
-      ElMessage.success('登录成功')
+      ElMessage.success(t('login.loginSuccess'))
       router.push('/dashboard')
     } else {
-      ElMessage.error(result.message || '登录失败')
+      ElMessage.error(result.message || t('login.loginFailed'))
     }
   } catch (error) {
-    ElMessage.error(error.message || '登录失败，请检查网络连接')
+    ElMessage.error(error.message || t('login.networkError'))
   } finally {
     loading.value = false
   }

@@ -1,31 +1,29 @@
 <template>
   <div class="apis">
-    <!-- 页面标题 -->
     <div class="page-header">
-      <h1>接口管理</h1>
+      <h1>{{ $t('api.title') }}</h1>
       <div class="header-actions">
         <el-button @click="fetchApis" :loading="loading" style="margin-right: 10px">
           <Refresh :width="'1em'" :height="'1em'" />
-          刷新
+          {{ $t('api.refresh') }}
         </el-button>
         <el-button type="primary" @click="handleCreate">
           <Plus :width="'1em'" :height="'1em'" />
-          创建接口
+          {{ $t('api.createApi') }}
         </el-button>
       </div>
     </div>
 
-    <!-- 搜索和操作栏 -->
     <el-card class="search-card">
       <el-row :gutter="20">
         <el-col :span="4">
-          <el-input v-model="searchForm.name" placeholder="按接口名称搜索" clearable @clear="handleSearch" />
+          <el-input v-model="searchForm.name" :placeholder="$t('api.searchByName')" clearable @clear="handleSearch" />
         </el-col>
         <el-col :span="5">
-          <el-input v-model="searchForm.path" placeholder="按接口路径搜索" clearable @clear="handleSearch" />
+          <el-input v-model="searchForm.path" :placeholder="$t('api.searchByPath')" clearable @clear="handleSearch" />
         </el-col>
         <el-col :span="4">
-          <el-select v-model="searchForm.projectId" placeholder="选择项目" clearable @change="handleSearch" style="width: 100%" filterable>
+          <el-select v-model="searchForm.projectId" :placeholder="$t('api.searchByProject')" clearable @change="handleSearch" style="width: 100%" filterable>
             <el-option
               v-for="project in projectList"
               :key="project.id"
@@ -35,7 +33,7 @@
           </el-select>
         </el-col>
         <el-col :span="3">
-          <el-select v-model="searchForm.method" placeholder="请求方法" clearable @change="handleSearch" style="width: 100%">
+          <el-select v-model="searchForm.method" :placeholder="$t('api.searchByMethod')" clearable @change="handleSearch" style="width: 100%">
             <el-option label="GET" value="GET" />
             <el-option label="POST" value="POST" />
             <el-option label="PUT" value="PUT" />
@@ -44,19 +42,18 @@
           </el-select>
         </el-col>
         <el-col :span="3">
-          <el-select v-model="searchForm.enabled" placeholder="状态" clearable @change="handleSearch" style="width: 100%">
-            <el-option label="启用" :value="true" />
-            <el-option label="禁用" :value="false" />
+          <el-select v-model="searchForm.enabled" :placeholder="$t('api.searchByStatus')" clearable @change="handleSearch" style="width: 100%">
+            <el-option :label="$t('api.enabledStatus')" :value="true" />
+            <el-option :label="$t('api.disabledStatus')" :value="false" />
           </el-select>
         </el-col>
         <el-col :span="5">
-          <el-button type="primary" @click="handleSearch">搜索</el-button>
-          <el-button @click="handleReset">重置</el-button>
+          <el-button type="primary" @click="handleSearch">{{ $t('api.search') }}</el-button>
+          <el-button @click="handleReset">{{ $t('api.reset') }}</el-button>
         </el-col>
       </el-row>
     </el-card>
 
-    <!-- 接口列表 -->
     <el-card class="table-card">
       <el-table
         v-loading="loading"
@@ -66,9 +63,9 @@
         :header-cell-style="{ background: '#f5f7fa' }"
       >
         <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="project.name" label="项目" min-width="120" show-overflow-tooltip />
-        <el-table-column prop="name" label="接口名称" min-width="150" />
-        <el-table-column label="接口路径" min-width="320" show-overflow-tooltip>
+        <el-table-column prop="project.name" :label="$t('api.project')" min-width="120" show-overflow-tooltip />
+        <el-table-column prop="name" :label="$t('api.apiName')" min-width="150" />
+        <el-table-column :label="$t('api.apiPath')" min-width="320" show-overflow-tooltip>
           <template #default="{ row }">
             <el-button
               type="primary"
@@ -80,39 +77,38 @@
             </el-button>
           </template>
         </el-table-column>
-        <el-table-column prop="method" label="请求方法" width="100">
+        <el-table-column prop="method" :label="$t('api.apiMethod')" width="100">
           <template #default="{ row }">
             <el-tag :type="getMethodTagType(row.method)">
               {{ row.method }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="requestType" label="请求类型" width="100">
+        <el-table-column prop="requestType" :label="$t('api.apiRequestType')" width="100">
           <template #default="{ row }">
             <el-tag type="info" size="small">
               {{ row.requestType }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="enabled" label="状态" width="100" align="center">
+        <el-table-column prop="description" :label="$t('api.description')" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="enabled" :label="$t('api.status')" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.enabled ? 'success' : 'info'">
-              {{ row.enabled ? '启用' : '禁用' }}
+              {{ row.enabled ? $t('api.enabledStatus') : $t('api.disabledStatus') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="responseDelay" label="延迟(ms)" width="100" align="center" />
-        <el-table-column label="操作" width="250" fixed="right">
+        <el-table-column prop="responseDelay" :label="$t('api.delayMs')" width="100" align="center" />
+        <el-table-column :label="$t('api.actions')" width="250" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)">编辑</el-button>
-            <el-button type="success" link @click="handleResponses(row)">响应管理</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
+            <el-button type="primary" link @click="handleEdit(row)">{{ $t('api.edit') }}</el-button>
+            <el-button type="success" link @click="handleResponses(row)">{{ $t('api.manageResponses') }}</el-button>
+            <el-button type="danger" link @click="handleDelete(row)">{{ $t('api.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
 
-      <!-- 分页 -->
       <div class="pagination-container">
         <el-pagination
           v-model:current-page="pagination.current"
@@ -129,8 +125,8 @@
     <!-- 创建/编辑对话框 -->
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="900px" @close="handleDialogClose">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
-        <el-form-item label="选择项目" prop="projectId" v-if="!isEdit">
-          <el-select v-model="form.projectId" placeholder="请选择项目" clearable style="width: 100%" filterable>
+        <el-form-item :label="$t('api.selectProject')" prop="projectId" v-if="!isEdit">
+          <el-select v-model="form.projectId" :placeholder="$t('api.selectProject')" clearable style="width: 100%" filterable>
             <el-option
               v-for="project in accessibleProjects"
               :key="project.id"
@@ -139,10 +135,10 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="接口名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入接口名称" />
+        <el-form-item :label="$t('api.apiName')" prop="name">
+          <el-input v-model="form.name" :placeholder="$t('api.nameRequired')" />
         </el-form-item>
-        <el-form-item label="接口路径" prop="path">
+        <el-form-item :label="$t('api.apiPath')" prop="path">
           <el-input v-model="form.path" placeholder="例如: /api/user/login 或 /api/user/{userId}" :disabled="isEdit">
             <template #append>
               <el-tooltip content="支持RESTful风格，例如 /api/user/{userId}，其中userId为参数名" placement="top">
@@ -151,8 +147,8 @@
             </template>
           </el-input>
         </el-form-item>
-        <el-form-item label="请求方法" prop="method">
-          <el-select v-model="form.method" placeholder="请选择请求方法" style="width: 100%">
+        <el-form-item :label="$t('api.apiMethod')" prop="method">
+          <el-select v-model="form.method" :placeholder="$t('api.methodRequired')" style="width: 100%">
             <el-option label="GET" value="GET" />
             <el-option label="POST" value="POST" />
             <el-option label="PUT" value="PUT" />
@@ -160,70 +156,64 @@
             <el-option label="PATCH" value="PATCH" />
           </el-select>
         </el-form-item>
-        <el-form-item label="请求类型" prop="requestType">
-          <el-select v-model="form.requestType" placeholder="请选择请求类型" style="width: 100%">
+        <el-form-item :label="$t('api.apiRequestType')" prop="requestType">
+          <el-select v-model="form.requestType" :placeholder="$t('api.requestTypeRequired')" style="width: 100%">
             <el-option label="HTTP" value="HTTP" />
             <el-option label="WEBSOCKET" value="WEBSOCKET" />
           </el-select>
         </el-form-item>
-        <el-form-item label="接口描述" prop="description">
-          <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入接口描述" />
+        <el-form-item :label="$t('api.apiDescription')" prop="description">
+          <el-input v-model="form.description" type="textarea" :rows="3" :placeholder="$t('api.apiDescription')" />
         </el-form-item>
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="响应延迟(ms)" prop="responseDelay">
+            <el-form-item :label="$t('api.responseDelay')" prop="responseDelay">
               <el-input-number v-model="form.responseDelay" :min="0" :max="5000" style="width: 100%" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="启用随机返回" prop="enableRandom">
-              <el-switch
-                v-model="form.enableRandom"
-                active-text="是"
-                inactive-text="否"
-                :disabled="hasMultipleActiveResponses && !form.enableRandom"
-              />
-              <div v-if="hasMultipleActiveResponses && !form.enableRandom" style="color: #F56C6C; font-size: 12px; margin-top: 4px;">
-                该接口已激活多个响应，必须启用随机返回
-              </div>
+            <el-form-item :label="$t('api.status')" prop="enabled">
+              <el-switch v-model="form.enabled" :active-text="$t('api.enabledStatus')" :inactive-text="$t('api.disabledStatus')" />
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item v-if="hasMultipleActiveResponses && form.enableRandom" prop="warning">
-          <div style="color: #909399; font-size: 14px; padding: 10px; background: #f4f4f5; border-left: 3px solid #409EFF; border-radius: 4px;">
-            <el-icon><WarningFilled /></el-icon>
-            <span style="margin-left: 8px;">已激活多个响应，关闭随机返回将无法正常使用接口</span>
+        <el-form-item :label="$t('api.enableRandom')" prop="enableRandom">
+          <el-switch
+            v-model="form.enableRandom"
+            active-text="是"
+            inactive-text="否"
+            :disabled="hasMultipleActiveResponses"
+          />
+          <div v-if="hasMultipleActiveResponses" style="color: #909399; font-size: 12px; margin-top: 4px; display: inline-block; margin-left: 12px;">
+            <el-icon><WarningFilled /></el-icon> {{ $t('api.enableRandomHint') }}
           </div>
-        </el-form-item>
-        <el-form-item label="状态" prop="enabled">
-          <el-switch v-model="form.enabled" active-text="启用" inactive-text="禁用" />
+          <div v-else-if="hasMultipleActiveResponses && form.enableRandom" style="color: #909399; font-size: 12px; margin-top: 4px; display: inline-block; margin-left: 12px;">
+            <el-icon><WarningFilled /></el-icon> {{ $t('api.randomWarning') }}
+          </div>
         </el-form-item>
 
         <!-- 自定义响应处理器 -->
         <el-divider content-position="left">
-          <span style="font-size: 14px; font-weight: 600; color: #303133;">自定义响应处理器（Java代码）</span>
+          <span style="font-size: 14px; font-weight: 600; color: #303133;">{{ $t('api.customHandlerTitle') }}</span>
         </el-divider>
         <div style="margin-bottom: 12px; padding: 10px; background: #fdf6ec; border: 1px solid #faecd8; border-radius: 4px;">
           <el-icon style="color: #E6A23C; margin-right: 6px;"><WarningFilled /></el-icon>
-          <span style="color: #E6A23C; font-size: 13px;">
-            在此编写Java代码对接口响应进行自定义处理。代码需包含一个实现 <b>CustomResponseTransformer</b> 接口的 public class。
-            保存后立即生效，无需重启服务。
-          </span>
+          <span style="color: #E6A23C; font-size: 13px;" v-html="$t('api.customHandlerHint')"></span>
         </div>
         <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-          <el-button size="small" @click="loadTemplateCode" :disabled="!isEdit">加载模板</el-button>
-          <el-button size="small" type="success" @click="validateCustomCode" :loading="validatingCode">编译验证</el-button>
-          <el-button size="small" type="warning" @click="clearCustomCode" :disabled="!isEdit">清空代码</el-button>
+          <el-button size="small" @click="loadTemplateCode" :disabled="!isEdit">{{ $t('api.loadTemplate') }}</el-button>
+          <el-button size="small" type="success" @click="validateCustomCode" :loading="validatingCode">{{ $t('api.compileValidate') }}</el-button>
+          <el-button size="small" type="warning" @click="clearCustomCode" :disabled="!isEdit">{{ $t('api.clearCode') }}</el-button>
           <span v-if="validationResult" :style="{ color: validationResult.success ? '#67C23A' : '#F56C6C', fontSize: '13px', marginLeft: '8px' }">
-            {{ validationResult.success ? '✓ 编译验证通过' : '✗ ' + validationResult.message }}
+            {{ validationResult.success ? $t('api.validatePassed') : $t('api.validateFailed') + validationResult.message }}
           </span>
         </div>
-        <el-form-item prop="customResponseSource">
+        <el-form-item prop="customResponseSource" label-width="0">
           <el-input
             v-model="form.customResponseSource"
             type="textarea"
             :rows="16"
-            placeholder="在此输入Java代码..."
+            :placeholder="$t('api.codePlaceholder')"
             style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px; line-height: 1.5;"
             :disabled="!isEdit"
             spellcheck="false"
@@ -231,18 +221,17 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
+        <el-button @click="dialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 响应管理对话框 -->
-    <el-dialog v-model="responseDialogVisible" :title="`响应管理 - ${currentApi?.name || ''}`" width="70%" @close="handleResponseDialogClose">
-      <!-- 响应状态分组提示 -->
+    <el-dialog v-model="responseDialogVisible" :title="$t('api.responseTitle', { name: currentApi?.name || '' })" width="70%" @close="handleResponseDialogClose">
       <div class="response-status-tip" style="margin-bottom: 16px; padding: 12px; background: #f0f9ff; border: 1px solid #b3d8ff; border-radius: 4px;">
         <el-icon><InfoFilled /></el-icon>
         <span style="margin-left: 8px; color: #409EFF; font-size: 14px;">
-          提示：选中激活状态的响应作为接口默认返回。启用随机返回时，会从所有启用且激活的响应中按权重随机选择。
+          {{ $t('api.responseTip') }}
         </span>
       </div>
 
@@ -250,16 +239,16 @@
         <el-row :gutter="20">
           <el-col :span="18">
             <span style="color: #909399; font-size: 14px;">
-              <span>接口路径：</span>
+              <span>{{ $t('api.apiPathInfo') }}</span>
               <span style="color: #303133; font-weight: 600;">/api/mock-server/{{ currentApi?.project?.code }}{{ currentApi?.path }}</span>
-              <span style="margin-left: 20px;">方法：</span>
+              <span style="margin-left: 20px;">{{ $t('api.method') }}</span>
               <el-tag :type="getMethodTagType(currentApi?.method)">{{ currentApi?.method }}</el-tag>
             </span>
           </el-col>
           <el-col :span="6" style="text-align: right;">
             <el-button type="primary" @click="handleAddResponse">
               <Plus :width="'1em'" :height="'1em'" />
-              添加响应
+              {{ $t('api.addResponse') }}
             </el-button>
           </el-col>
         </el-row>
@@ -276,23 +265,23 @@
         row-key="id"
       >
         <el-table-column prop="id" label="ID" width="60" />
-        <el-table-column prop="statusCode" label="状态码" width="80" />
-        <el-table-column label="响应内容" min-width="200" show-overflow-tooltip>
+        <el-table-column prop="statusCode" :label="$t('api.statusCode')" width="80" />
+        <el-table-column :label="$t('api.responseContent')" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.responseBody }}
           </template>
         </el-table-column>
-        <el-table-column prop="contentType" label="内容类型" width="130" />
-        <el-table-column prop="weight" label="权重" width="70" align="center" />
-        <el-table-column prop="responseDelay" label="延迟(ms)" width="80" align="center" />
-        <el-table-column prop="isDefault" label="默认" width="70" align="center">
+        <el-table-column prop="contentType" :label="$t('api.contentType')" width="130" />
+        <el-table-column prop="weight" :label="$t('api.weight')" width="70" align="center" />
+        <el-table-column prop="responseDelay" :label="$t('api.delayMs')" width="80" align="center" />
+        <el-table-column prop="isDefault" :label="$t('api.responseDefault')" width="70" align="center">
           <template #default="{ row }">
             <el-tag :type="row.isDefault ? 'warning' : 'info'" size="small">
               {{ row.isDefault ? '是' : '否' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="enabled" label="启用" width="70" align="center">
+        <el-table-column prop="enabled" :label="$t('api.responseEnabled')" width="70" align="center">
           <template #default="{ row }">
             <el-switch
               v-model="row.enabled"
@@ -300,7 +289,7 @@
             />
           </template>
         </el-table-column>
-        <el-table-column prop="active" label="激活" width="70" align="center">
+        <el-table-column prop="active" :label="$t('api.responseActive')" width="70" align="center">
           <template #default="{ row }">
             <el-switch
               v-model="row.active"
@@ -308,7 +297,7 @@
             />
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" align="center" fixed="right">
+        <el-table-column :label="$t('api.responseActions')" width="180" align="center" fixed="right">
           <template #default="{ row }">
             <el-button
               type="primary"
@@ -316,7 +305,7 @@
               size="small"
               @click="handleEditResponse(row)"
             >
-              编辑
+              {{ $t('api.edit') }}
             </el-button>
             <el-button
               type="success"
@@ -324,7 +313,7 @@
               size="small"
               @click="handleRequestParams(row)"
             >
-              参数
+              {{ $t('api.params') }}
             </el-button>
             <el-button
               type="danger"
@@ -332,7 +321,7 @@
               size="small"
               @click="handleDeleteResponse(row)"
             >
-              删除
+              {{ $t('api.delete') }}
             </el-button>
           </template>
         </el-table-column>
@@ -342,62 +331,62 @@
     <!-- 添加/编辑响应对话框 -->
     <el-dialog v-model="responseFormDialogVisible" :title="responseFormTitle" width="700px" @close="handleResponseFormDialogClose">
       <el-form ref="responseFormRef" :model="responseForm" :rules="responseRules" label-width="100px">
-        <el-form-item label="状态码" prop="statusCode">
+        <el-form-item :label="$t('api.statusCode')" prop="statusCode">
           <el-input-number v-model="responseForm.statusCode" :min="100" :max="599" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="内容类型" prop="contentType">
-          <el-select v-model="responseForm.contentType" placeholder="请选择内容类型" style="width: 100%">
+        <el-form-item :label="$t('api.contentType')" prop="contentType">
+          <el-select v-model="responseForm.contentType" :placeholder="$t('api.contentType')" style="width: 100%">
             <el-option label="application/json" value="application/json" />
             <el-option label="text/html" value="text/html" />
             <el-option label="text/plain" value="text/plain" />
             <el-option label="application/xml" value="application/xml" />
           </el-select>
         </el-form-item>
-        <el-form-item label="响应头" prop="headers">
+        <el-form-item :label="$t('api.headers')" prop="headers">
           <el-input v-model="responseForm.headers" type="textarea" :rows="2" placeholder='{"X-Custom-Header": "value"}' />
         </el-form-item>
-        <el-form-item label="响应体" prop="responseBody">
-          <el-input v-model="responseForm.responseBody" type="textarea" :rows="8" placeholder="请输入响应体内容" />
+        <el-form-item :label="$t('api.responseBody')" prop="responseBody">
+          <el-input v-model="responseForm.responseBody" type="textarea" :rows="8" :placeholder="$t('api.responseBody')" />
         </el-form-item>
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="权重" prop="weight">
+            <el-form-item :label="$t('api.weight')" prop="weight">
               <el-input-number v-model="responseForm.weight" :min="0" :max="100" style="width: 100%" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="启用" prop="enabled">
+            <el-form-item :label="$t('api.responseEnabled')" prop="enabled">
               <el-switch v-model="responseForm.enabled" />
             </el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="响应延迟" prop="responseDelay">
+            <el-form-item :label="$t('api.responseDelay')" prop="responseDelay">
               <el-input-number v-model="responseForm.responseDelay" :min="0" :max="60000" placeholder="0" style="width: 100%">
                 <template #append>ms</template>
               </el-input-number>
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="是否默认" prop="isDefault">
+            <el-form-item :label="$t('api.defaultResponse')" prop="isDefault">
               <el-switch v-model="responseForm.isDefault" />
-              <span style="margin-left: 10px; font-size: 12px; color: #909399;">默认响应无需匹配参数</span>
+              <span style="margin-left: 10px; font-size: 12px; color: #909399;">{{ $t('api.responseStatusTip') }}</span>
             </el-form-item>
           </el-col>
         </el-row>
       </el-form>
       <template #footer>
-        <el-button @click="responseFormDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="responseSubmitLoading" @click="handleResponseSubmit">确定</el-button>
+        <el-button @click="responseFormDialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="responseSubmitLoading" @click="handleResponseSubmit">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 请求参数管理对话框 -->
-    <el-dialog v-model="requestParamDialogVisible" :title="`请求参数管理 - ${currentResponse?.statusCode || ''}`" width="80%" @close="handleRequestParamDialogClose">
+    <el-dialog v-model="requestParamDialogVisible" :title="$t('api.paramTitle', { statusCode: currentResponse?.statusCode || '' })" width="80%" @close="handleRequestParamDialogClose">
       <div style="margin-bottom: 16px;">
         <el-alert
-          title="提示"
+          :title="$t('common.info')"
           type="info"
           :closable="false"
           style="margin-bottom: 12px;">
@@ -411,7 +400,7 @@
         </el-alert>
         <el-button type="primary" @click="handleAddRequestParam">
           <Plus :width="'1em'" :height="'1em'" />
-          添加参数
+          {{ $t('api.addParam') }}
         </el-button>
       </div>
 
@@ -422,23 +411,23 @@
         style="width: 100%;"
         :header-cell-style="{ background: '#f5f7fa' }"
       >
-        <el-table-column prop="paramName" label="参数名称" width="150" />
-        <el-table-column prop="paramType" label="参数类型" width="130">
+        <el-table-column prop="paramName" :label="$t('api.paramName')" width="150" />
+        <el-table-column prop="paramType" :label="$t('api.paramTypeLabel')" width="130">
           <template #default="{ row }">
             <el-tag :type="getParamTypeTagType(row.paramType)">
               {{ getParamTypeLabel(row.paramType) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="paramValue" label="参数值" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="required" label="必填" width="80" align="center">
+        <el-table-column prop="paramValue" :label="$t('api.paramValueLabel')" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="required" :label="$t('api.paramRequired')" width="80" align="center">
           <template #default="{ row }">
             <el-tag :type="row.required ? 'danger' : 'info'" size="small">
               {{ row.required ? '是' : '否' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="100" align="center">
+        <el-table-column :label="$t('api.paramActions')" width="100" align="center">
           <template #default="{ row }">
             <el-button
               type="danger"
@@ -446,7 +435,7 @@
               size="small"
               @click="handleDeleteRequestParam(row)"
             >
-              删除
+              {{ $t('api.delete') }}
             </el-button>
           </template>
         </el-table-column>
@@ -456,14 +445,14 @@
     <!-- 添加/编辑请求参数对话框 -->
     <el-dialog v-model="requestParamFormDialogVisible" :title="requestParamFormTitle" width="500px" @close="handleRequestParamFormDialogClose">
       <el-form ref="requestParamFormRef" :model="requestParamForm" :rules="requestParamRules" label-width="100px">
-        <el-form-item label="参数名称" prop="paramName">
-          <el-input v-model="requestParamForm.paramName" placeholder="例如: userId" @blur="handleParamNameBlur" />
+        <el-form-item :label="$t('api.paramName')" prop="paramName">
+          <el-input v-model="requestParamForm.paramName" :placeholder="$t('api.pathPlaceholder')" @blur="handleParamNameBlur" />
           <div v-show="requestParamForm.isPathParam" style="font-size: 12px; color: #909399; margin-top: 4px;">
-            该参数名为 RESTful 路径参数
+            {{ $t('api.paramPathHint') }}
           </div>
         </el-form-item>
-        <el-form-item label="参数类型" prop="paramType">
-          <el-select v-model="requestParamForm.paramType" placeholder="请选择参数类型" style="width: 100%" :disabled="requestParamForm.isPathParam || requestParamForm.isQueryParam">
+        <el-form-item :label="$t('api.paramTypeLabel')" prop="paramType">
+          <el-select v-model="requestParamForm.paramType" :placeholder="$t('api.paramTypeLabel')" style="width: 100%" :disabled="requestParamForm.isPathParam || requestParamForm.isQueryParam">
             <el-option label="PATH (RESTful路径)" value="PATH" />
             <el-option label="QUERY (URL查询参数)" value="QUERY" />
             <el-option label="REQUEST_BODY (请求体)" value="REQUEST_BODY" />
@@ -471,48 +460,48 @@
             <el-option label="FILE (文件上传)" value="FILE" />
           </el-select>
           <div v-show="requestParamForm.isPathParam" style="font-size: 12px; color: #909399; margin-top: 4px;">
-            该参数名为 RESTful 路径参数，类型自动设置为 PATH
+            {{ $t('api.paramPathAutoHint') }}
           </div>
           <div v-show="requestParamForm.isQueryParam" style="font-size: 12px; color: #909399; margin-top: 4px;">
-            该参数名为 GET 请求查询字符串中的占位符参数，类型自动设置为 QUERY
+            {{ $t('api.paramQueryHint') }}
           </div>
         </el-form-item>
-        <el-form-item label="参数值" prop="paramValue">
-          <el-input v-model="requestParamForm.paramValue" placeholder="例如: 123" :disabled="requestParamForm.paramType === 'FILE'" />
+        <el-form-item :label="$t('api.paramValueLabel')" prop="paramValue">
+          <el-input v-model="requestParamForm.paramValue" :placeholder="$t('api.valuePlaceholder')" :disabled="requestParamForm.paramType === 'FILE'" />
           <div v-show="requestParamForm.paramType === 'FILE'" style="font-size: 12px; color: #909399; margin-top: 4px;">
-            文件类型不需要设置参数值
+            {{ $t('api.paramFileHint') }}
           </div>
-          <div v-show="requestParamForm.paramType === 'PATH'" style="font-size: 12px; color: #909399; margin-top: 4px;">
-            • 设置为"通用"或"*"：匹配任意参数值<br/>
-            • 设置为具体值：仅当请求参数值等于该值时匹配
+          <div v-show="requestParamForm.paramType === 'PATH'" style="font-size: 12px; color: #909399; margin-top: 4px;" v-html="$t('api.paramPathValueHint')">
           </div>
           <div v-show="requestParamForm.paramType !== 'FILE' && requestParamForm.paramType !== 'PATH'" style="font-size: 12px; color: #909399; margin-top: 4px;">
-            当请求的该参数值与此值匹配时，返回对应的响应
+            {{ $t('api.paramMatchHint') }}
           </div>
         </el-form-item>
-        <el-form-item label="是否必填" prop="required">
+        <el-form-item :label="$t('api.paramRequired')" prop="required">
           <el-switch v-model="requestParamForm.required" />
           <div style="font-size: 12px; color: #909399; margin-top: 4px;">
-            如果勾选且请求中没有该参数，则匹配失败
+            {{ $t('api.paramRequiredHint') }}
           </div>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="requestParamFormDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="requestParamSubmitLoading" @click="handleRequestParamSubmit">确定</el-button>
+        <el-button @click="requestParamFormDialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="requestParamSubmitLoading" @click="handleRequestParamSubmit">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Edit, Delete, InfoFilled, WarningFilled } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { useRoute } from 'vue-router'
 import { getAccessibleProjects } from '@/api/project'
 
+const { t } = useI18n()
 const route = useRoute()
 
 // 搜索表单
@@ -541,7 +530,7 @@ const pagination = reactive({
 
 // 对话框
 const dialogVisible = ref(false)
-const dialogTitle = ref('创建接口')
+const dialogTitle = ref('')
 const isEdit = ref(false)
 const submitLoading = ref(false)
 const formRef = ref()
@@ -559,7 +548,7 @@ const responseFormRef = ref()
 const responseList = ref([])
 const currentApi = ref(null)
 const activeResponseId = ref(null)
-const responseFormTitle = ref('添加响应')
+const responseFormTitle = ref('')
 
 // 表单数据
 const form = reactive({
@@ -577,30 +566,30 @@ const form = reactive({
 })
 
 // 表单验证规则
-const rules = {
+const rules = computed(() => ({
   projectId: [
-    { required: true, message: '请选择项目', trigger: 'change' }
+    { required: true, message: t('api.selectProject'), trigger: 'change' }
   ],
   name: [
-    { required: true, message: '请输入接口名称', trigger: 'blur' },
-    { min: 2, max: 100, message: '长度在 2 到 100 个字符', trigger: 'blur' }
+    { required: true, message: t('api.nameRequired'), trigger: 'blur' },
+    { min: 2, max: 100, message: t('api.nameLengthError'), trigger: 'blur' }
   ],
   path: [
-    { required: true, message: '请输入接口路径', trigger: 'blur' },
-    { min: 1, max: 200, message: '长度在 1 到 200 个字符', trigger: 'blur' },
+    { required: true, message: t('api.pathRequired'), trigger: 'blur' },
+    { min: 1, max: 200, message: t('api.nameLengthError'), trigger: 'blur' },
     {
       pattern: /^\/[a-zA-Z0-9_/{}?=&.\-]*$/,
-      message: '路径格式不正确，必须以/开头',
+      message: t('api.pathFormatError'),
       trigger: 'blur'
     }
   ],
   method: [
-    { required: true, message: '请选择请求方法', trigger: 'change' }
+    { required: true, message: t('api.methodRequired'), trigger: 'change' }
   ],
   requestType: [
-    { required: true, message: '请选择请求类型', trigger: 'change' }
+    { required: true, message: t('api.requestTypeRequired'), trigger: 'change' }
   ]
-}
+}))
 
 // 响应表单数据
 const responseForm = reactive({
@@ -617,17 +606,17 @@ const responseForm = reactive({
 })
 
 // 响应表单验证规则
-const responseRules = {
+const responseRules = computed(() => ({
   statusCode: [
-    { required: true, message: '请输入状态码', trigger: 'blur' }
+    { required: true, message: t('api.statusCode'), trigger: 'blur' }
   ],
   contentType: [
-    { required: true, message: '请选择内容类型', trigger: 'change' }
+    { required: true, message: t('api.contentType'), trigger: 'change' }
   ],
   responseBody: [
-    { required: true, message: '请输入响应体内容', trigger: 'blur' }
+    { required: true, message: t('api.responseBody'), trigger: 'blur' }
   ]
-}
+}))
 
 // 请求参数管理相关
 const requestParamDialogVisible = ref(false)
@@ -637,7 +626,7 @@ const requestParamSubmitLoading = ref(false)
 const requestParamFormRef = ref()
 const requestParamList = ref([])
 const currentResponse = ref(null)
-const requestParamFormTitle = ref('添加参数')
+const requestParamFormTitle = ref('')
 
 // 请求参数表单数据
 const requestParamForm = reactive({
@@ -651,17 +640,17 @@ const requestParamForm = reactive({
 })
 
 // 请求参数表单验证规则
-const requestParamRules = {
+const requestParamRules = computed(() => ({
   paramName: [
-    { required: true, message: '请输入参数名称', trigger: 'blur' }
+    { required: true, message: t('api.paramName'), trigger: 'blur' }
   ],
   paramType: [
-    { required: true, message: '请选择参数类型', trigger: 'change' }
+    { required: true, message: t('api.paramTypeLabel'), trigger: 'change' }
   ],
   paramValue: [
-    { required: true, message: '请输入参数值', trigger: 'blur' }
+    { required: true, message: t('api.paramValueLabel'), trigger: 'blur' }
   ]
-}
+}))
 
 // 提取接口路径中的RESTful参数名称
 const extractPathParamNames = (path) => {
@@ -745,6 +734,10 @@ const checkMultipleActiveResponses = async (apiId) => {
     if (response.code === 200) {
       const activeCount = response.data.filter(r => r.active === true).length
       hasMultipleActiveResponses.value = activeCount > 1
+      // 当存在多个激活响应时，自动启用随机返回并禁用开关
+      if (hasMultipleActiveResponses.value && !form.enableRandom) {
+        form.enableRandom = true
+      }
     }
   } catch (error) {
     console.error('检查激活响应失败:', error)
@@ -801,11 +794,11 @@ const fetchApis = async () => {
       apiList.value = response.data
       pagination.total = response.data.length
     } else {
-      ElMessage.error('获取接口列表失败')
+      ElMessage.error(t('api.fetchFailed'))
     }
   } catch (error) {
     console.error('获取接口列表失败:', error)
-    ElMessage.error('获取接口列表失败')
+    ElMessage.error(t('api.fetchFailed'))
   } finally {
     loading.value = false
   }
@@ -841,7 +834,7 @@ const handleCurrentChange = (page) => {
 
 // 创建接口
 const handleCreate = () => {
-  dialogTitle.value = '创建接口'
+  dialogTitle.value = t('api.createApi')
   isEdit.value = false
   validationResult.value = null
   form.id = null
@@ -860,7 +853,7 @@ const handleCreate = () => {
 
 // 编辑接口
 const handleEdit = async (row) => {
-  dialogTitle.value = '编辑接口'
+  dialogTitle.value = t('api.editApi')
   isEdit.value = true
   validationResult.value = null
   form.id = row.id
@@ -902,11 +895,11 @@ const fetchResponses = async () => {
       const active = responseList.value.find(r => r.active === true)
       activeResponseId.value = active ? active.id : null
     } else {
-      ElMessage.error('获取响应列表失败')
+      ElMessage.error(t('api.fetchFailed'))
     }
   } catch (error) {
     console.error('获取响应列表失败:', error)
-    ElMessage.error('获取响应列表失败')
+    ElMessage.error(t('api.fetchFailed'))
   } finally {
     responseLoading.value = false
   }
@@ -927,7 +920,7 @@ const getResponseRowClass = ({ row, rowIndex }) => {
 
 // 添加响应
 const handleAddResponse = () => {
-  responseFormTitle.value = '添加响应'
+  responseFormTitle.value = t('api.addResponse')
   responseForm.id = null
   responseForm.statusCode = 200
   responseForm.contentType = 'application/json'
@@ -940,7 +933,7 @@ const handleAddResponse = () => {
 
 // 编辑响应
 const handleEditResponse = (row) => {
-  responseFormTitle.value = '编辑响应'
+  responseFormTitle.value = t('api.edit')
   responseForm.id = row.id
   responseForm.statusCode = row.statusCode
   responseForm.contentType = row.contentType
@@ -957,9 +950,9 @@ const handleEditResponse = (row) => {
 // 删除响应
 const handleDeleteResponse = async (row) => {
   try {
-    await ElMessageBox.confirm('确认删除该响应吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
+    await ElMessageBox.confirm(t('api.confirmDeleteResponse'), t('common.info'), {
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning'
     })
 
@@ -968,15 +961,15 @@ const handleDeleteResponse = async (row) => {
       method: 'delete'
     })
     if (response.code === 200) {
-      ElMessage.success('删除成功')
+      ElMessage.success(t('api.deleteSuccess'))
       fetchResponses()
     } else {
-      ElMessage.error('删除失败')
+      ElMessage.error(t('api.deleteFailed'))
     }
   } catch (error) {
     if (error !== 'cancel') {
       console.error('删除失败:', error)
-      ElMessage.error('删除失败')
+      ElMessage.error(t('api.deleteFailed'))
     }
   }
 }
@@ -999,14 +992,14 @@ const handleUpdateResponse = async (row) => {
       }
     })
     if (response.code === 200) {
-      ElMessage.success('更新成功')
+      ElMessage.success(t('api.updateSuccess'))
     } else {
-      ElMessage.error('更新失败')
+      ElMessage.error(t('api.updateFailed'))
       fetchResponses()
     }
   } catch (error) {
     console.error('更新失败:', error)
-    ElMessage.error('更新失败')
+    ElMessage.error(t('api.updateFailed'))
     fetchResponses()
   }
 }
@@ -1019,15 +1012,15 @@ const handleSetActiveResponse = async (responseId) => {
       method: 'post'
     })
     if (response.code === 200) {
-      ElMessage.success('设置成功')
+      ElMessage.success(t('api.setActiveSuccess'))
       fetchResponses()
     } else {
-      ElMessage.error('设置失败')
+      ElMessage.error(t('api.setActiveFailed'))
       fetchResponses()
     }
   } catch (error) {
     console.error('设置失败:', error)
-    ElMessage.error('设置失败')
+    ElMessage.error(t('api.setActiveFailed'))
     fetchResponses()
   }
 }
@@ -1052,7 +1045,7 @@ const handleToggleActive = async (row) => {
     if (!row.active && currentActiveCount >= 1) {
       ElMessage({
         type: 'warning',
-        message: '接口未启用随机返回，不允许激活多个响应。如需使用多个响应，请先启用"启用随机返回"选项。',
+        message: t('api.randomNotEnabled'),
         duration: 5000,
         showClose: true
       })
@@ -1090,15 +1083,15 @@ const handleResponseSubmit = async () => {
         })
 
     if (response.code === 200) {
-      ElMessage.success(responseForm.id ? '编辑成功' : '添加成功')
+      ElMessage.success(responseForm.id ? t('api.editResponseSuccess') : t('api.addResponseSuccess'))
       responseFormDialogVisible.value = false
       fetchResponses()
     } else {
-      ElMessage.error(response.message || (responseForm.id ? '编辑失败' : '添加失败'))
+      ElMessage.error(response.message || (responseForm.id ? t('api.editResponseFailed') : t('api.addResponseFailed')))
     }
   } catch (error) {
     console.error('提交失败:', error)
-    ElMessage.error(responseForm.id ? '编辑失败' : '添加失败')
+    ElMessage.error(responseForm.id ? t('api.editResponseFailed') : t('api.addResponseFailed'))
   } finally {
     responseSubmitLoading.value = false
   }
@@ -1106,6 +1099,10 @@ const handleResponseSubmit = async () => {
 
 // 关闭响应对话框
 const handleResponseDialogClose = () => {
+  // 如果编辑对话框仍打开，重新检查激活响应数量（用户可能在响应管理中修改了激活状态）
+  if (dialogVisible.value && isEdit.value && form.id) {
+    checkMultipleActiveResponses(form.id)
+  }
   currentApi.value = null
   responseList.value = []
   activeResponseId.value = null
@@ -1136,7 +1133,7 @@ const fetchRequestParams = async (responseId) => {
     }
   } catch (error) {
     console.error('获取请求参数失败:', error)
-    ElMessage.error('获取请求参数失败')
+    ElMessage.error(t('api.fetchFailed'))
   } finally {
     requestParamLoading.value = false
   }
@@ -1144,7 +1141,7 @@ const fetchRequestParams = async (responseId) => {
 
 // 添加请求参数
 const handleAddRequestParam = () => {
-  requestParamFormTitle.value = '添加参数'
+  requestParamFormTitle.value = t('api.addParam')
 
   const apiPath = form.path || currentApi.value?.path || ''
   const apiMethod = form.method || currentApi.value?.method || 'GET'
@@ -1207,9 +1204,9 @@ const handleParamNameBlur = () => {
 // 删除请求参数
 const handleDeleteRequestParam = async (row) => {
   try {
-    await ElMessageBox.confirm('确认删除该参数吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
+    await ElMessageBox.confirm(t('api.confirmDeleteParam'), t('common.info'), {
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning'
     })
 
@@ -1218,15 +1215,15 @@ const handleDeleteRequestParam = async (row) => {
       method: 'delete'
     })
     if (response.code === 200) {
-      ElMessage.success('删除成功')
+      ElMessage.success(t('api.paramDeleted'))
       fetchRequestParams(currentResponse.value.id)
     } else {
-      ElMessage.error('删除失败')
+      ElMessage.error(t('api.deleteFailed'))
     }
   } catch (error) {
     if (error !== 'cancel') {
       console.error('删除失败:', error)
-      ElMessage.error('删除失败')
+      ElMessage.error(t('api.deleteFailed'))
     }
   }
 }
@@ -1246,15 +1243,15 @@ const handleRequestParamSubmit = async () => {
     })
 
     if (response.code === 200) {
-      ElMessage.success('添加成功')
+      ElMessage.success(t('api.paramAdded'))
       requestParamFormDialogVisible.value = false
       fetchRequestParams(currentResponse.value.id)
     } else {
-      ElMessage.error(response.message || '添加失败')
+      ElMessage.error(response.message || t('api.addResponseFailed'))
     }
   } catch (error) {
     console.error('添加失败:', error)
-    ElMessage.error('添加失败')
+    ElMessage.error(t('api.addResponseFailed'))
   } finally {
     requestParamSubmitLoading.value = false
   }
@@ -1274,9 +1271,9 @@ const handleRequestParamDialogClose = () => {
 // 删除接口
 const handleDelete = async (row) => {
   try {
-    await ElMessageBox.confirm('确认删除接口 ' + row.name + ' 吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
+    await ElMessageBox.confirm(t('api.confirmDeleteApi', { name: row.name }), t('common.info'), {
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning'
     })
 
@@ -1285,15 +1282,15 @@ const handleDelete = async (row) => {
       method: 'delete'
     })
     if (response.code === 200) {
-      ElMessage.success('删除成功')
+      ElMessage.success(t('api.deleteSuccess'))
       fetchApis()
     } else {
-      ElMessage.error('删除失败')
+      ElMessage.error(t('api.deleteFailed'))
     }
   } catch (error) {
     if (error !== 'cancel') {
       console.error('删除失败:', error)
-      ElMessage.error('删除失败')
+      ElMessage.error(t('api.deleteFailed'))
     }
   }
 }
@@ -1303,10 +1300,10 @@ const handleCopyPath = async (row) => {
   const path = `/api/mock-server/${row.project?.code}${row.path}`
   try {
     await navigator.clipboard.writeText(path)
-    ElMessage.success('复制成功')
+    ElMessage.success(t('api.copySuccess'))
   } catch (error) {
     console.error('复制失败:', error)
-    ElMessage.error('复制失败')
+    ElMessage.error(t('api.copyFailed'))
   }
 }
 
@@ -1335,15 +1332,15 @@ const handleSubmit = async () => {
         })
 
     if (response.code === 200) {
-      ElMessage.success(isEdit.value ? '编辑成功' : '创建成功')
+      ElMessage.success(isEdit.value ? t('api.editSuccess') : t('api.createSuccess'))
       dialogVisible.value = false
       fetchApis()
     } else {
-      ElMessage.error(response.message || (isEdit.value ? '编辑失败' : '创建失败'))
+      ElMessage.error(response.message || (isEdit.value ? t('api.editFailed') : t('api.createFailed')))
     }
   } catch (error) {
     console.error('提交失败:', error)
-    ElMessage.error(isEdit.value ? '编辑失败' : '创建失败')
+    ElMessage.error(isEdit.value ? t('api.editFailed') : t('api.createFailed'))
   } finally {
     submitLoading.value = false
   }
@@ -1363,11 +1360,88 @@ import com.carolcoral.mockserver.plugin.CustomResponseTransformer;
 import java.util.*;
 
 /**
- * 自定义响应处理器
- * 对接口返回的报文进行自定义处理
+ * 自定义响应处理器模板
+ * <p>
+ * 实现 {@link CustomResponseTransformer} 接口，对接口返回的报文进行自定义处理。
+ * 该类会在每次匹配到对应接口时被调用，可以在 transform 方法中对响应数据进行
+ * 包装、转换、脱敏、追加字段等任意操作。
+ * </p>
+ *
+ * <h3>使用说明</h3>
+ * <ol>
+ *   <li>修改类名和 getDescription() 返回值以匹配你的业务场景</li>
+ *   <li>在 transform() 方法中编写自定义处理逻辑</li>
+ *   <li>点击"编译验证"按钮检查代码是否正确</li>
+ *   <li>保存接口配置后，每次请求该接口都会自动调用此处理器</li>
+ * </ol>
+ *
+ * <h3>可用数据源</h3>
+ * <ul>
+ *   <li>{@code mockResponse.getStatusCode()} — HTTP 状态码</li>
+ *   <li>{@code mockResponse.getHeaders()} — 响应头 Map</li>
+ *   <li>{@code mockResponse.getBody()} — 响应体（JSON 字符串或 Map/List 对象）</li>
+ *   <li>{@code mockResponse.getDelay()} — 响应延迟（毫秒）</li>
+ *   <li>{@code mockRequest.getPath()} — 请求路径</li>
+ *   <li>{@code mockRequest.getMethod()} — 请求方法（GET/POST/PUT/DELETE）</li>
+ *   <li>{@code mockRequest.getHeaders()} — 请求头 Map</li>
+ *   <li>{@code mockRequest.getParams()} — URL 查询参数 Map</li>
+ *   <li>{@code mockRequest.getBody()} — 请求体</li>
+ *   <li>{@code mockRequest.getProjectCode()} — 项目编码</li>
+ *   <li>{@code mockRequest.getPathParams()} — RESTful 路径参数 Map</li>
+ *   <li>{@code apiName} — 接口名称，可用于日志记录</li>
+ *   <li>{@code apiPath} — 接口路径，可用于日志记录</li>
+ * </ul>
+ *
+ * <h3>注意事项</h3>
+ * <ul>
+ *   <li>禁止使用反射、文件IO、网络、线程、脚本执行等危险API</li>
+ *   <li>返回值不能为 null，必须返回有效的 MockResponseDTO 对象</li>
+ *   <li>建议使用 MockResponseDTO.builder() 链式构建返回对象</li>
+ *   <li>代码长度不超过 50000 字符</li>
+ * </ul>
+ *
+ * @author 请填写你的名字
+ * @version 1.0
  */
 public class MyCustomTransformer implements CustomResponseTransformer {
 
+    /**
+     * 对 Mock 响应进行自定义转换处理
+     * <p>
+     * 该方法在基础响应流程（响应匹配、延迟计算、响应体解析等）完成之后调用，
+     * 可以在此方法中对响应体、状态码、响应头等进行任意修改。
+     * </p>
+     *
+     * @param mockResponse 经过基础流程处理后的 Mock 响应对象
+     *                     <ul>
+     *                       <li>{@code getStatusCode()} — HTTP 状态码（如 200, 404, 500）</li>
+     *                       <li>{@code getHeaders()} — 响应头键值对</li>
+     *                       <li>{@code getBody()} — 响应体，可能是 String、Map 或 List</li>
+     *                       <li>{@code getDelay()} — 预设的响应延迟（毫秒），null 表示无延迟</li>
+     *                     </ul>
+     * @param mockRequest  原始 Mock 请求对象
+     *                     <ul>
+     *                       <li>{@code getPath()} — 请求路径，如 "/api/user/login"</li>
+     *                       <li>{@code getMethod()} — 请求方法，如 "GET", "POST"</li>
+     *                       <li>{@code getHeaders()} — 请求头键值对</li>
+     *                       <li>{@code getParams()} — URL 查询参数键值对</li>
+     *                       <li>{@code getBody()} — 请求体内容</li>
+     *                       <li>{@code getProjectCode()} — 项目编码</li>
+     *                       <li>{@code getPathParams()} — RESTful 路径参数，如 /user/{id} 中的 id</li>
+     *                     </ul>
+     * @param apiName      接口名称，如 "用户登录接口"，可用于日志记录
+     * @param apiPath      接口路径，如 "/api/user/login"，可用于日志记录
+     * @return 转换后的 MockResponseDTO 对象，不能返回 null
+     *         <p>建议使用 MockResponseDTO.builder() 构建：</p>
+     *         <pre>{@code
+     *         return MockResponseDTO.builder()
+     *                 .statusCode(200)
+     *                 .headers(mockResponse.getHeaders())
+     *                 .body(result)
+     *                 .delay(mockResponse.getDelay())
+     *                 .build();
+     *         }</pre>
+     */
     @Override
     public MockResponseDTO transform(MockResponseDTO mockResponse, MockRequest mockRequest,
                                       String apiName, String apiPath) {
@@ -1375,16 +1449,17 @@ public class MyCustomTransformer implements CustomResponseTransformer {
         Object body = mockResponse.getBody();
 
         // 在这里编写自定义处理逻辑
-        // 例如：包装响应、修改字段、添加时间戳等
+        // 例如：包装响应、修改字段、添加时间戳、数据脱敏、条件判断等
 
-        // 示例：将响应包装为标准格式
+        // 示例：将响应包装为统一的标准格式 { code, message, data, timestamp }
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("code", mockResponse.getStatusCode());
         result.put("message", "success");
         result.put("data", body);
         result.put("timestamp", System.currentTimeMillis());
 
-        // 返回新的响应（保留原有的状态码、响应头和延迟设置）
+        // 使用 Builder 模式构建新的响应对象
+        // 保留原有的状态码、响应头和延迟设置，只替换响应体
         return MockResponseDTO.builder()
                 .statusCode(mockResponse.getStatusCode())
                 .headers(mockResponse.getHeaders())
@@ -1393,9 +1468,18 @@ public class MyCustomTransformer implements CustomResponseTransformer {
                 .build();
     }
 
+    /**
+     * 获取转换器描述信息
+     * <p>
+     * 该描述会在管理界面中展示，帮助区分不同的自定义处理器。
+     * 建议使用简短的中文描述，如"标准格式包装器"、"数据脱敏处理器"等。
+     * </p>
+     *
+     * @return 转换器描述字符串，不能为 null
+     */
     @Override
     public String getDescription() {
-        return "自定义响应处理器";
+        return "标准格式包装器 - 将响应包装为 {code, message, data, timestamp} 格式";
     }
 }`
 }
@@ -1403,7 +1487,7 @@ public class MyCustomTransformer implements CustomResponseTransformer {
 // 编译验证自定义代码
 const validateCustomCode = async () => {
   if (!form.customResponseSource || !form.customResponseSource.trim()) {
-    validationResult.value = { success: false, message: '请先输入Java代码' }
+    validationResult.value = { success: false, message: t('api.enterCodeFirst') }
     return
   }
   validatingCode.value = true
@@ -1417,15 +1501,15 @@ const validateCustomCode = async () => {
       data: { sourceCode: form.customResponseSource }
     })
     if (response.code === 200) {
-      validationResult.value = { success: true, message: response.data || '编译验证通过' }
-      ElMessage.success('编译验证通过，代码可以正常使用')
+      validationResult.value = { success: true, message: response.data || t('api.validatePassed') }
+      ElMessage.success(t('api.validateSuccess'))
     } else {
-      validationResult.value = { success: false, message: response.message || '编译验证失败' }
-      ElMessage.error(response.message || '编译验证失败')
+      validationResult.value = { success: false, message: response.message || t('api.validateFailed') }
+      ElMessage.error(response.message || t('api.validateFailed'))
     }
   } catch (error) {
-    validationResult.value = { success: false, message: error.message || '验证请求失败' }
-    ElMessage.error('验证请求失败: ' + (error.message || '未知错误'))
+    validationResult.value = { success: false, message: error.message || t('api.validateFailed') }
+    ElMessage.error(t('api.validateFailed') + (error.message || ''))
   } finally {
     validatingCode.value = false
   }
@@ -1435,7 +1519,7 @@ const validateCustomCode = async () => {
 const clearCustomCode = () => {
   form.customResponseSource = ''
   validationResult.value = null
-  ElMessage.success('已清空自定义代码')
+  ElMessage.success(t('api.codeCleared'))
 }
 
 // 页面加载时获取数据

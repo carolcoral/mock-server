@@ -56,7 +56,25 @@ public class UserController {
     }
 
     /**
-     * 更新用户
+     * 管理员更新用户信息（角色、状态等）
+     *
+     * @param userId 用户ID
+     * @param user 用户信息
+     * @return 更新的用户
+     */
+    @Operation(summary = "管理员更新用户", description = "管理员更新用户信息，需要管理员权限")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PutMapping("/{userId}")
+    public ApiResponse<User> updateUser(
+            @Parameter(description = "用户ID") @PathVariable Long userId,
+            @Parameter(description = "用户信息") @RequestBody User user) {
+        log.info("管理员更新用户请求: {}", userId);
+        user.setId(userId);
+        return userService.updateUser(user);
+    }
+
+    /**
+     * 更新用户个人信息
      *
      * @param user 用户信息
      * @return 更新的用户

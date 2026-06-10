@@ -9,6 +9,7 @@ package com.carolcoral.mockserver.controller;
 import com.carolcoral.mockserver.dto.MockRequest;
 import com.carolcoral.mockserver.dto.MockResponseDTO;
 import com.carolcoral.mockserver.service.MockService;
+import com.carolcoral.mockserver.service.SystemConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -40,14 +41,16 @@ public class MockController {
     /**
      * 构造器
      */
-    public MockController(MockService mockService) {
+    public MockController(MockService mockService, SystemConfigService systemConfigService) {
         this.mockService = mockService;
+        this.systemConfigService = systemConfigService;
     }
 
     private final MockService mockService;
+    private final SystemConfigService systemConfigService;
 
-    // 最大响应延迟时间（毫秒）
-    private static final int MAX_RESPONSE_DELAY = 5000;
+    // 默认最大响应延迟时间（毫秒），可从系统配置中动态读取
+    private static final int DEFAULT_MAX_RESPONSE_DELAY = 5000;
 
     /**
      * 处理所有Mock请求
@@ -201,8 +204,9 @@ public class MockController {
         // 设置延迟（如果配置了）
         if (mockResponse.getDelay() != null && mockResponse.getDelay() > 0) {
             try {
-                // 限制最大延迟时间，防止DoS攻击
-                long delay = Math.min(mockResponse.getDelay(), MAX_RESPONSE_DELAY);
+                // 限制最大延迟时间，防止DoS攻击（从系统配置读取，默认5000ms）
+                int maxDelay = getMaxResponseDelay();
+                long delay = Math.min(mockResponse.getDelay(), maxDelay);
                 Thread.sleep(delay);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -240,5 +244,23 @@ public class MockController {
         errorBody.put("message", message);
         errorBody.put("timestamp", System.currentTimeMillis());
         return errorBody;
+    }
+
+    /**
+     * 从系统配置中获取最大响应延迟时间（毫秒）
+     * <p>如果配置不存在或无法解析，返回默认值 5000ms。</p>
+     *
+     * @return 最大响应延迟时间
+     */
+    private int getMaxResponseDelay() {
+        String configValue = systemConfigService.getConfig("maxResponseDelay");
+        if (configValue != null && !configValue.isEmpty()) {
+            try {
+                return Integer.parseInt(configValue);
+            } catch (NumberFormatException e) {
+                log.warn("maxResponseDelay 配置值 '{}' 无法解析，使用默认值 {}", configValue, DEFAULT_MAX_RESPONSE_DELAY);
+            }
+        }
+        return DEFAULT_MAX_RESPONSE_DELAY;
     }
 }

@@ -1,37 +1,34 @@
 <template>
   <div class="projects">
-    <!-- 页面标题 -->
     <div class="page-header">
-      <h1>项目管理</h1>
+      <h1>{{ $t('project.title') }}</h1>
       <el-button type="primary" @click="handleCreate">
         <Plus :width="'1em'" :height="'1em'" />
-        创建项目
+        {{ $t('project.createProject') }}
       </el-button>
     </div>
 
-    <!-- 搜索和操作栏 -->
     <el-card class="search-card">
       <el-row :gutter="20">
         <el-col :span="8">
-          <el-input v-model="searchForm.name" placeholder="按项目名称搜索" clearable @clear="handleSearch" />
+          <el-input v-model="searchForm.name" :placeholder="$t('project.searchByName')" clearable @clear="handleSearch" />
         </el-col>
         <el-col :span="6">
-          <el-input v-model="searchForm.code" placeholder="按项目编码搜索" clearable @clear="handleSearch" />
+          <el-input v-model="searchForm.code" :placeholder="$t('project.searchByCode')" clearable @clear="handleSearch" />
         </el-col>
         <el-col :span="6">
-          <el-select v-model="searchForm.enabled" placeholder="状态" clearable @change="handleSearch" style="width: 100%">
-            <el-option label="启用" :value="true" />
-            <el-option label="禁用" :value="false" />
+          <el-select v-model="searchForm.enabled" :placeholder="$t('project.status')" clearable @change="handleSearch" style="width: 100%">
+            <el-option :label="$t('project.enabledStatus')" :value="true" />
+            <el-option :label="$t('project.disabledStatus')" :value="false" />
           </el-select>
         </el-col>
         <el-col :span="4">
-          <el-button type="primary" @click="handleSearch">搜索</el-button>
-          <el-button @click="handleReset">重置</el-button>
+          <el-button type="primary" @click="handleSearch">{{ $t('project.search') }}</el-button>
+          <el-button @click="handleReset">{{ $t('project.reset') }}</el-button>
         </el-col>
       </el-row>
     </el-card>
 
-    <!-- 项目列表 -->
     <el-card class="table-card">
       <el-table
         v-loading="loading"
@@ -41,28 +38,31 @@
         :header-cell-style="{ background: '#f5f7fa' }"
       >
         <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="name" label="项目名称" min-width="150" />
-        <el-table-column prop="code" label="项目编码" min-width="120" />
-        <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="enabled" label="状态" width="100" align="center">
+        <el-table-column prop="name" :label="$t('project.projectName')" min-width="150" />
+        <el-table-column prop="code" :label="$t('project.projectCode')" min-width="120" />
+        <el-table-column prop="description" :label="$t('project.description')" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="enabled" :label="$t('project.status')" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.enabled ? 'success' : 'info'">
-              {{ row.enabled ? '启用' : '禁用' }}
+              {{ row.enabled ? $t('project.enabledStatus') : $t('project.disabledStatus') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column :label="$t('project.createdAt')" width="200">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)" :disabled="!canEditProject(row)">编辑</el-button>
-            <el-button type="primary" link @click="$router.push(`/apis?projectId=${row.id}`)">接口管理</el-button>
-            <el-button type="success" link @click="handleManageMembers(row)" :disabled="!canManageMembers(row)">成员管理</el-button>
-            <el-button type="danger" link @click="handleDelete(row)" :disabled="!canDeleteProject(row)">删除</el-button>
+            {{ formatTime(row.createTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('project.actions')" width="280" fixed="right">
+          <template #default="{ row }">
+            <el-button type="primary" link @click="handleEdit(row)" :disabled="!canEditProject(row)">{{ $t('project.editProject') }}</el-button>
+            <el-button type="primary" link @click="$router.push(`/apis?projectId=${row.id}`)">{{ $t('project.apiManagement') }}</el-button>
+            <el-button type="success" link @click="handleManageMembers(row)" :disabled="!canManageMembers(row)">{{ $t('project.memberManagement') }}</el-button>
+            <el-button type="danger" link @click="handleDelete(row)" :disabled="!canDeleteProject(row)">{{ $t('project.deleteProject') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
 
-      <!-- 分页 -->
       <div class="pagination-container">
         <el-pagination
           v-model:current-page="pagination.current"
@@ -76,48 +76,45 @@
       </div>
     </el-card>
 
-    <!-- 创建/编辑对话框 -->
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px" @close="handleDialogClose">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
-        <el-form-item label="项目名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入项目名称" />
+        <el-form-item :label="$t('project.projectName')" prop="name">
+          <el-input v-model="form.name" :placeholder="$t('project.namePlaceholder')" />
         </el-form-item>
-        <el-form-item label="项目编码" prop="code">
-          <el-input v-model="form.code" placeholder="请输入项目编码（唯一）" :disabled="isEdit" />
+        <el-form-item :label="$t('project.projectCode')" prop="code">
+          <el-input v-model="form.code" :placeholder="$t('project.codePlaceholder')" :disabled="isEdit" />
         </el-form-item>
-        <el-form-item label="项目描述" prop="description">
-          <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入项目描述" />
+        <el-form-item :label="$t('project.projectDescription')" prop="description">
+          <el-input v-model="form.description" type="textarea" :rows="3" :placeholder="$t('project.descriptionPlaceholder')" />
         </el-form-item>
-        <el-form-item label="状态" prop="enabled">
-          <el-switch v-model="form.enabled" active-text="启用" inactive-text="禁用" />
+        <el-form-item :label="$t('project.status')" prop="enabled">
+          <el-switch v-model="form.enabled" :active-text="$t('project.enabledStatus')" :inactive-text="$t('project.disabledStatus')" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
+        <el-button @click="dialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
 
-    <!-- 成员管理对话框 -->
-    <el-dialog v-model="memberDialogVisible" title="项目成员管理" width="50%" @close="handleMemberDialogClose">
+    <el-dialog v-model="memberDialogVisible" :title="$t('project.memberTitle')" width="50%" @close="handleMemberDialogClose">
       <div class="member-header">
         <el-row :gutter="20">
           <el-col :span="12">
             <el-button type="primary" @click="handleAddMember">
               <Plus :width="'1em'" :height="'1em'" />
-              添加成员
+              {{ $t('project.addMember') }}
             </el-button>
           </el-col>
           <el-col :span="12" style="text-align: right;">
             <span style="color: #909399; font-size: 14px;">
-              <span>当前项目：</span>
+              <span>{{ $t('project.currentProject') }}</span>
               <span style="color: #303133; font-weight: 600;">{{ currentProject?.name }}</span>
             </span>
           </el-col>
         </el-row>
       </div>
 
-      <!-- 成员列表 -->
       <el-table
         v-loading="memberLoading"
         :data="memberList"
@@ -125,27 +122,31 @@
         style="width: 100%; margin-top: 16px;"
         :header-cell-style="{ background: '#f5f7fa' }"
       >
-        <el-table-column prop="id" label="成员ID" width="80" />
-        <el-table-column prop="userId" label="用户ID" width="80" />
-        <el-table-column prop="username" label="用户名" min-width="120">
+        <el-table-column prop="id" :label="$t('project.memberId')" width="80" />
+        <el-table-column prop="userId" :label="$t('project.userId')" width="80" />
+        <el-table-column prop="username" :label="$t('project.username')" min-width="120">
           <template #default="{ row }">
-            <span>{{ row.username || `用户${row.userId}` }}</span>
+            <span>{{ row.username || $t('project.username') + row.userId }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="email" label="邮箱" min-width="180">
+        <el-table-column prop="email" :label="$t('project.email')" min-width="180">
           <template #default="{ row }">
             <span>{{ row.email || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="role" label="角色" width="120" align="center">
+        <el-table-column prop="role" :label="$t('project.role')" width="120" align="center">
           <template #default="{ row }">
-            <el-tag v-if="row.role === 'CREATOR'" type="danger" size="small">创建者</el-tag>
-            <el-tag v-else-if="row.role === 'ADMIN'" type="warning" size="small">管理员</el-tag>
-            <el-tag v-else type="info" size="small">普通成员</el-tag>
+            <el-tag v-if="row.role === 'CREATOR'" type="danger" size="small">{{ $t('project.creator') }}</el-tag>
+            <el-tag v-else-if="row.role === 'ADMIN'" type="warning" size="small">{{ $t('project.admin') }}</el-tag>
+            <el-tag v-else type="info" size="small">{{ $t('project.member') }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="加入时间" width="180" />
-        <el-table-column label="操作" width="150" align="center">
+        <el-table-column :label="$t('project.joinTime')" width="200">
+          <template #default="{ row }">
+            {{ formatTime(row.createTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('project.actions')" width="150" align="center">
           <template #default="{ row }">
             <el-button
               v-if="row.role !== 'CREATOR'"
@@ -153,7 +154,7 @@
               link
               @click="handleUpdateMemberRole(row)"
             >
-              修改角色
+              {{ $t('project.modifyRole') }}
             </el-button>
             <el-button
               v-if="row.role !== 'CREATOR'"
@@ -161,24 +162,23 @@
               link
               @click="handleRemoveMember(row)"
             >
-              移除
+              {{ $t('project.remove') }}
             </el-button>
-            <span v-else style="color: #909399; font-size: 12px;">不可操作</span>
+            <span v-else style="color: #909399; font-size: 12px;">{{ $t('project.noOperation') }}</span>
           </template>
         </el-table-column>
       </el-table>
     </el-dialog>
 
-    <!-- 添加/编辑成员对话框 -->
     <el-dialog v-model="addMemberDialogVisible" :title="addMemberDialogTitle" width="500px" style="max-width: 50%;" @close="handleAddMemberDialogClose">
       <el-form ref="memberFormRef" :model="memberForm" :rules="memberRules" label-width="80px">
-        <el-form-item label="选择用户" prop="userId">
+        <el-form-item :label="$t('project.selectUser')" prop="userId">
           <el-select
             v-model="memberForm.userId"
             filterable
             remote
             reserve-keyword
-            placeholder="请输入用户名搜索"
+            :placeholder="$t('project.searchUsers')"
             :remote-method="searchUsers"
             :loading="userSearchLoading"
             style="width: 100%"
@@ -191,16 +191,16 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="角色" prop="role">
-          <el-select v-model="memberForm.role" placeholder="请选择角色" style="width: 100%;">
-            <el-option label="管理员" value="ADMIN" />
-            <el-option label="普通成员" value="MEMBER" />
+        <el-form-item :label="$t('project.role')" prop="role">
+          <el-select v-model="memberForm.role" :placeholder="$t('project.selectRole')" style="width: 100%;">
+            <el-option :label="$t('project.admin')" value="ADMIN" />
+            <el-option :label="$t('project.member')" value="MEMBER" />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="addMemberDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="memberSubmitLoading" @click="handleMemberSubmit">确定</el-button>
+        <el-button @click="addMemberDialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="memberSubmitLoading" @click="handleMemberSubmit">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -208,40 +208,38 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Search } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { formatTime, loadDateFormat } from '@/utils/dateFormat'
 
+const { t } = useI18n()
 const userStore = useUserStore()
 const isAdmin = computed(() => userStore.isAdmin)
 
-// 搜索表单
 const searchForm = reactive({
   name: '',
   code: '',
   enabled: null
 })
 
-// 表格数据
 const loading = ref(false)
 const projectList = ref([])
 
-// 分页
 const pagination = reactive({
   current: 1,
   pageSize: 10,
   total: 0
 })
 
-// 对话框
 const dialogVisible = ref(false)
-const dialogTitle = ref('创建项目')
+const dialogTitle = ref('')
 const isEdit = ref(false)
 const submitLoading = ref(false)
 const formRef = ref()
 
-// 表单数据
 const form = reactive({
   id: null,
   name: '',
@@ -250,24 +248,21 @@ const form = reactive({
   enabled: true
 })
 
-// 表单验证规则
-const rules = {
+const rules = computed(() => ({
   name: [
-    { required: true, message: '请输入项目名称', trigger: 'blur' },
-    { min: 2, max: 100, message: '长度在 2 到 100 个字符', trigger: 'blur' }
+    { required: true, message: t('project.nameRequired'), trigger: 'blur' },
+    { min: 2, max: 100, message: t('project.nameLengthError'), trigger: 'blur' }
   ],
   code: [
-    { required: true, message: '请输入项目编码', trigger: 'blur' },
-    { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' },
-    { pattern: /^[a-zA-Z0-9_-]+$/, message: '只能包含字母、数字、下划线和连字符', trigger: 'blur' }
+    { required: true, message: t('project.codeRequired'), trigger: 'blur' },
+    { min: 2, max: 50, message: t('project.codeLengthError'), trigger: 'blur' },
+    { pattern: /^[a-zA-Z0-9_-]+$/, message: t('project.codeFormatError'), trigger: 'blur' }
   ]
-}
+}))
 
-// 获取项目列表
 const fetchProjects = async () => {
   loading.value = true
   try {
-    // 管理员查看所有项目，普通用户只查看有权限的项目
     const url = isAdmin.value ? '/projects' : '/projects/accessible'
 
     const response = await request({
@@ -275,7 +270,6 @@ const fetchProjects = async () => {
       method: 'get'
     })
     if (response.code === 200) {
-      // 客户端过滤
       let filteredData = response.data || []
 
       if (searchForm.name) {
@@ -295,23 +289,21 @@ const fetchProjects = async () => {
       projectList.value = filteredData
       pagination.total = filteredData.length
     } else {
-      ElMessage.error('获取项目列表失败')
+      ElMessage.error(t('project.fetchFailed'))
     }
   } catch (error) {
     console.error('获取项目列表失败:', error)
-    ElMessage.error('获取项目列表失败')
+    ElMessage.error(t('project.fetchFailed'))
   } finally {
     loading.value = false
   }
 }
 
-// 搜索
 const handleSearch = () => {
   pagination.current = 1
   fetchProjects()
 }
 
-// 重置
 const handleReset = () => {
   searchForm.name = ''
   searchForm.code = ''
@@ -319,21 +311,18 @@ const handleReset = () => {
   handleSearch()
 }
 
-// 分页大小变化
 const handleSizeChange = (size) => {
   pagination.pageSize = size
   fetchProjects()
 }
 
-// 当前页变化
 const handleCurrentChange = (page) => {
   pagination.current = page
   fetchProjects()
 }
 
-// 创建项目
 const handleCreate = () => {
-  dialogTitle.value = '创建项目'
+  dialogTitle.value = t('project.createProject')
   isEdit.value = false
   form.id = null
   form.name = ''
@@ -343,9 +332,8 @@ const handleCreate = () => {
   dialogVisible.value = true
 }
 
-// 编辑项目
 const handleEdit = (row) => {
-  dialogTitle.value = '编辑项目'
+  dialogTitle.value = t('project.editProject')
   isEdit.value = true
   form.id = row.id
   form.name = row.name
@@ -355,12 +343,11 @@ const handleEdit = (row) => {
   dialogVisible.value = true
 }
 
-// 删除项目
 const handleDelete = async (row) => {
   try {
-    await ElMessageBox.confirm('确认删除项目 ' + row.name + ' 吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
+    await ElMessageBox.confirm(t('project.confirmDelete', { name: row.name }), t('common.info'), {
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning'
     })
 
@@ -369,20 +356,19 @@ const handleDelete = async (row) => {
       method: 'delete'
     })
     if (response.code === 200) {
-      ElMessage.success('删除成功')
+      ElMessage.success(t('project.deleteSuccess'))
       fetchProjects()
     } else {
-      ElMessage.error('删除失败')
+      ElMessage.error(t('project.deleteFailed'))
     }
   } catch (error) {
     if (error !== 'cancel') {
       console.error('删除失败:', error)
-      ElMessage.error('删除失败')
+      ElMessage.error(t('project.deleteFailed'))
     }
   }
 }
 
-// 提交表单
 const handleSubmit = async () => {
   try {
     await formRef.value.validate()
@@ -401,21 +387,20 @@ const handleSubmit = async () => {
         })
 
     if (response.code === 200) {
-      ElMessage.success(isEdit.value ? '编辑成功' : '创建成功')
+      ElMessage.success(isEdit.value ? t('project.editSuccess') : t('project.createSuccess'))
       dialogVisible.value = false
       fetchProjects()
     } else {
-      ElMessage.error(response.message || (isEdit.value ? '编辑失败' : '创建失败'))
+      ElMessage.error(response.message || (isEdit.value ? t('project.editFailed') : t('project.createFailed')))
     }
   } catch (error) {
     console.error('提交失败:', error)
-    ElMessage.error(isEdit.value ? '编辑失败' : '创建失败')
+    ElMessage.error(isEdit.value ? t('project.editFailed') : t('project.createFailed'))
   } finally {
     submitLoading.value = false
   }
 }
 
-// 关闭对话框
 const handleDialogClose = () => {
   formRef.value?.resetFields()
 }
@@ -427,7 +412,7 @@ const memberList = ref([])
 const currentProject = ref(null)
 
 const addMemberDialogVisible = ref(false)
-const addMemberDialogTitle = ref('添加成员')
+const addMemberDialogTitle = ref('')
 const memberFormRef = ref()
 const memberSubmitLoading = ref(false)
 const userSearchLoading = ref(false)
@@ -438,23 +423,21 @@ const memberForm = reactive({
   role: 'MEMBER'
 })
 
-const memberRules = {
+const memberRules = computed(() => ({
   userId: [
-    { required: true, message: '请选择用户', trigger: 'change' }
+    { required: true, message: t('project.selectUser'), trigger: 'change' }
   ],
   role: [
-    { required: true, message: '请选择角色', trigger: 'change' }
+    { required: true, message: t('project.selectRole'), trigger: 'change' }
   ]
-}
+}))
 
-// 打开成员管理对话框
 const handleManageMembers = async (row) => {
   currentProject.value = row
   memberDialogVisible.value = true
   await fetchProjectMembers(row.id)
 }
 
-// 搜索用户
 const searchUsers = async (query) => {
   if (!query) {
     userOptions.value = []
@@ -478,7 +461,6 @@ const searchUsers = async (query) => {
   }
 }
 
-// 获取项目成员列表
 const fetchProjectMembers = async (projectId) => {
   memberLoading.value = true
   try {
@@ -489,65 +471,61 @@ const fetchProjectMembers = async (projectId) => {
     if (response.code === 200) {
       memberList.value = response.data || []
     } else {
-      ElMessage.error('获取成员列表失败')
+      ElMessage.error(t('project.fetchMembersFailed'))
     }
   } catch (error) {
     console.error('获取成员列表失败:', error)
-    ElMessage.error('获取成员列表失败')
+    ElMessage.error(t('project.fetchMembersFailed'))
   } finally {
     memberLoading.value = false
   }
 }
 
-// 打开添加成员对话框
 const handleAddMember = () => {
-  addMemberDialogTitle.value = '添加成员'
+  addMemberDialogTitle.value = t('project.addMember')
   memberForm.userId = null
   memberForm.role = 'MEMBER'
   userOptions.value = []
   addMemberDialogVisible.value = true
 }
 
-// 提交成员添加
 const handleMemberSubmit = async () => {
   try {
     await memberFormRef.value.validate()
     memberSubmitLoading.value = true
 
-    // 添加项目成员
     const addResponse = await request({
       url: `/project-members/${currentProject.value.id}/users/${memberForm.userId}?role=${memberForm.role}`,
       method: 'post'
     })
 
     if (addResponse.code === 200) {
-      ElMessage.success('添加成功')
+      ElMessage.success(t('project.addMemberSuccess'))
       addMemberDialogVisible.value = false
       fetchProjectMembers(currentProject.value.id)
     } else {
-      ElMessage.error(addResponse.message || '添加失败')
+      ElMessage.error(addResponse.message || t('project.addMemberFail'))
     }
   } catch (error) {
     console.error('添加成员失败:', error)
-    ElMessage.error('添加成员失败')
+    ElMessage.error(t('project.addMemberFailed'))
   } finally {
     memberSubmitLoading.value = false
   }
 }
 
-// 修改成员角色
 const handleUpdateMemberRole = async (member) => {
   try {
-    const userName = member.username || `用户${member.userId}`
+    const userName = member.username || `${t('project.username')}${member.userId}`
 
     const { value } = await ElMessageBox.prompt(
-      '请选择新的角色',
-      `修改 ${userName} 的角色`,
+      t('project.modifyRolePrompt'),
+      t('project.modifyRoleTitle', { name: userName }),
       {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
         inputPattern: /^(ADMIN|MEMBER)$/,
-        inputErrorMessage: '请输入 ADMIN 或 MEMBER',
+        inputErrorMessage: t('project.modifyRoleHint'),
         inputValue: member.role === 'ADMIN' ? 'ADMIN' : 'MEMBER'
       }
     )
@@ -559,30 +537,29 @@ const handleUpdateMemberRole = async (member) => {
     })
 
     if (response.code === 200) {
-      ElMessage.success('修改成功')
+      ElMessage.success(t('project.roleUpdated'))
       fetchProjectMembers(currentProject.value.id)
     } else {
-      ElMessage.error('修改失败')
+      ElMessage.error(t('project.roleUpdateFailed'))
     }
   } catch (error) {
     if (error !== 'cancel') {
       console.error('修改角色失败:', error)
-      ElMessage.error('修改角色失败')
+      ElMessage.error(t('project.roleUpdateFailed'))
     }
   }
 }
 
-// 移除成员
 const handleRemoveMember = async (member) => {
   try {
-    const userName = member.username || `用户${member.userId}`
+    const userName = member.username || `${t('project.username')}${member.userId}`
 
     await ElMessageBox.confirm(
-      `确认将 ${userName} 从项目中移除吗？`,
-      '提示',
+      t('project.confirmRemove', { name: userName }),
+      t('common.info'),
       {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
+        confirmButtonText: t('common.confirm'),
+        cancelButtonText: t('common.cancel'),
         type: 'warning'
       }
     )
@@ -593,60 +570,48 @@ const handleRemoveMember = async (member) => {
     })
 
     if (response.code === 200) {
-      ElMessage.success('移除成功')
+      ElMessage.success(t('project.removeSuccess'))
       fetchProjectMembers(currentProject.value.id)
     } else {
-      ElMessage.error('移除失败')
+      ElMessage.error(t('project.removeFailed'))
     }
   } catch (error) {
     if (error !== 'cancel') {
       console.error('移除成员失败:', error)
-      ElMessage.error('移除成员失败')
+      ElMessage.error(t('project.removeMemberFailed'))
     }
   }
 }
 
-// 关闭成员管理对话框
 const handleMemberDialogClose = () => {
   memberList.value = []
   currentProject.value = null
 }
 
-// 关闭添加成员对话框
 const handleAddMemberDialogClose = () => {
   memberFormRef.value?.resetFields()
 }
 
-// ====== 权限判断方法 ======
-
-// 判断是否可以编辑项目（创建者或管理员）
 const canEditProject = (project) => {
   if (isAdmin.value) return true
   const role = project.userRole
   return role === 'CREATOR' || role === 'ADMIN'
 }
 
-// 判断是否可以管理成员（创建者或管理员）
 const canManageMembers = (project) => {
   if (isAdmin.value) return true
   const role = project.userRole
   return role === 'CREATOR' || role === 'ADMIN'
 }
 
-// 判断是否可以删除项目（只有创建者可以删除）
 const canDeleteProject = (project) => {
   if (isAdmin.value) return true
   const role = project.userRole
   return role === 'CREATOR'
 }
 
-// 页面加载时获取数据
-onMounted(() => {
-  fetchProjects()
-})
-
-// 页面加载时获取数据
-onMounted(() => {
+onMounted(async () => {
+  await loadDateFormat()
   fetchProjects()
 })
 </script>

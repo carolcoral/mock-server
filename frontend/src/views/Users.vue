@@ -1,43 +1,40 @@
 <template>
   <div class="users">
-    <!-- 页面标题 -->
     <div class="page-header">
-      <h1>用户管理</h1>
+      <h1>{{ $t('userManagement.title') }}</h1>
       <el-button type="primary" @click="handleCreate" v-if="isAdmin">
         <Plus :width="'1em'" :height="'1em'" />
-        创建用户
+        {{ $t('userManagement.createUser') }}
       </el-button>
     </div>
 
-    <!-- 搜索栏 -->
     <el-card class="search-card">
       <el-row :gutter="20">
-        <el-col :span="6">
-          <el-input v-model="searchForm.username" placeholder="按用户名搜索" clearable @clear="handleSearch" />
-        </el-col>
-        <el-col :span="6">
-          <el-input v-model="searchForm.email" placeholder="按邮箱搜索" clearable @clear="handleSearch" />
+        <el-col :span="5">
+          <el-input v-model="searchForm.username" :placeholder="$t('userManagement.searchByUsername')" clearable @clear="handleSearch" />
         </el-col>
         <el-col :span="5">
-          <el-select v-model="searchForm.role" placeholder="角色" clearable @change="handleSearch" style="width: 100%">
-            <el-option label="管理员" value="ADMIN" />
-            <el-option label="普通用户" value="USER" />
+          <el-input v-model="searchForm.email" :placeholder="$t('userManagement.searchByEmail')" clearable @clear="handleSearch" />
+        </el-col>
+        <el-col :span="5">
+          <el-select v-model="searchForm.role" :placeholder="$t('userManagement.searchByRole')" clearable @change="handleSearch" style="width: 100%">
+            <el-option :label="$t('userManagement.admin')" value="ADMIN" />
+            <el-option :label="$t('userManagement.normalUser')" value="USER" />
           </el-select>
         </el-col>
         <el-col :span="4">
-          <el-select v-model="searchForm.enabled" placeholder="状态" clearable @change="handleSearch" style="width: 100%">
-            <el-option label="启用" :value="true" />
-            <el-option label="禁用" :value="false" />
+          <el-select v-model="searchForm.enabled" :placeholder="$t('userManagement.searchByStatus')" clearable @change="handleSearch" style="width: 100%">
+            <el-option :label="$t('userManagement.enabledStatus')" :value="true" />
+            <el-option :label="$t('userManagement.disabledStatus')" :value="false" />
           </el-select>
         </el-col>
-        <el-col :span="3">
-          <el-button type="primary" @click="handleSearch">搜索</el-button>
-          <el-button @click="handleReset">重置</el-button>
+        <el-col :span="5">
+          <el-button type="primary" @click="handleSearch">{{ $t('userManagement.search') }}</el-button>
+          <el-button @click="handleReset">{{ $t('userManagement.reset') }}</el-button>
         </el-col>
       </el-row>
     </el-card>
 
-    <!-- 用户列表 -->
     <el-card class="table-card">
       <el-table
         v-loading="loading"
@@ -47,32 +44,35 @@
         :header-cell-style="{ background: '#f5f7fa' }"
       >
         <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="username" label="用户名" min-width="120" />
-        <el-table-column prop="email" label="邮箱" min-width="180" />
-        <el-table-column prop="role" label="角色" width="100" align="center">
+        <el-table-column prop="username" :label="$t('userManagement.username')" min-width="120" />
+        <el-table-column prop="email" :label="$t('userManagement.email')" min-width="180" />
+        <el-table-column prop="role" :label="$t('userManagement.role')" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.role === 'ADMIN' ? 'danger' : 'primary'">
-              {{ row.role === 'ADMIN' ? '管理员' : '普通用户' }}
+              {{ row.role === 'ADMIN' ? $t('userManagement.admin') : $t('userManagement.normalUser') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="enabled" label="状态" width="100" align="center">
+        <el-table-column prop="enabled" :label="$t('userManagement.status')" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.enabled ? 'success' : 'info'">
-              {{ row.enabled ? '启用' : '禁用' }}
+              {{ row.enabled ? $t('userManagement.enabledStatus') : $t('userManagement.disabledStatus') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column :label="$t('userManagement.createdAt')" width="200">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)" :disabled="!isAdmin">编辑</el-button>
-            <el-button type="danger" link @click="handleDelete(row)" :disabled="!isAdmin">删除</el-button>
+            {{ formatTime(row.createTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column :label="$t('userManagement.actions')" width="200" fixed="right">
+          <template #default="{ row }">
+            <el-button type="primary" link @click="handleEdit(row)" :disabled="!isAdmin">{{ $t('userManagement.edit') }}</el-button>
+            <el-button type="danger" link @click="handleDelete(row)" :disabled="!isAdmin">{{ $t('userManagement.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
 
-      <!-- 分页 -->
       <div class="pagination-container">
         <el-pagination
           v-model:current-page="pagination.current"
@@ -86,31 +86,30 @@
       </div>
     </el-card>
 
-    <!-- 创建/编辑对话框 -->
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="600px" @close="handleDialogClose">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
-        <el-form-item label="用户名" prop="username">
-          <el-input v-model="form.username" placeholder="请输入用户名" :disabled="isEdit" />
+        <el-form-item :label="$t('userManagement.username')" prop="username">
+          <el-input v-model="form.username" :placeholder="$t('userManagement.usernamePlaceholder')" :disabled="isEdit" />
         </el-form-item>
-        <el-form-item label="邮箱" prop="email">
-          <el-input v-model="form.email" placeholder="请输入邮箱" />
+        <el-form-item :label="$t('userManagement.email')" prop="email">
+          <el-input v-model="form.email" :placeholder="$t('userManagement.emailPlaceholder')" />
         </el-form-item>
-        <el-form-item label="密码" prop="password" v-if="!isEdit">
-          <el-input v-model="form.password" type="password" placeholder="请输入密码" show-password />
+        <el-form-item :label="$t('userManagement.password')" prop="password" v-if="!isEdit">
+          <el-input v-model="form.password" type="password" :placeholder="$t('userManagement.passwordPlaceholder')" show-password />
         </el-form-item>
-        <el-form-item label="角色" prop="role">
-          <el-select v-model="form.role" placeholder="请选择角色" style="width: 100%">
-            <el-option label="管理员" value="ADMIN" />
-            <el-option label="普通用户" value="USER" />
+        <el-form-item :label="$t('userManagement.role')" prop="role">
+          <el-select v-model="form.role" :placeholder="$t('userManagement.rolePlaceholder')" style="width: 100%">
+            <el-option :label="$t('userManagement.admin')" value="ADMIN" />
+            <el-option :label="$t('userManagement.normalUser')" value="USER" />
           </el-select>
         </el-form-item>
-        <el-form-item label="状态" prop="enabled">
-          <el-switch v-model="form.enabled" active-text="启用" inactive-text="禁用" />
+        <el-form-item :label="$t('userManagement.status')" prop="enabled">
+          <el-switch v-model="form.enabled" :active-text="$t('userManagement.enabledStatus')" :inactive-text="$t('userManagement.disabledStatus')" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">确定</el-button>
+        <el-button @click="dialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -118,17 +117,18 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Edit, Delete } from '@element-plus/icons-vue'
 import request from '@/utils/request'
+import { formatTime, loadDateFormat } from '@/utils/dateFormat'
 import { useUserStore } from '@/stores/user'
 
+const { t } = useI18n()
 const userStore = useUserStore()
 
-// 检查是否为管理员
 const isAdmin = computed(() => userStore.isAdmin)
 
-// 搜索表单
 const searchForm = reactive({
   username: '',
   email: '',
@@ -136,25 +136,21 @@ const searchForm = reactive({
   enabled: null
 })
 
-// 表格数据
 const loading = ref(false)
 const userList = ref([])
 
-// 分页
 const pagination = reactive({
   current: 1,
   pageSize: 10,
   total: 0
 })
 
-// 对话框
 const dialogVisible = ref(false)
-const dialogTitle = ref('创建用户')
+const dialogTitle = ref('')
 const isEdit = ref(false)
 const submitLoading = ref(false)
 const formRef = ref()
 
-// 表单数据
 const form = reactive({
   id: null,
   username: '',
@@ -164,31 +160,29 @@ const form = reactive({
   enabled: true
 })
 
-// 表单验证规则
-const rules = {
+const rules = computed(() => ({
   username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 50, message: '长度在 3 到 50 个字符', trigger: 'blur' },
-    { pattern: /^[a-zA-Z0-9_]+$/, message: '只能包含字母、数字和下划线', trigger: 'blur' }
+    { required: true, message: t('userManagement.usernameRequired'), trigger: 'blur' },
+    { min: 3, max: 50, message: t('userManagement.usernameLength'), trigger: 'blur' },
+    { pattern: /^[a-zA-Z0-9_]+$/, message: t('userManagement.usernameFormat'), trigger: 'blur' }
   ],
   email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
-    { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+    { required: true, message: t('userManagement.emailRequired'), trigger: 'blur' },
+    { type: 'email', message: t('userManagement.emailFormat'), trigger: 'blur' }
   ],
   password: [
-    { required: !isEdit.value, message: '请输入密码', trigger: 'blur' },
-    { min: 8, message: '密码长度至少8位', trigger: 'blur' },
-    { pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/, message: '密码必须包含大小写字母、数字和特殊字符', trigger: 'blur' }
+    { required: !isEdit.value, message: t('userManagement.passwordRequired'), trigger: 'blur' },
+    { min: 8, message: t('userManagement.passwordMinLength'), trigger: 'blur' },
+    { pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/, message: t('userManagement.passwordStrength'), trigger: 'blur' }
   ],
   role: [
-    { required: true, message: '请选择角色', trigger: 'change' }
+    { required: true, message: t('userManagement.roleRequired'), trigger: 'change' }
   ]
-}
+}))
 
-// 获取用户列表
 const fetchUsers = async () => {
   if (!isAdmin.value) {
-    ElMessage.error('没有权限访问用户管理')
+    ElMessage.error(t('userManagement.noPermission'))
     return
   }
 
@@ -209,23 +203,21 @@ const fetchUsers = async () => {
       userList.value = response.data
       pagination.total = response.data.length
     } else {
-      ElMessage.error('获取用户列表失败')
+      ElMessage.error(t('userManagement.fetchFailed'))
     }
   } catch (error) {
     console.error('获取用户列表失败:', error)
-    ElMessage.error('获取用户列表失败')
+    ElMessage.error(t('userManagement.fetchFailed'))
   } finally {
     loading.value = false
   }
 }
 
-// 搜索
 const handleSearch = () => {
   pagination.current = 1
   fetchUsers()
 }
 
-// 重置
 const handleReset = () => {
   searchForm.username = ''
   searchForm.email = ''
@@ -234,21 +226,18 @@ const handleReset = () => {
   handleSearch()
 }
 
-// 分页大小变化
 const handleSizeChange = (size) => {
   pagination.pageSize = size
   fetchUsers()
 }
 
-// 当前页变化
 const handleCurrentChange = (page) => {
   pagination.current = page
   fetchUsers()
 }
 
-// 创建用户
 const handleCreate = () => {
-  dialogTitle.value = '创建用户'
+  dialogTitle.value = t('userManagement.createUser')
   isEdit.value = false
   form.id = null
   form.username = ''
@@ -259,40 +248,38 @@ const handleCreate = () => {
   dialogVisible.value = true
 }
 
-// 编辑用户
 const handleEdit = (row) => {
   if (!isAdmin.value) {
-    ElMessage.error('没有权限编辑用户')
+    ElMessage.error(t('userManagement.noEditPermission'))
     return
   }
 
-  dialogTitle.value = '编辑用户'
+  dialogTitle.value = t('userManagement.editUser')
   isEdit.value = true
   form.id = row.id
   form.username = row.username
   form.email = row.email
-  form.password = '' // 编辑时不显示密码
+  form.password = ''
   form.role = row.role
   form.enabled = row.enabled
   dialogVisible.value = true
 }
 
-// 删除用户
 const handleDelete = async (row) => {
   if (!isAdmin.value) {
-    ElMessage.error('没有权限删除用户')
+    ElMessage.error(t('userManagement.noDeletePermission'))
     return
   }
 
   if (row.id === userStore.userInfo.id) {
-    ElMessage.error('不能删除当前登录用户')
+    ElMessage.error(t('userManagement.cannotDeleteSelf'))
     return
   }
 
   try {
-    await ElMessageBox.confirm('确认删除用户 ' + row.username + ' 吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
+    await ElMessageBox.confirm(t('userManagement.confirmDelete', { name: row.username }), t('common.info'), {
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning'
     })
 
@@ -301,20 +288,19 @@ const handleDelete = async (row) => {
       method: 'delete'
     })
     if (response.code === 200) {
-      ElMessage.success('删除成功')
+      ElMessage.success(t('userManagement.deleteSuccess'))
       fetchUsers()
     } else {
-      ElMessage.error('删除失败')
+      ElMessage.error(t('userManagement.deleteFailed'))
     }
   } catch (error) {
     if (error !== 'cancel') {
       console.error('删除失败:', error)
-      ElMessage.error('删除失败')
+      ElMessage.error(t('userManagement.deleteFailed'))
     }
   }
 }
 
-// 提交表单
 const handleSubmit = async () => {
   try {
     await formRef.value.validate()
@@ -322,13 +308,12 @@ const handleSubmit = async () => {
 
     const submitData = { ...form }
     if (isEdit.value) {
-      // 编辑时移除密码字段
       delete submitData.password
     }
 
     const response = isEdit.value
       ? await request({
-          url: '/users',
+          url: `/users/${form.id}`,
           method: 'put',
           data: submitData
         })
@@ -339,27 +324,26 @@ const handleSubmit = async () => {
         })
 
     if (response.code === 200) {
-      ElMessage.success(isEdit.value ? '编辑成功' : '创建成功')
+      ElMessage.success(isEdit.value ? t('userManagement.editSuccess') : t('userManagement.createSuccess'))
       dialogVisible.value = false
       fetchUsers()
     } else {
-      ElMessage.error(response.message || (isEdit.value ? '编辑失败' : '创建失败'))
+      ElMessage.error(response.message || (isEdit.value ? t('userManagement.editFailed') : t('userManagement.createFailed')))
     }
   } catch (error) {
     console.error('提交失败:', error)
-    ElMessage.error(isEdit.value ? '编辑失败' : '创建失败')
+    ElMessage.error(isEdit.value ? t('userManagement.editFailed') : t('userManagement.createFailed'))
   } finally {
     submitLoading.value = false
   }
 }
 
-// 关闭对话框
 const handleDialogClose = () => {
   formRef.value?.resetFields()
 }
 
-// 页面加载时获取数据
-onMounted(() => {
+onMounted(async () => {
+  await loadDateFormat()
   fetchUsers()
 })
 </script>

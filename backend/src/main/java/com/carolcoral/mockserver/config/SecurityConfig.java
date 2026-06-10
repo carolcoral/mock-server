@@ -78,7 +78,6 @@ public class SecurityConfig {
                                 "/api/mock/**",
                                 "/api/ws/**",
                                 "/api/error",
-                                "/api/system-config/**",
                                 "/api/actuator/**",
                                 "/api/v3/api-docs/**",
                                 "/api/swagger-resources/**",
@@ -89,6 +88,7 @@ public class SecurityConfig {
                                 "/favicon.ico",
                                 "/robots.txt",
                                 "/assets/**",
+                                "/USER_GUIDE.md",
                                 // SPA 路由（Vue Router history 模式）
                                 "/login",
                                 "/dashboard",
@@ -98,16 +98,18 @@ public class SecurityConfig {
                                 "/apis",
                                 "/users",
                                 "/settings",
-                                "/guide"
+                                "/guide",
+                                "/profile"
                         ).permitAll()
                         // Swagger UI 页面
                         .requestMatchers(
                                 "/api/swagger-ui/**",
                                 "/api/swagger-ui.html"
                         ).authenticated()
-                        // 系统配置接口 - 需要管理员权限
+                        // 系统配置读写接口 - 需要管理员权限
                         .requestMatchers(
-                                "/api/system-config/language"
+                                "/api/system-config/language",
+                                "/api/system-config/date-format"
                         ).hasRole("ADMIN")
                         // 用户信息接口 - 需要认证
                         .requestMatchers(
@@ -115,6 +117,10 @@ public class SecurityConfig {
                                 "/api/users/update-profile",
                                 "/api/users/change-password",
                                 "/api/system/info"
+                        ).authenticated()
+                        // 系统配置读取接口 - 需要认证
+                        .requestMatchers(
+                                "/api/system-config"
                         ).authenticated()
                         // 允许所有OPTIONS预检请求
                         .requestMatchers(request -> "OPTIONS".equals(request.getMethod())).permitAll()

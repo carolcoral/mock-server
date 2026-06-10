@@ -2,7 +2,7 @@
   <div class="settings">
     <!-- 页面标题 -->
     <div class="page-header">
-      <h1>系统设置</h1>
+      <h1>{{ $t('settings.title') }}</h1>
     </div>
 
     <el-row :gutter="20">
@@ -12,27 +12,27 @@
           <el-menu :default-active="activeMenu" @select="handleMenuSelect">
             <el-menu-item index="basic">
               <Setting :width="'1em'" :height="'1em'" />
-              <span>基础设置</span>
+              <span>{{ $t('settings.basic') }}</span>
             </el-menu-item>
             <el-menu-item index="security">
               <Lock :width="'1em'" :height="'1em'" />
-              <span>安全配置</span>
+              <span>{{ $t('settings.security') }}</span>
             </el-menu-item>
             <el-menu-item index="jwt">
               <Key :width="'1em'" :height="'1em'" />
-              <span>JWT配置</span>
+              <span>{{ $t('settings.jwt') }}</span>
             </el-menu-item>
             <el-menu-item index="mock">
               <Connection :width="'1em'" :height="'1em'" />
-              <span>Mock配置</span>
+              <span>{{ $t('settings.mock') }}</span>
             </el-menu-item>
             <el-menu-item index="announcement">
               <Bell :width="'1em'" :height="'1em'" />
-              <span>系统公告</span>
+              <span>{{ $t('settings.announcement') }}</span>
             </el-menu-item>
             <el-menu-item index="system">
               <InfoFilled :width="'1em'" :height="'1em'" />
-              <span>系统信息</span>
+              <span>{{ $t('settings.system') }}</span>
             </el-menu-item>
           </el-menu>
         </el-card>
@@ -43,23 +43,23 @@
         <el-card class="content-card">
           <!-- 基础设置 -->
           <div v-if="activeMenu === 'basic'">
-            <h2>基础设置</h2>
+            <h2>{{ $t('settings.basic') }}</h2>
             <el-divider />
             <el-form :model="basicSettings" label-width="150px">
-              <el-form-item label="应用名称">
+              <el-form-item :label="$t('settings.appName')">
                 <el-input v-model="basicSettings.appName" disabled />
               </el-form-item>
-              <el-form-item label="应用版本">
+              <el-form-item :label="$t('settings.version')">
                 <el-input v-model="basicSettings.version" disabled />
               </el-form-item>
-              <el-form-item label="系统语言">
+              <el-form-item :label="$t('settings.language')">
                 <el-select v-model="basicSettings.language" style="width: 100%">
-                  <el-option label="中文" value="zh-CN" />
-                  <el-option label="English" value="en-US" />
-                  <el-option label="日本語" value="ja-JP" />
+                  <el-option :label="$t('settings.langZhCN')" value="zh-CN" />
+                  <el-option :label="$t('settings.langEnUS')" value="en-US" />
+                  <el-option :label="$t('settings.langJaJP')" value="ja-JP" />
                 </el-select>
               </el-form-item>
-              <el-form-item label="日期格式">
+              <el-form-item :label="$t('settings.dateFormat')">
                 <el-select v-model="basicSettings.dateFormat" style="width: 100%">
                   <el-option label="YYYY-MM-DD" value="YYYY-MM-DD" />
                   <el-option label="DD/MM/YYYY" value="DD/MM/YYYY" />
@@ -67,144 +67,148 @@
                 </el-select>
               </el-form-item>
               <el-form-item>
-                <el-button type="primary" @click="saveBasicSettings" :loading="saving">保存设置</el-button>
-                <el-button @click="resetBasicSettings">重置</el-button>
+                <el-button type="primary" @click="saveBasicSettings" :loading="saving">{{ $t('settings.saveSettings') }}</el-button>
+                <el-button @click="resetBasicSettings">{{ $t('settings.resetSettings') }}</el-button>
               </el-form-item>
             </el-form>
           </div>
 
           <!-- 安全配置 -->
           <div v-if="activeMenu === 'security'">
-            <h2>安全配置</h2>
+            <h2>{{ $t('settings.security') }}</h2>
             <el-divider />
-            <el-alert title="以下配置项需要重启应用后生效" type="warning" :closable="false" show-icon />
+            <el-alert :title="$t('settings.requireRestart')" type="warning" :closable="false" show-icon />
             <br />
             <el-form :model="securitySettings" label-width="180px">
-              <el-form-item label="密码强度要求">
-                <el-checkbox v-model="securitySettings.requireUppercase">必须包含大写字母</el-checkbox>
-                <el-checkbox v-model="securitySettings.requireLowercase">必须包含小写字母</el-checkbox>
-                <el-checkbox v-model="securitySettings.requireDigit">必须包含数字</el-checkbox>
-                <el-checkbox v-model="securitySettings.requireSpecial">必须包含特殊字符</el-checkbox>
+              <el-form-item :label="$t('settings.passwordStrength')">
+                <el-checkbox v-model="securitySettings.requireUppercase">{{ $t('settings.requireUppercase') }}</el-checkbox>
+                <el-checkbox v-model="securitySettings.requireLowercase">{{ $t('settings.requireLowercase') }}</el-checkbox>
+                <el-checkbox v-model="securitySettings.requireDigit">{{ $t('settings.requireDigit') }}</el-checkbox>
+                <el-checkbox v-model="securitySettings.requireSpecial">{{ $t('settings.requireSpecial') }}</el-checkbox>
               </el-form-item>
-              <el-form-item label="密码最小长度">
+              <el-form-item :label="$t('settings.minPasswordLength')">
                 <el-input-number v-model="securitySettings.minPasswordLength" :min="8" :max="32" />
               </el-form-item>
-              <el-form-item label="登录失败锁定次数">
+              <el-form-item :label="$t('settings.maxLoginAttempts')">
                 <el-input-number v-model="securitySettings.maxLoginAttempts" :min="3" :max="10" />
               </el-form-item>
-              <el-form-item label="锁定时间（分钟）">
+              <el-form-item :label="$t('settings.lockoutDuration')">
                 <el-input-number v-model="securitySettings.lockoutDuration" :min="5" :max="60" />
               </el-form-item>
-              <el-form-item label="启用IP白名单">
+              <el-form-item :label="$t('settings.enableIpWhitelist')">
                 <el-switch v-model="securitySettings.enableIpWhitelist" />
               </el-form-item>
-              <el-form-item label="IP白名单" v-if="securitySettings.enableIpWhitelist">
+              <el-form-item :label="$t('settings.ipWhitelist')" v-if="securitySettings.enableIpWhitelist">
                 <el-input
                   v-model="securitySettings.ipWhitelist"
                   type="textarea"
                   :rows="4"
-                  placeholder="请输入IP地址，多个IP用逗号分隔"
+                  :placeholder="$t('settings.ipWhitelistPlaceholder')"
                 />
               </el-form-item>
               <el-form-item>
-                <el-button type="primary" @click="saveSecuritySettings" :loading="saving">保存设置</el-button>
-                <el-button @click="resetSecuritySettings">重置</el-button>
+                <el-button type="primary" @click="saveSecuritySettings" :loading="saving">{{ $t('settings.saveSettings') }}</el-button>
+                <el-button @click="resetSecuritySettings">{{ $t('settings.resetSettings') }}</el-button>
               </el-form-item>
             </el-form>
           </div>
 
           <!-- JWT配置 -->
           <div v-if="activeMenu === 'jwt'">
-            <h2>JWT配置</h2>
+            <h2>{{ $t('settings.jwt') }}</h2>
             <el-divider />
-            <el-alert title="修改JWT配置后，所有用户需要重新登录" type="warning" :closable="false" show-icon />
+            <el-alert :title="$t('settings.jwtWarning')" type="warning" :closable="false" show-icon />
             <br />
             <el-form :model="jwtSettings" label-width="180px">
-              <el-form-item label="Token过期时间">
+              <el-form-item :label="$t('settings.tokenExpiration')">
                 <el-input-number v-model="jwtSettings.tokenExpiration" :min="900" :max="86400" step="300" />
-                <span style="margin-left: 10px; color: #909399;">秒（建议15-30分钟）</span>
+                <span style="margin-left: 10px; color: #909399;">{{ $t('settings.tokenExpirationUnit') }}</span>
               </el-form-item>
-              <el-form-item label="Refresh Token过期时间">
+              <el-form-item :label="$t('settings.refreshTokenExpiration')">
                 <el-input-number v-model="jwtSettings.refreshTokenExpiration" :min="3600" :max="604800" step="3600" />
-                <span style="margin-left: 10px; color: #909399;">秒（建议7天）</span>
+                <span style="margin-left: 10px; color: #909399;">{{ $t('settings.refreshTokenExpirationUnit') }}</span>
               </el-form-item>
-              <el-form-item label="签发者">
-                <el-input v-model="jwtSettings.issuer" placeholder="请输入JWT签发者" />
+              <el-form-item :label="$t('settings.issuer')">
+                <el-input v-model="jwtSettings.issuer" :placeholder="$t('settings.issuerPlaceholder')" />
               </el-form-item>
-              <el-form-item label="受众">
-                <el-input v-model="jwtSettings.audience" placeholder="请输入JWT受众" />
+              <el-form-item :label="$t('settings.audience')">
+                <el-input v-model="jwtSettings.audience" :placeholder="$t('settings.audiencePlaceholder')" />
               </el-form-item>
               <el-form-item>
-                <el-button type="primary" @click="saveJwtSettings" :loading="saving">保存设置</el-button>
-                <el-button @click="resetJwtSettings">重置</el-button>
+                <el-button type="primary" @click="saveJwtSettings" :loading="saving">{{ $t('settings.saveSettings') }}</el-button>
+                <el-button @click="resetJwtSettings">{{ $t('settings.resetSettings') }}</el-button>
               </el-form-item>
             </el-form>
           </div>
 
           <!-- Mock配置 -->
           <div v-if="activeMenu === 'mock'">
-            <h2>Mock配置</h2>
+            <h2>{{ $t('settings.mock') }}</h2>
             <el-divider />
             <el-form :model="mockSettings" label-width="180px">
-              <el-form-item label="默认响应延迟">
+              <el-form-item :label="$t('settings.defaultResponseDelay')">
                 <el-input-number v-model="mockSettings.defaultResponseDelay" :min="0" :max="5000" step="100" />
-                <span style="margin-left: 10px; color: #909399;">毫秒</span>
+                <span style="margin-left: 10px; color: #909399;">{{ $t('settings.responseDelayUnit') }}</span>
               </el-form-item>
-              <el-form-item label="最大响应延迟">
+              <el-form-item :label="$t('settings.maxResponseDelay')">
                 <el-input-number v-model="mockSettings.maxResponseDelay" :min="1000" :max="10000" step="500" />
-                <span style="margin-left: 10px; color: #909399;">毫秒（防止DoS攻击）</span>
+                <span style="margin-left: 10px; color: #909399;">{{ $t('settings.maxResponseDelayUnit') }}</span>
               </el-form-item>
-              <el-form-item label="启用请求日志">
+              <el-form-item :label="$t('settings.enableRequestLog')">
                 <el-switch v-model="mockSettings.enableRequestLog" />
               </el-form-item>
-              <el-form-item label="日志保留天数">
+              <el-form-item :label="$t('settings.logRetentionDays')">
                 <el-input-number v-model="mockSettings.logRetentionDays" :min="1" :max="90" />
-                <span style="margin-left: 10px; color: #909399;">天</span>
+                <span style="margin-left: 10px; color: #909399;">{{ $t('settings.logRetentionUnit') }}</span>
               </el-form-item>
-              <el-form-item label="最大请求体大小">
+              <el-form-item :label="$t('settings.maxRequestBodySize')">
                 <el-input-number v-model="mockSettings.maxRequestBodySize" :min="1" :max="100" />
-                <span style="margin-left: 10px; color: #909399;">MB</span>
+                <span style="margin-left: 10px; color: #909399;">{{ $t('settings.maxRequestBodySizeUnit') }}</span>
+              </el-form-item>
+              <el-form-item :label="$t('settings.axiosTimeout')">
+                <el-input-number v-model="mockSettings.axiosTimeout" :min="5000" :max="120000" step="1000" />
+                <span style="margin-left: 10px; color: #909399;">{{ $t('settings.axiosTimeoutUnit') }}</span>
               </el-form-item>
               <el-form-item>
-                <el-button type="primary" @click="saveMockSettings" :loading="saving">保存设置</el-button>
-                <el-button @click="resetMockSettings">重置</el-button>
+                <el-button type="primary" @click="saveMockSettings" :loading="saving">{{ $t('settings.saveSettings') }}</el-button>
+                <el-button @click="resetMockSettings">{{ $t('settings.resetSettings') }}</el-button>
               </el-form-item>
             </el-form>
           </div>
 
           <!-- 系统信息 -->
           <div v-if="activeMenu === 'system'">
-            <h2>系统信息</h2>
+            <h2>{{ $t('settings.system') }}</h2>
             <el-divider />
-            <el-alert v-if="systemInfoLoading" title="正在加载系统信息..." type="info" :closable="false" show-icon />
+            <el-alert v-if="systemInfoLoading" :title="$t('settings.loading')" type="info" :closable="false" show-icon />
             <el-descriptions :column="2" border v-loading="systemInfoLoading">
-              <el-descriptions-item label="应用名称">{{ systemInfo.appName }}</el-descriptions-item>
-              <el-descriptions-item label="应用版本">{{ systemInfo.version }}</el-descriptions-item>
-              <el-descriptions-item label="Spring Boot版本">{{ systemInfo.springBootVersion }}</el-descriptions-item>
-              <el-descriptions-item label="运行环境">{{ systemInfo.environment }}</el-descriptions-item>
-              <el-descriptions-item label="启动时间">{{ systemInfo.startTime }}</el-descriptions-item>
-              <el-descriptions-item label="运行时间">{{ systemInfo.uptime }}</el-descriptions-item>
-              <el-descriptions-item label="Java版本">{{ systemInfo.javaVersion }}</el-descriptions-item>
-              <el-descriptions-item label="Java厂商">{{ systemInfo.javaVendor }}</el-descriptions-item>
-              <el-descriptions-item label="数据库类型">{{ systemInfo.databaseType }}</el-descriptions-item>
-              <el-descriptions-item label="数据库版本">{{ systemInfo.databaseVersion }}</el-descriptions-item>
-              <el-descriptions-item label="操作系统">{{ systemInfo.osName }} {{ systemInfo.osVersion }}</el-descriptions-item>
-              <el-descriptions-item label="系统架构">{{ systemInfo.osArch }}</el-descriptions-item>
-              <el-descriptions-item label="可用处理器">{{ systemInfo.availableProcessors }} 核</el-descriptions-item>
-              <el-descriptions-item label="工作目录">{{ systemInfo.userDir }}</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.appName')">{{ systemInfo.appName }}</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.version')">{{ systemInfo.version }}</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.springBootVersion')">{{ systemInfo.springBootVersion }}</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.environment')">{{ systemInfo.environment }}</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.buildTime')">{{ systemInfo.startTime }}</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.uptime')">{{ systemInfo.uptime }}</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.javaVersion')">{{ systemInfo.javaVersion }}</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.javaVendor')">{{ systemInfo.javaVendor }}</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.databaseType')">{{ systemInfo.databaseType }}</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.databaseVersion')">{{ systemInfo.databaseVersion }}</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.osName')">{{ systemInfo.osName }} {{ systemInfo.osVersion }}</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.osArch')">{{ systemInfo.osArch }}</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.availableProcessors')">{{ systemInfo.availableProcessors }} {{ $t('settings.cores') }}</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.userDir')">{{ systemInfo.userDir }}</el-descriptions-item>
             </el-descriptions>
 
             <div style="margin-top: 20px; display: flex; align-items: center; gap: 12px;">
-              <h3 style="margin: 0; font-size: 18px; font-weight: 600;">性能监控</h3>
+              <h3 style="margin: 0; font-size: 18px; font-weight: 600;">{{ $t('settings.performanceMonitoring') }}</h3>
               <el-tag size="small" type="success" effect="plain">
-                每5秒自动刷新
+                {{ $t('settings.autoRefresh5s') }}
               </el-tag>
             </div>
             <el-divider />
             <el-row :gutter="20">
               <el-col :span="8">
                 <el-card shadow="hover">
-                  <el-statistic title="CPU使用率" :value="systemInfo.cpuUsage >= 0 ? systemInfo.cpuUsage : 'N/A'" :suffix="systemInfo.cpuUsage >= 0 ? '%' : ''">
+                  <el-statistic :title="$t('settings.cpuUsage')" :value="systemInfo.cpuUsage >= 0 ? systemInfo.cpuUsage : 'N/A'" :suffix="systemInfo.cpuUsage >= 0 ? '%' : ''">
                     <template #prefix>
                       <span :style="{ color: cpuUsageColor }">●</span>
                     </template>
@@ -213,7 +217,7 @@
               </el-col>
               <el-col :span="8">
                 <el-card shadow="hover">
-                  <el-statistic title="内存使用率" :value="systemInfo.memoryUsage" suffix="%">
+                  <el-statistic :title="$t('settings.memoryUsage')" :value="systemInfo.memoryUsage" suffix="%">
                     <template #prefix>
                       <span :style="{ color: memoryUsageColor }">●</span>
                     </template>
@@ -222,7 +226,7 @@
               </el-col>
               <el-col :span="8">
                 <el-card shadow="hover">
-                  <el-statistic title="磁盘使用率" :value="systemInfo.diskUsage" suffix="%">
+                  <el-statistic :title="$t('settings.diskUsage')" :value="systemInfo.diskUsage" suffix="%">
                     <template #prefix>
                       <span :style="{ color: diskUsageColor }">●</span>
                     </template>
@@ -232,78 +236,78 @@
             </el-row>
 
             <div style="margin-top: 20px; display: flex; align-items: center; gap: 12px;">
-              <h3 style="margin: 0; font-size: 18px; font-weight: 600;">JVM 内存详情</h3>
+              <h3 style="margin: 0; font-size: 18px; font-weight: 600;">{{ $t('settings.jvmMemoryDetail') }}</h3>
               <el-tag size="small" type="success" effect="plain">
-                每5秒自动刷新
+                {{ $t('settings.autoRefresh5s') }}
               </el-tag>
             </div>
             <el-divider />
             <el-descriptions :column="3" border>
-              <el-descriptions-item label="堆内存已用">{{ systemInfo.heapUsedMB }} MB</el-descriptions-item>
-              <el-descriptions-item label="堆内存上限">{{ systemInfo.heapMaxMB }} MB</el-descriptions-item>
-              <el-descriptions-item label="使用率">{{ systemInfo.memoryUsage }}%</el-descriptions-item>
-              <el-descriptions-item label="磁盘总空间">{{ systemInfo.diskTotalGB }} GB</el-descriptions-item>
-              <el-descriptions-item label="磁盘可用">{{ systemInfo.diskFreeGB }} GB</el-descriptions-item>
-              <el-descriptions-item label="磁盘使用率">{{ systemInfo.diskUsage }}%</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.heapUsed')">{{ systemInfo.heapUsedMB }} MB</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.heapMax')">{{ systemInfo.heapMaxMB }} MB</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.usage')">{{ systemInfo.memoryUsage }}%</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.diskTotal')">{{ systemInfo.diskTotalGB }} GB</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.diskFree')">{{ systemInfo.diskFreeGB }} GB</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.diskUsage')">{{ systemInfo.diskUsage }}%</el-descriptions-item>
             </el-descriptions>
 
             <div style="margin-top: 15px; display: flex; justify-content: flex-end; align-items: center; gap: 12px;">
               <span style="color: #909399; font-size: 13px;">
                 <el-icon style="vertical-align: -2px;"><Timer /></el-icon>
-                自动刷新中（每5秒）
+                {{ $t('settings.autoRefreshing') }}
               </span>
               <el-button @click="refreshSystemInfo" :loading="systemInfoLoading" type="primary">
-                手动刷新
+                {{ $t('settings.manualRefresh') }}
               </el-button>
             </div>
 
-            <h3 style="margin-top: 30px;">环境变量（安全过滤）</h3>
+            <h3 style="margin-top: 30px;">{{ $t('settings.environmentVars') }}</h3>
             <el-divider />
-            <el-table :data="envVars" border style="width: 100%" v-loading="systemInfoLoading" empty-text="暂无环境变量数据">
-              <el-table-column prop="key" label="变量名" width="220" />
-              <el-table-column prop="value" label="值" />
+            <el-table :data="envVars" border style="width: 100%" v-loading="systemInfoLoading" :empty-text="$t('settings.noEnvVars')">
+              <el-table-column prop="key" :label="$t('settings.variableName')" width="220" />
+              <el-table-column prop="value" :label="$t('settings.variableValue')" />
             </el-table>
           </div>
 
           <!-- 系统公告 -->
           <div v-if="activeMenu === 'announcement'">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-              <h2 style="margin: 0;">系统公告</h2>
+              <h2 style="margin: 0;">{{ $t('settings.announcement') }}</h2>
               <el-button type="primary" @click="openAnnouncementDialog()">
                 <Edit :width="'1em'" :height="'1em'" style="margin-right: 5px;" />
-                创建公告
+                {{ $t('settings.createAnnouncement') }}
               </el-button>
             </div>
             <el-divider />
             <el-table :data="announcements" border style="width: 100%">
-              <el-table-column prop="title" label="标题" width="200" />
-              <el-table-column prop="content" label="内容" show-overflow-tooltip />
-              <el-table-column prop="enabled" label="状态" width="100">
+              <el-table-column prop="title" :label="$t('settings.announcementTitle')" width="200" />
+              <el-table-column prop="content" :label="$t('settings.announcementContent')" show-overflow-tooltip />
+              <el-table-column prop="enabled" :label="$t('settings.status')" width="100">
                 <template #default="{ row }">
                   <el-tag :type="row.enabled ? 'success' : 'info'">
-                    {{ row.enabled ? '已启用' : '已禁用' }}
+                    {{ row.enabled ? $t('settings.enabledStatus') : $t('settings.disabledStatus') }}
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="priority" label="优先级" width="100">
+              <el-table-column prop="priority" :label="$t('settings.priority')" width="100">
                 <template #default="{ row }">
                   <el-tag :type="getPriorityType(row.priority)">{{ row.priority }}</el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="createBy" label="创建人" width="120" />
-              <el-table-column prop="createTime" label="创建时间" width="180" sortable>
+              <el-table-column prop="createBy" :label="$t('settings.createdBy')" width="120" />
+              <el-table-column prop="createTime" :label="$t('settings.createTime')" width="180" sortable>
                 <template #default="{ row }">
                   {{ formatTime(row.createTime) }}
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="200" fixed="right">
+              <el-table-column :label="$t('common.edit')" width="200" fixed="right">
                 <template #default="{ row }">
                   <el-button link type="primary" @click="openAnnouncementDialog(row)">
                     <Edit :width="'1em'" :height="'1em'" />
-                    编辑
+                    {{ $t('common.edit') }}
                   </el-button>
                   <el-button link type="primary" @click="toggleAnnouncementStatus(row)">
-                    {{ row.enabled ? '禁用' : '启用' }}
+                    {{ row.enabled ? $t('settings.disable') : $t('settings.enable') }}
                   </el-button>
                   <el-button link type="danger" @click="deleteAnnouncement(row.id)">
                     <Delete :width="'1em'" :height="'1em'" />
@@ -332,35 +336,35 @@
     <!-- 公告编辑对话框 -->
     <el-dialog v-model="announcementDialogVisible" :title="dialogTitle" width="60%">
       <el-form :model="announcementForm" label-width="100px">
-        <el-form-item label="公告标题">
-          <el-input v-model="announcementForm.title" placeholder="请输入公告标题" />
+        <el-form-item :label="$t('settings.announcementTitle')">
+          <el-input v-model="announcementForm.title" :placeholder="$t('settings.announcementPlaceholder')" />
         </el-form-item>
-        <el-form-item label="优先级">
+        <el-form-item :label="$t('settings.priority')">
           <el-select v-model="announcementForm.priority" style="width: 100%">
-            <el-option label="低" value="LOW" />
-            <el-option label="普通" value="NORMAL" />
-            <el-option label="高" value="HIGH" />
-            <el-option label="紧急" value="URGENT" />
+            <el-option :label="$t('settings.low')" value="LOW" />
+            <el-option :label="$t('settings.normal')" value="NORMAL" />
+            <el-option :label="$t('settings.high')" value="HIGH" />
+            <el-option :label="$t('settings.urgent')" value="URGENT" />
           </el-select>
         </el-form-item>
-        <el-form-item label="是否启用">
+        <el-form-item :label="$t('settings.enabled')">
           <el-switch v-model="announcementForm.enabled" />
         </el-form-item>
-        <el-form-item label="公告内容">
+        <el-form-item :label="$t('settings.announcementContent')">
           <el-input
             v-model="announcementForm.content"
             type="textarea"
             :rows="15"
-            placeholder="支持Markdown格式，例如：## 标题\n- 列表项\n**加粗文本**"
+            :placeholder="$t('settings.announcementPlaceholder2')"
           />
           <div style="margin-top: 10px; color: #909399; font-size: 12px;">
-            支持的Markdown语法：# 标题, ## 子标题, **加粗**, *斜体*, - 列表, `代码`等
+            {{ $t('settings.markdownHint') }}
           </div>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="announcementDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveAnnouncement" :loading="saving">保存</el-button>
+        <el-button @click="announcementDialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="saveAnnouncement" :loading="saving">{{ $t('common.save') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -372,15 +376,16 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Setting, Lock, Key, Connection, InfoFilled, Bell, Edit, Delete, Refresh, Timer } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import request from '@/utils/request'
+import { setDateFormat } from '@/utils/dateFormat'
+import axios from 'axios'
 
 const { t, locale } = useI18n()
 
-// 监听语言变化，保存到 localStorage 和后端
+// 监听语言变化，保存到 localStorage
+// 注意：不在此处调用后端 API，避免与 saveBasicSettings 重复请求
 watch(locale, (newLocale) => {
   localStorage.setItem('locale', newLocale)
   console.log('Language changed to:', newLocale)
-  // 保存到后端
-  saveLanguageToServer(newLocale)
 })
 
 // 当前激活的菜单
@@ -392,7 +397,7 @@ const saving = ref(false)
 // 基础设置
 const basicSettings = reactive({
   appName: 'Mock Server',
-  version: 'v1.0.0',
+  version: 'v2.0.0',
   language: localStorage.getItem('locale') || 'zh-CN',
   dateFormat: 'YYYY-MM-DD'
 })
@@ -404,6 +409,18 @@ const saveLanguageToServer = async (language) => {
     console.log('Language saved to server:', language)
   } catch (error) {
     console.error('Failed to save language to server:', error)
+    throw error
+  }
+}
+
+// 保存日期格式到服务器
+const saveDateFormatToServer = async (dateFormat) => {
+  try {
+    await request.post('/system-config/date-format', { dateFormat })
+    console.log('Date format saved to server:', dateFormat)
+  } catch (error) {
+    console.error('Failed to save date format to server:', error)
+    throw error
   }
 }
 
@@ -435,7 +452,8 @@ const mockSettings = reactive({
   enableRequestLog: true,
   logRetentionDays: 30,
   enableRandomResponse: false,
-  maxRequestBodySize: 10
+  maxRequestBodySize: 10,
+  axiosTimeout: 30000
 })
 
 // 系统信息
@@ -526,14 +544,17 @@ const handleMenuSelect = (index) => {
 const saveBasicSettings = async () => {
   saving.value = true
   try {
+    // 先切换语言（即时生效，不依赖后端响应）
+    if (locale.value !== basicSettings.language) {
+      locale.value = basicSettings.language
+    }
+
     // 保存语言设置到服务器
     await saveLanguageToServer(basicSettings.language)
+    // 保存日期格式到服务器，并同步缓存
+    await saveDateFormatToServer(basicSettings.dateFormat)
+    setDateFormat(basicSettings.dateFormat)
 
-    // 切换语言
-    locale.value = basicSettings.language
-
-    // TODO: 调用API保存其他设置
-    await new Promise(resolve => setTimeout(resolve, 500))
     ElMessage.success(t('settings.settingsSaved'))
   } catch (error) {
     console.error('保存失败:', error)
@@ -607,8 +628,16 @@ const resetJwtSettings = () => {
 const saveMockSettings = async () => {
   saving.value = true
   try {
-    // TODO: 调用API保存设置
-    await new Promise(resolve => setTimeout(resolve, 500))
+    await request.post('/system-config/mock', {
+      defaultResponseDelay: mockSettings.defaultResponseDelay,
+      maxResponseDelay: mockSettings.maxResponseDelay,
+      enableRequestLog: mockSettings.enableRequestLog,
+      logRetentionDays: mockSettings.logRetentionDays,
+      maxRequestBodySize: mockSettings.maxRequestBodySize,
+      axiosTimeout: mockSettings.axiosTimeout
+    })
+    // 同步更新 axios 全局超时时间
+    updateAxiosTimeout(mockSettings.axiosTimeout)
     ElMessage.success(t('settings.settingsSaved'))
   } catch (error) {
     console.error('保存失败:', error)
@@ -625,6 +654,7 @@ const resetMockSettings = () => {
   mockSettings.enableRequestLog = true
   mockSettings.logRetentionDays = 30
   mockSettings.maxRequestBodySize = 10
+  mockSettings.axiosTimeout = 30000
   ElMessage.info(t('settings.settingsReset'))
 }
 
@@ -893,10 +923,44 @@ const getPriorityType = (priority) => {
   return typeMap[priority] || ''
 }
 
+// 更新 axios 全局超时时间
+const updateAxiosTimeout = (timeout) => {
+  if (timeout && timeout > 0) {
+    axios.defaults.timeout = timeout
+    localStorage.setItem('axiosTimeout', String(timeout))
+    console.log('Axios timeout updated to:', timeout, 'ms')
+  }
+}
+
+// 从服务器加载配置
+const loadConfig = async () => {
+  try {
+    const response = await request.get('/system-config')
+    if (response.code === 200 && response.data) {
+      const data = response.data
+      // 基础设置
+      if (data.dateFormat) basicSettings.dateFormat = data.dateFormat
+      // Mock配置
+      if (data.defaultResponseDelay != null) mockSettings.defaultResponseDelay = data.defaultResponseDelay
+      if (data.maxResponseDelay != null) mockSettings.maxResponseDelay = data.maxResponseDelay
+      if (data.enableRequestLog != null) mockSettings.enableRequestLog = data.enableRequestLog
+      if (data.logRetentionDays != null) mockSettings.logRetentionDays = data.logRetentionDays
+      if (data.maxRequestBodySize != null) mockSettings.maxRequestBodySize = data.maxRequestBodySize
+      if (data.axiosTimeout != null) {
+        mockSettings.axiosTimeout = data.axiosTimeout
+        updateAxiosTimeout(data.axiosTimeout)
+      }
+    }
+  } catch (error) {
+    console.error('加载配置失败:', error)
+  }
+}
+
 // 页面加载时获取数据
 onMounted(() => {
   fetchSystemInfo()
   fetchAnnouncements()
+  loadConfig()
   // 如果初始就是 system tab，启动自动刷新
   if (activeMenu.value === 'system') {
     startAutoRefresh()

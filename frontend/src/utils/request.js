@@ -2,10 +2,14 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 
+// 从 localStorage 读取超时配置（由 Settings.vue 保存）
+const savedTimeout = localStorage.getItem('axiosTimeout')
+const defaultTimeout = savedTimeout ? parseInt(savedTimeout) : 30000
+
 // 创建axios实例
 const service = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  timeout: 30000, // 30秒超时
+  timeout: defaultTimeout, // 可配置的超时时间，默认30秒
   withCredentials: false // 关闭凭据发送，避免CORS问题
 })
 

@@ -149,12 +149,17 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { UserFilled, User, Message, Lock, Key, CircleCheck, Calendar, Clock } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
+import { useI18n } from 'vue-i18n'
+import { logout } from '@/api/auth'
 import request from '@/utils/request'
 
+const { t, locale } = useI18n()
 const userStore = useUserStore()
+const router = useRouter()
 
 const loading = ref(false)
 const saving = ref(false)
@@ -279,6 +284,11 @@ const handleSave = async () => {
       userStore.userInfo.email = form.email
       userStore.userInfo.language = form.language
       localStorage.setItem('userInfo', JSON.stringify(userStore.userInfo))
+      // 切换语言
+      if (locale.value !== form.language) {
+        locale.value = form.language
+        localStorage.setItem('locale', form.language)
+      }
       // 刷新数据
       await fetchProfile()
     } else {
@@ -321,6 +331,16 @@ const handleChangePassword = async () => {
       passwordForm.newPassword = ''
       passwordForm.confirmPassword = ''
       passwordFormRef.value?.resetFields()
+      // 退出登录
+      setTimeout(async () => {
+        try {
+          await logout()
+        } catch (e) {
+          console.warn('后端登出调用失败', e)
+        }
+        userStore.logout()
+        router.push('/login')
+      }, 1500)
     } else {
       ElMessage.error(response.message || '密码修改失败')
     }

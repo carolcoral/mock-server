@@ -9,11 +9,13 @@ package com.carolcoral.mockserver.config;
 import com.carolcoral.mockserver.entity.MockApi;
 import com.carolcoral.mockserver.entity.MockResponse;
 import com.carolcoral.mockserver.entity.Project;
+import com.carolcoral.mockserver.entity.SystemConfig;
 import com.carolcoral.mockserver.entity.User;
 import com.carolcoral.mockserver.plugin.DynamicCompiler;
 import com.carolcoral.mockserver.repository.MockApiRepository;
 import com.carolcoral.mockserver.repository.MockResponseRepository;
 import com.carolcoral.mockserver.repository.ProjectRepository;
+import com.carolcoral.mockserver.repository.SystemConfigRepository;
 import com.carolcoral.mockserver.repository.UserRepository;
 import com.carolcoral.mockserver.util.CacheUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -45,13 +47,15 @@ public class StartupConfig implements CommandLineRunner {
         MockApiRepository mockApiRepository,
         MockResponseRepository mockResponseRepository,
         PasswordEncoder passwordEncoder,
-        CacheUtil cacheUtil) {
+        CacheUtil cacheUtil,
+        SystemConfigRepository systemConfigRepository) {
         this.userRepository = userRepository;
         this.projectRepository = projectRepository;
         this.mockApiRepository = mockApiRepository;
         this.mockResponseRepository = mockResponseRepository;
         this.passwordEncoder = passwordEncoder;
         this.cacheUtil = cacheUtil;
+        this.systemConfigRepository = systemConfigRepository;
     }
 
     private final UserRepository userRepository;
@@ -60,6 +64,7 @@ public class StartupConfig implements CommandLineRunner {
     private final MockResponseRepository mockResponseRepository;
     private final PasswordEncoder passwordEncoder;
     private final CacheUtil cacheUtil;
+    private final SystemConfigRepository systemConfigRepository;
 
     // 从系统属性（由.env文件加载）获取管理员配置
     private String adminUsername = System.getProperty("ADMIN_USERNAME", "admin");
@@ -93,6 +98,9 @@ public class StartupConfig implements CommandLineRunner {
             // 预编译已存储的自定义响应处理器代码
             precompileCustomTransformers();
 
+            // 初始化系统配置默认值
+            initSystemConfigDefaults();
+
             log.info("应用数据初始化完成");
         } catch (Exception e) {
             log.error("应用数据初始化失败");
@@ -122,7 +130,30 @@ public class StartupConfig implements CommandLineRunner {
             // 检查管理员账号是否已存在（使用findByUsername代替existsByUsername避免SQLite兼容性问题）
             Optional<User> existingAdmin = userRepository.findByUsername(adminUsername);
             if (existingAdmin.isPresent()) {
-                log.info("管理员账号已存在: {}", adminUsername);
+                // 管理员已存在，同步更新密码和邮箱（支持密码热更新）
+                User admin = existingAdmin.get();
+                String newEncodedPassword = passwordEncoder.encode(adminPassword);
+                boolean needUpdate = false;
+
+                if (!passwordEncoder.matches(adminPassword, admin.getPassword())) {
+                    admin.setPassword(newEncodedPassword);
+                    needUpdate = true;
+                    log.info("检测到管理员密码已变更，正在同步更新...");
+                }
+
+                if (adminEmail != null && !adminEmail.isEmpty()
+                        && (admin.getEmail() == null || !adminEmail.equals(admin.getEmail()))) {
+                    admin.setEmail(adminEmail);
+                    needUpdate = true;
+                }
+
+                if (needUpdate) {
+                    admin.setUpdateTime(LocalDateTime.now());
+                    userRepository.save(admin);
+                    log.info("管理员账号已同步更新: {}", adminUsername);
+                } else {
+                    log.info("管理员账号已存在且配置一致: {}", adminUsername);
+                }
                 return;
             }
 
@@ -358,6 +389,48 @@ public class StartupConfig implements CommandLineRunner {
 
         } catch (Exception e) {
             log.error("预编译自定义响应处理器时发生错误: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 初始化系统配置默认值
+     * <p>
+     * 当配置表中不存在对应记录时，使用默认值写入数据库，
+     * 确保 SystemConfigController 能返回完整的配置信息。
+     * </p>
+     */
+    @Operation(summary = "初始化系统配置默认值")
+    private void initSystemConfigDefaults() {
+        try {
+            initDefaultConfigIfAbsent("defaultResponseDelay", "0", "默认响应延迟（毫秒）");
+            initDefaultConfigIfAbsent("maxResponseDelay", "5000", "最大响应延迟（毫秒）");
+            initDefaultConfigIfAbsent("enableRequestLog", "true", "是否启用请求日志");
+            initDefaultConfigIfAbsent("logRetentionDays", "30", "日志保留天数");
+            initDefaultConfigIfAbsent("maxRequestBodySize", "10", "最大请求体大小（MB）");
+            initDefaultConfigIfAbsent("axiosTimeout", "30000", "前端Axios请求超时时间（毫秒）");
+            log.info("系统配置默认值初始化完成");
+        } catch (Exception e) {
+            log.error("初始化系统配置默认值失败: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 如果配置不存在则使用默认值初始化
+     */
+    private void initDefaultConfigIfAbsent(String key, String defaultValue, String description) {
+        try {
+            if (systemConfigRepository.findByConfigKey(key).isEmpty()) {
+                SystemConfig config = new SystemConfig();
+                config.setConfigKey(key);
+                config.setConfigValue(defaultValue);
+                config.setDescription(description);
+                config.setCreateTime(LocalDateTime.now());
+                config.setUpdateTime(LocalDateTime.now());
+                systemConfigRepository.save(config);
+                log.debug("初始化系统配置默认值: {} = {}", key, defaultValue);
+            }
+        } catch (Exception e) {
+            log.warn("初始化配置 {} 失败: {}", key, e.getMessage());
         }
     }
 }

@@ -7,9 +7,14 @@
 - 前后端分离架构（Vue 3 + Spring Boot）
 - 一键构建部署，前端静态文件集成到后端 JAR 包
 - 支持HTTP和WebSocket请求
-- 自定义接口配置（多状态码、随机响应、条件响应）
+- 自定义接口配置（多状态码、随机响应、条件响应、自定义代码响应处理器）
 - 多项目管理和用户权限控制
+- 多语言国际化支持（中文、English、日本語）
+- 可配置日期格式（YYYY-MM-DD / DD/MM/YYYY / MM/DD/YYYY）
 - JWT认证和Swagger文档
+- 系统公告（支持Markdown）
+- 系统监控（CPU、内存、磁盘使用率实时监控）
+- 内置使用说明文档（USER_GUIDE.md）
 - SQLite数据库 + Caffeine缓存
 - Docker支持
 
@@ -43,7 +48,7 @@
 ./build-all-in-one.sh
 
 # 2. 运行 JAR 包
-java -jar backend/target/mock-server-1.0.0.jar
+java -jar backend/target/mock-server-2.0.0.jar
 ```
 
 #### 方式三：开发模式（前后端分离）
@@ -101,7 +106,22 @@ export JWT_SECRET=your-super-secret-jwt-key-at-least-256-bits-long
   - 请求类型（HTTP/WebSocket）
   - 响应延迟和状态码
 
-### 3. 调用Mock接口
+### 3. 配置接口响应
+- 支持多种响应模式：
+  - **固定响应**：直接返回预设的 JSON/文本内容
+  - **条件响应**：根据请求参数动态匹配（如 `$.userId == '123'`）
+  - **随机响应**：按权重随机返回不同状态码的响应
+  - **自定义代码处理器**：使用 Java/JavaScript 代码动态生成响应，支持读写数据库、调用外部API等高级功能
+
+### 4. 系统设置
+- **基础设置**：应用名称、版本、系统语言（中文/English/日本語）、日期格式
+- **安全配置**：密码强度策略、登录锁定、IP白名单
+- **JWT配置**：Token过期时间、刷新Token过期时间、签发者/受众
+- **Mock配置**：默认响应延迟、最大延迟、请求日志、请求体大小限制、Axios超时时间
+- **系统公告**：创建/编辑/删除公告，支持Markdown，可设置优先级（低/普通/高/紧急）
+- **系统监控**：实时查看CPU、内存、磁盘使用率，JVM内存详情，环境变量
+
+### 5. 调用Mock接口
 
 ```bash
 # HTTP
@@ -111,7 +131,7 @@ curl http://localhost:8080/api/mock/{projectCode}/{path}
 const ws = new WebSocket('ws://localhost:8080/api/ws/mock/{projectCode}/{path}')
 ```
 
-### 4. Swagger认证
+### 6. Swagger认证
 
 访问: http://localhost:8080/api/swagger-ui.html
 
@@ -129,18 +149,21 @@ mock-server/
 │   ├── src/main/java/com/carolcoral/mockserver/
 │   │   ├── config/               # 配置类
 │   │   ├── controller/           # 控制器
+│   │   ├── dto/                  # 数据传输对象
 │   │   ├── entity/               # 实体类
+│   │   ├── filter/               # JWT过滤器
+│   │   ├── plugin/               # 插件（自定义响应转换器、动态编译器）
 │   │   ├── repository/           # 数据访问层
 │   │   ├── service/              # 业务逻辑层
-│   │   ├── filter/               # JWT过滤器
 │   │   └── util/                 # 工具类
 │   └── pom.xml
 ├── frontend/                     # 前端代码（Vue 3）
 │   ├── src/
+│   │   ├── locales/              # 国际化语言文件（zh-CN/en-US/ja-JP）
 │   │   ├── views/                # 页面
 │   │   ├── router/               # 路由
 │   │   ├── stores/               # 状态管理
-│   │   └── utils/                # 工具函数
+│   │   └── utils/                # 工具函数（日期格式化等）
 │   └── package.json
 ├── docker/                       # Docker配置
 │   ├── Dockerfile
@@ -225,8 +248,10 @@ $.amount > 100           // amount大于100
 
 ## 🔒 安全特性
 
-- JWT认证（30分钟过期）
+- JWT认证（可配置过期时间）
 - 强密码策略（大小写字母+数字+特殊字符）
+- 登录失败锁定（可配置最大尝试次数和锁定时长）
+- IP白名单支持
 - CORS配置
 - 管理员权限控制
 - 防止XSS和SQL注入
@@ -235,9 +260,9 @@ $.amount > 100           // amount大于100
 
 Apache License 2.0
 
-Copyright (c) 2024 carolcoral
+Copyright (c) 2024-2026 carolcoral
 
 ## 📧 联系
 
 - GitHub: [carolcoral](https://github.com/carolcoral)
-- Email: admin@mockserver.com
+- Email: lxw@cnkj.site

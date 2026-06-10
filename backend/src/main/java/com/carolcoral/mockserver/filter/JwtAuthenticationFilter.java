@@ -209,6 +209,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // 前端静态资源 - 直接放行
         if (requestUri.equals("/") || requestUri.equals("/index.html") ||
             requestUri.equals("/favicon.ico") || requestUri.equals("/robots.txt") ||
+            requestUri.equals("/USER_GUIDE.md") ||
             requestUri.startsWith("/assets/")) {
             return true;
         }
@@ -218,7 +219,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             requestUri.equals("/home") || requestUri.equals("/projects") ||
             requestUri.startsWith("/projects/") || requestUri.equals("/apis") ||
             requestUri.equals("/users") || requestUri.equals("/settings") ||
-            requestUri.equals("/guide")) {
+            requestUri.equals("/guide") || requestUri.equals("/profile")) {
             return true;
         }
 
