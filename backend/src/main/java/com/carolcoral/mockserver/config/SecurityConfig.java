@@ -82,6 +82,8 @@ public class SecurityConfig {
                                 "/api/v3/api-docs/**",
                                 "/api/swagger-resources/**",
                                 "/api/webjars/**",
+                                // Bing 图片代理
+                                "/bing-hp",
                                 // 前端静态资源
                                 "/",
                                 "/index.html",
@@ -89,6 +91,20 @@ public class SecurityConfig {
                                 "/robots.txt",
                                 "/assets/**",
                                 "/USER_GUIDE.md",
+                                // 前端静态文件（图片、字体等）
+                                "/*.jpg",
+                                "/*.jpeg",
+                                "/*.png",
+                                "/*.svg",
+                                "/*.gif",
+                                "/*.webp",
+                                "/*.ico",
+                                "/*.woff",
+                                "/*.woff2",
+                                "/*.ttf",
+                                "/*.css",
+                                "/*.js",
+                                "/*.map",
                                 // SPA 路由（Vue Router history 模式）
                                 "/login",
                                 "/dashboard",

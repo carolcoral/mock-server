@@ -148,7 +148,7 @@ export default {
     jwtWarning: 'After modifying JWT configuration, all users need to login again',
     settingsSaved: 'Settings saved',
     settingsReset: 'Reset to default values',
-    version: 'System Version',
+    systemVersion: 'System Version',
     buildTime: 'Build Time',
     environment: 'Runtime Environment',
     uptime: 'Runtime Duration',
@@ -185,7 +185,22 @@ export default {
     createTime: 'Creation Time',
     toggleStatus: 'Toggle Status',
     enable: 'Enable',
-    disable: 'Disable'
+    disable: 'Disable',
+    loading: 'Loading...',
+    availableProcessors: 'CPU Cores',
+    cores: 'cores',
+    userDir: 'Working Directory',
+    autoRefresh5s: 'Auto-refresh every 5s',
+    jvmMemoryDetail: 'JVM Memory Detail',
+    heapUsed: 'Heap Used',
+    heapMax: 'Heap Max',
+    usage: 'Usage',
+    diskTotal: 'Disk Total',
+    diskFree: 'Disk Free',
+    autoRefreshing: 'Auto-refreshing...',
+    manualRefresh: 'Manual Refresh',
+    noEnvVars: 'No environment variables',
+    javaVendor: 'Java Vendor'
   },
 
   // Project Management

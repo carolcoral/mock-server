@@ -214,6 +214,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return true;
         }
 
+        // Bing 图片代理 - 直接放行
+        if (requestUri.equals("/bing-hp")) {
+            return true;
+        }
+
+        // 前端静态文件（图片、字体、CSS、JS） - 直接放行
+        if (requestUri.matches("^/[^/]+\\.(jpg|jpeg|png|svg|gif|webp|ico|woff2?|ttf|css|js|map)$")) {
+            return true;
+        }
+
         // SPA 路由（Vue Router history 模式） - 直接放行，让前端处理
         if (requestUri.equals("/login") || requestUri.equals("/dashboard") ||
             requestUri.equals("/home") || requestUri.equals("/projects") ||

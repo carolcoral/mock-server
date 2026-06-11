@@ -30,6 +30,12 @@ export default defineConfig(({ mode }) => {
           secure: false,
           rewrite: (path) => path.replace(/^\/api/, '/api')
         },
+        // Bing 每日图片代理 → 后端 Spring Boot Controller（开发/生产统一）
+        '/bing-hp': {
+          target: `http://localhost:${serverPort}`,
+          changeOrigin: true,
+          secure: false,
+        },
       },
     },
     build: {

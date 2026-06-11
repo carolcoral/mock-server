@@ -148,7 +148,7 @@ export default {
     jwtWarning: '修改JWT配置后，所有用户需要重新登录',
     settingsSaved: '设置已保存',
     settingsReset: '已重置为默认值',
-    version: '系统版本',
+    systemVersion: '系统版本',
     buildTime: '构建时间',
     environment: '运行环境',
     uptime: '运行时间',
@@ -185,7 +185,22 @@ export default {
     createTime: '创建时间',
     toggleStatus: '切换状态',
     enable: '启用',
-    disable: '禁用'
+    disable: '禁用',
+    loading: '加载中...',
+    availableProcessors: 'CPU核心数',
+    cores: '核',
+    userDir: '工作目录',
+    autoRefresh5s: '每5秒自动刷新',
+    jvmMemoryDetail: 'JVM内存详情',
+    heapUsed: '堆内存已用',
+    heapMax: '堆内存最大',
+    usage: '使用率',
+    diskTotal: '磁盘总容量',
+    diskFree: '磁盘可用容量',
+    autoRefreshing: '自动刷新中...',
+    manualRefresh: '手动刷新',
+    noEnvVars: '暂无环境变量',
+    javaVendor: 'Java厂商'
   },
 
   // 项目管理

@@ -148,7 +148,7 @@ export default {
     jwtWarning: 'JWT設定を変更すると、すべてのユーザーが再度ログインする必要があります',
     settingsSaved: '設定が保存されました',
     settingsReset: 'デフォルト値にリセットしました',
-    version: 'システムバージョン',
+    systemVersion: 'システムバージョン',
     buildTime: 'ビルド時間',
     environment: '実行環境',
     uptime: '稼働時間',
@@ -185,7 +185,22 @@ export default {
     createTime: '作成時間',
     toggleStatus: 'ステータスを切替',
     enable: '有効にする',
-    disable: '無効にする'
+    disable: '無効にする',
+    loading: '読み込み中...',
+    availableProcessors: 'CPUコア数',
+    cores: 'コア',
+    userDir: '作業ディレクトリ',
+    autoRefresh5s: '5秒ごとに自動更新',
+    jvmMemoryDetail: 'JVMメモリ詳細',
+    heapUsed: 'ヒープ使用済み',
+    heapMax: 'ヒープ最大',
+    usage: '使用率',
+    diskTotal: 'ディスク総容量',
+    diskFree: 'ディスク空き容量',
+    autoRefreshing: '自動更新中...',
+    manualRefresh: '手動更新',
+    noEnvVars: '環境変数はありません',
+    javaVendor: 'Javaベンダー'
   },
 
   // プロジェクト管理

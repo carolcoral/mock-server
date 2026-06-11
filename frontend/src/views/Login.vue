@@ -1,5 +1,6 @@
 <template>
-  <div class="login-container">
+  <div class="login-container" :style="{ backgroundImage: `url(${bgImage})` }">
+    <div class="login-overlay"></div>
     <div class="login-card">
       <div class="login-header">
         <h1>Mock Server</h1>
@@ -54,7 +55,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
@@ -65,6 +66,68 @@ const router = useRouter()
 const userStore = useUserStore()
 const loginFormRef = ref()
 const loading = ref(false)
+
+// 默认背景图片（本地静态资源）
+const DEFAULT_BG = '/default-bg.jpg'
+const bgImage = ref(DEFAULT_BG)
+
+// Bing 每日图片代理接口（后端 Spring Boot Controller 转发，绕过 CORS）
+const BING_PROXY_PATH = '/bing-hp'
+const FETCH_TIMEOUT = 2000 // 2秒超时
+
+/**
+ * 从 Bing 获取每日推荐风景图片
+ * 通过后端代理转发请求到 Bing API，避免浏览器跨域限制
+ * 超过 2 秒未获取成功则使用默认背景图
+ */
+const fetchBingBg = async () => {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
+
+  try {
+    const response = await fetch(BING_PROXY_PATH, {
+      signal: controller.signal
+    })
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const data = await response.json()
+    const images = data?.images || []
+
+    if (images.length === 0) {
+      throw new Error('No images returned')
+    }
+
+    // 随机选择一张
+    const randomIndex = Math.floor(Math.random() * images.length)
+    const image = images[randomIndex]
+
+    // Bing API 返回的 url 是相对路径如 "/th?id=OHR.xxx_1920x1080.jpg"
+    const baseUrl = image.urlbase || image.url?.replace(/&pid=hp/, '')
+    const fullUrl = baseUrl?.startsWith('http')
+      ? baseUrl
+      : `https://cn.bing.com${baseUrl}_1920x1080.jpg`
+
+    // 预加载验证图片可用（<img> 加载不受 CORS 限制，仅用于 CSS background-image）
+    const img = new Image()
+    img.src = fullUrl
+
+    await new Promise((resolve, reject) => {
+      img.onload = () => {
+        bgImage.value = fullUrl
+        resolve()
+      }
+      img.onerror = () => reject(new Error('Image load failed'))
+      setTimeout(() => reject(new Error('Image load timeout')), 2000)
+    })
+  } catch (error) {
+    console.warn('Bing 每日图片获取失败，使用默认背景:', error.message || error)
+    bgImage.value = DEFAULT_BG
+  }
+}
 
 // 登录表单
 const loginForm = reactive({
@@ -116,6 +179,11 @@ const handleLogin = async () => {
     loading.value = false
   }
 }
+
+// 页面加载时获取 Bing 每日图片作为背景
+onMounted(() => {
+  fetchBingBg()
+})
 </script>
 
 <style scoped>
@@ -126,24 +194,25 @@ const handleLogin = async () => {
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   position: relative;
   overflow: hidden;
+  transition: background-image 0.8s ease;
 }
 
-.login-container::before {
-  content: '';
+/* 半透明遮罩层，确保登录卡片清晰可读 */
+.login-overlay {
   position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-  animation: rotate 20s linear infinite;
-}
-
-@keyframes rotate {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(30, 30, 60, 0.55) 0%,
+    rgba(30, 30, 60, 0.35) 50%,
+    rgba(30, 30, 60, 0.55) 100%
+  );
+  z-index: 0;
 }
 
 .login-card {
@@ -151,7 +220,7 @@ const handleLogin = async () => {
   padding: 40px;
   background: rgba(255, 255, 255, 0.95);
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   backdrop-filter: blur(10px);
   position: relative;
   z-index: 1;

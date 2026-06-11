@@ -183,7 +183,7 @@
             <el-alert v-if="systemInfoLoading" :title="$t('settings.loading')" type="info" :closable="false" show-icon />
             <el-descriptions :column="2" border v-loading="systemInfoLoading">
               <el-descriptions-item :label="$t('settings.appName')">{{ systemInfo.appName }}</el-descriptions-item>
-              <el-descriptions-item :label="$t('settings.version')">{{ systemInfo.version }}</el-descriptions-item>
+              <el-descriptions-item :label="$t('settings.systemVersion')">{{ systemInfo.version }}</el-descriptions-item>
               <el-descriptions-item :label="$t('settings.springBootVersion')">{{ systemInfo.springBootVersion }}</el-descriptions-item>
               <el-descriptions-item :label="$t('settings.environment')">{{ systemInfo.environment }}</el-descriptions-item>
               <el-descriptions-item :label="$t('settings.buildTime')">{{ systemInfo.startTime }}</el-descriptions-item>
