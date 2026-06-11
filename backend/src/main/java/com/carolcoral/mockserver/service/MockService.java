@@ -161,21 +161,32 @@ public class MockService {
                 }
             }
 
-            // 如果启用了随机返回，从所有启用且激活的响应中按权重随机选择
+            // 如果启用了随机返回，从启用的响应中按权重随机选择
             if (responseDTO == null && mockApi.getEnableRandom() != null && mockApi.getEnableRandom()) {
-                // 过滤出启用且激活的响应（排除默认响应）
-                List<MockResponse> enabledActiveResponses = new ArrayList<>();
+                // 优先使用用户显式标记为"激活"的响应作为随机候选池
+                List<MockResponse> randomCandidates = new ArrayList<>();
                 for (MockResponse response : enabledResponses) {
                     if (response.getActive() != null && response.getActive() &&
                         (response.getIsDefault() == null || !response.getIsDefault())) {
-                        enabledActiveResponses.add(response);
+                        randomCandidates.add(response);
                     }
                 }
 
-                if (!enabledActiveResponses.isEmpty()) {
-                    MockResponse randomResponse = selectRandomResponse(enabledActiveResponses);
+                // 如果用户没有显式激活任何响应，则将所有启用且非默认的响应纳入随机池
+                if (randomCandidates.isEmpty()) {
+                    log.info("没有显式激活的响应，使用所有启用且非默认的响应作为随机候选池");
+                    for (MockResponse response : enabledResponses) {
+                        if (response.getIsDefault() == null || !response.getIsDefault()) {
+                            randomCandidates.add(response);
+                        }
+                    }
+                }
+
+                if (!randomCandidates.isEmpty()) {
+                    MockResponse randomResponse = selectRandomResponse(randomCandidates);
                     if (randomResponse != null) {
-                        log.info("启用随机返回，从激活响应中随机选择: 状态码={}", randomResponse.getStatusCode());
+                        log.info("启用随机返回，从{}个候选响应中随机选择: 状态码={}",
+                                randomCandidates.size(), randomResponse.getStatusCode());
                         responseDTO = buildMockResponse(mockApi, randomResponse);
                     }
                 }
@@ -375,10 +386,18 @@ public class MockService {
                 continue;
             }
 
-            boolean conditionMatched = false;
+            boolean hasCondition = response.getCondition() != null && !response.getCondition().isEmpty();
+            boolean hasParams = hasRequestParams(response);
 
-            // 首先检查是否有条件表达式
-            if (response.getCondition() != null && !response.getCondition().isEmpty()) {
+            // 只有当响应明确配置了条件（condition 表达式或请求参数）时才进行匹配
+            // 没有配置任何条件的响应不应该在此处被匹配，应交给后续的随机/激活/默认逻辑处理
+            if (!hasCondition && !hasParams) {
+                continue;
+            }
+
+            // 检查条件表达式
+            boolean conditionMatched = false;
+            if (hasCondition) {
                 try {
                     if (evaluateCondition(response.getCondition(), mockRequest)) {
                         conditionMatched = true;
@@ -386,10 +405,13 @@ public class MockService {
                 } catch (Exception e) {
                     log.warn("条件表达式评估失败: {}", e.getMessage());
                 }
+            } else {
+                // 没有条件表达式但有请求参数，视为条件通过
+                conditionMatched = true;
             }
 
-            // 如果条件匹配，或者没有条件，则检查请求参数
-            if (conditionMatched || (response.getCondition() == null || response.getCondition().isEmpty())) {
+            // 条件通过后，检查请求参数
+            if (conditionMatched) {
                 if (matchRequestParams(response, mockRequest)) {
                     log.info("匹配到响应: 响应ID={}, 条件={}", response.getId(), response.getCondition());
                     return response;
@@ -397,6 +419,18 @@ public class MockService {
             }
         }
         return null;
+    }
+
+    /**
+     * 检查响应是否配置了请求参数
+     */
+    private boolean hasRequestParams(MockResponse response) {
+        try {
+            var result = responseRequestParamService.getParamsByResponseId(response.getId());
+            return result.getCode() == 200 && result.getData() != null && !result.getData().isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /**
@@ -411,22 +445,66 @@ public class MockService {
             var result = responseRequestParamService.getParamsByResponseId(response.getId());
             if (result.getCode() != 200 || result.getData() == null || result.getData().isEmpty()) {
                 log.debug("响应 {} 没有配置请求参数，直接匹配", response.getId());
-                // 没有请求参数，直接返回true
                 return true;
             }
 
             var params = result.getData();
             log.debug("响应 {} 有 {} 个请求参数", response.getId(), params.size());
+
+            // 记录是否有参数在实际请求中找到了值
+            boolean hasActualValueMatch = false;
+
             for (var param : params) {
                 if (!matchRequestParam(param, mockRequest)) {
                     log.debug("响应 {} 参数匹配失败", response.getId());
                     return false;
                 }
+                // 检查该参数在请求中是否实际存在
+                if (paramValueExistsInRequest(param, mockRequest)) {
+                    hasActualValueMatch = true;
+                }
             }
+
+            // 所有参数都通过了（可能只是因为非必填且无值），
+            // 但如果没有任一参数在实际请求中有值，则不匹配
+            if (!hasActualValueMatch) {
+                log.debug("响应 {} 所有参数均未在请求中找到实际值，不匹配", response.getId());
+                return false;
+            }
+
             log.debug("响应 {} 所有参数匹配成功", response.getId());
             return true;
         } catch (Exception e) {
             log.warn("请求参数匹配失败: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 检查参数值在请求中是否实际存在
+     */
+    private boolean paramValueExistsInRequest(com.carolcoral.mockserver.dto.ResponseRequestParamDTO param,
+                                               MockRequest mockRequest) {
+        try {
+            ResponseRequestParam.ParamType paramType = ResponseRequestParam.ParamType.valueOf(param.getParamType());
+            String paramName = param.getParamName();
+
+            switch (paramType) {
+                case PATH:
+                    return mockRequest.getPathParams() != null
+                            && mockRequest.getPathParams().containsKey(paramName);
+                case QUERY:
+                    return mockRequest.getParams() != null
+                            && mockRequest.getParams().containsKey(paramName);
+                case HEADER:
+                    return mockRequest.getHeaders() != null
+                            && mockRequest.getHeaders().containsKey(paramName);
+                case FILE:
+                    return true;
+                default:
+                    return false;
+            }
+        } catch (Exception e) {
             return false;
         }
     }
