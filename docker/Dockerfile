@@ -1,6 +1,7 @@
 # ========================================
 # Mock Server Dockerfile
-# 包含前端和后端的完整应用
+# 多阶段构建：前端 -> 后端 -> 最终镜像
+# 构建命令: docker build -t mock-server -f docker/Dockerfile .
 # ========================================
 
 # ========================================
@@ -8,19 +9,12 @@
 # ========================================
 FROM node:18-alpine AS frontend-builder
 
-# 设置工作目录
 WORKDIR /app/frontend
 
-# 复制前端依赖文件
 COPY frontend/package*.json ./
-
-# 安装所有依赖（包括开发依赖，用于构建）
 RUN npm ci
 
-# 复制前端源代码
 COPY frontend/ ./
-
-# 构建前端生产版本
 RUN npm run build
 
 # ========================================
@@ -28,80 +22,49 @@ RUN npm run build
 # ========================================
 FROM maven:3.9-eclipse-temurin-21 AS backend-builder
 
-# 设置工作目录
 WORKDIR /app/backend
 
-# 复制后端依赖文件
 COPY backend/pom.xml ./
+RUN mvn dependency:go-offline -B -q
 
-# 下载依赖（利用 Docker 缓存）
-RUN mvn dependency:go-offline -B
-
-# 复制后端源代码
 COPY backend/ ./
-
-# 构建后端（跳过测试以加快构建速度）
-RUN mvn clean package -DskipTests -B
+RUN mvn clean package -DskipTests -B -q
 
 # ========================================
-# 阶段 3: 最终运行镜像
+# 阶段 3: 运行镜像
 # ========================================
-FROM openjdk:21-jdk-slim
+FROM eclipse-temurin:21-jre-alpine
 
-# 作者信息
-LABEL maintainer="carolcoral <github.com/carolcoral>"
-LABEL description="Mock Server - 完整的前后端一体化应用"
+LABEL maintainer="carolcoral"
+LABEL description="Mock Server - API Mock Server"
 
-# 安装必要工具
-RUN apt-get update && apt-get install -y \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# 安装 curl 和 tzdata 用于健康检查和时区
+RUN apk add --no-cache curl tzdata && \
+    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone
 
-# 设置工作目录
 WORKDIR /app
 
-# 创建必要的目录
-RUN mkdir -p /app/data /app/logs /app/frontend
+# 创建数据和日志目录
+RUN mkdir -p /app/data /app/logs /app/frontend/dist
 
-# 从前端构建阶段复制构建产物
+# 复制前端构建产物
 COPY --from=frontend-builder /app/frontend/dist /app/frontend/dist
 
-# 从后端构建阶段复制 jar 包
+# 复制后端 jar 包
 COPY --from=backend-builder /app/backend/target/mock-server-*.jar /app/mock-server.jar
 
-# 创建启动脚本
-RUN echo '#!/bin/bash\n\
-echo "========================================"\n\
-echo "Mock Server 启动中..."\n\
-echo "========================================"\n\
-echo "前端静态文件目录: /app/frontend/dist"\n\
-echo "后端 API 端口: 8080"\n\
-echo "前端访问端口: ${FRONTEND_PORT:-3002}"\n\
-echo "========================================"\n\
-\n\
-# 启动后端应用（包括静态文件服务）\n\
-java -jar /app/mock-server.jar \\\n\
-    --server.port=8080 \\\n\
-    ${JAVA_OPTS}\n\
-' > /app/start.sh && chmod +x /app/start.sh
-
 # 暴露端口
-# 8080: 后端 API 和前端静态文件服务
 EXPOSE 8080
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8080/api/actuator/health || exit 1
+    CMD curl -sf http://localhost:8080/api/actuator/health || exit 1
 
-# 设置环境变量
-ENV TZ=Asia/Shanghai
-ENV LANG=C.UTF-8
-
-# 设置 Java 运行时参数
+# JVM 参数
 ENV JAVA_OPTS="-Xmx512m -Xms256m"
 
-# 挂载点
+# 数据持久化挂载点
 VOLUME ["/app/data", "/app/logs"]
 
-# 启动命令
-ENTRYPOINT ["/app/start.sh"]
+ENTRYPOINT ["sh", "-c", "exec java ${JAVA_OPTS} -jar /app/mock-server.jar --server.port=8080"]
