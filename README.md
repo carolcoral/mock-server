@@ -48,7 +48,7 @@
 ./build-all-in-one.sh
 
 # 2. 运行 JAR 包
-java -jar backend/target/mock-server-2.0.0.jar
+java -jar backend/target/mock-server-2.0.3.jar
 ```
 
 #### 方式三：开发模式（前后端分离）

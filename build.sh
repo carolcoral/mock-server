@@ -269,7 +269,7 @@ print_success "前端构建成功"
 cd ..
 
 print_success "构建完成！"
-print_info "后端jar包: backend/target/mock-server-2.0.0.jar"
+print_info "后端jar包: backend/target/mock-server-2.0.3.jar"
 print_info "前端dist目录: frontend/dist/"
 print_info ""
 print_info "启动后端: cd backend && mvn spring-boot:run -Djava.home=\"$INTERNAL_JAVA_HOME\""
