@@ -5,11 +5,24 @@ main:
       stages:
         # 同名镜像构建&推送
         - name: Docker build
-          script: docker build -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest ./docker/
+          script: docker build -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest -f ./docker/Dockerfile .
         - name: Docker push
           script: docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest
-        # 非同名镜像构建&推送
-        # - name: Docker build
-        #   script: docker build -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mock-server:latest .
-        # - name: Docker push
-        #   script: docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/mock-server:latest
+        # 云原生开发环境镜像（在开发环境中运行 build-dev-image.sh 来构建）
+        # CI 中仅构建基础框架，完整的 CodeBuddy 数据需要在开发环境中手动构建
+        - name: Dev image build
+          script:
+            - mkdir -p ./docker/dev-build/codebuddy-data
+            - cp -r $HOME/.codebuddy/* ./docker/dev-build/codebuddy-data/ 2>/dev/null || echo "No .codebuddy data in CI, will be added during local build"
+            - docker build --build-arg BASE_IMAGE="${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest" -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/dev-environment:latest -f ./docker/Dockerfile.dev ./docker/dev-build/
+        - name: Dev image push
+          script: docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/dev-environment:latest
+
+# 云原生开发环境配置
+$:
+  vscode:
+    - docker:
+        image: ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/dev-environment:latest
+      services:
+        - vscode
+        - docker

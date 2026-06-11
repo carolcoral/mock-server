@@ -56,3 +56,6 @@ build/
 # 编辑器
 *.sublime-project
 *.sublime-workspace
+
+# 构建临时文件
+docker/dev-build/
