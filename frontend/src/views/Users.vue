@@ -277,10 +277,11 @@ const handleDelete = async (row) => {
   }
 
   try {
-    await ElMessageBox.confirm(t('userManagement.confirmDelete', { name: row.username }), t('common.info'), {
+    await ElMessageBox.confirm(t('userManagement.confirmDelete', { name: row.username }), t('common.warning'), {
       confirmButtonText: t('common.confirm'),
       cancelButtonText: t('common.cancel'),
-      type: 'warning'
+      type: 'error',
+      confirmButtonClass: 'el-button--danger'
     })
 
     const response = await request({

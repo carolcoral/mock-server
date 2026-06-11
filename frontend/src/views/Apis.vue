@@ -950,10 +950,11 @@ const handleEditResponse = (row) => {
 // 删除响应
 const handleDeleteResponse = async (row) => {
   try {
-    await ElMessageBox.confirm(t('api.confirmDeleteResponse'), t('common.info'), {
+    await ElMessageBox.confirm(t('api.confirmDeleteResponse'), t('common.warning'), {
       confirmButtonText: t('common.confirm'),
       cancelButtonText: t('common.cancel'),
-      type: 'warning'
+      type: 'error',
+      confirmButtonClass: 'el-button--danger'
     })
 
     const response = await request({
@@ -1204,10 +1205,11 @@ const handleParamNameBlur = () => {
 // 删除请求参数
 const handleDeleteRequestParam = async (row) => {
   try {
-    await ElMessageBox.confirm(t('api.confirmDeleteParam'), t('common.info'), {
+    await ElMessageBox.confirm(t('api.confirmDeleteParam'), t('common.warning'), {
       confirmButtonText: t('common.confirm'),
       cancelButtonText: t('common.cancel'),
-      type: 'warning'
+      type: 'error',
+      confirmButtonClass: 'el-button--danger'
     })
 
     const response = await request({
@@ -1271,10 +1273,11 @@ const handleRequestParamDialogClose = () => {
 // 删除接口
 const handleDelete = async (row) => {
   try {
-    await ElMessageBox.confirm(t('api.confirmDeleteApi', { name: row.name }), t('common.info'), {
+    await ElMessageBox.confirm(t('api.confirmDeleteApi', { name: row.name }), t('common.warning'), {
       confirmButtonText: t('common.confirm'),
       cancelButtonText: t('common.cancel'),
-      type: 'warning'
+      type: 'error',
+      confirmButtonClass: 'el-button--danger'
     })
 
     const response = await request({

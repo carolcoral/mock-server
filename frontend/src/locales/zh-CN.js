@@ -208,6 +208,7 @@ export default {
     reset: '重置',
     createdAt: '创建时间',
     actions: '操作',
+    moreActions: '更多操作',
     apiManagement: '接口管理',
     memberManagement: '成员管理',
     confirmDelete: '确认删除项目 {name} 吗？',

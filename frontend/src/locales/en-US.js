@@ -208,6 +208,7 @@ export default {
     reset: 'Reset',
     createdAt: 'Created At',
     actions: 'Actions',
+    moreActions: 'More Actions',
     apiManagement: 'API Management',
     memberManagement: 'Member Management',
     confirmDelete: 'Confirm delete project {name}?',

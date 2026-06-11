@@ -208,6 +208,7 @@ export default {
     reset: 'リセット',
     createdAt: '作成時間',
     actions: '操作',
+    moreActions: 'その他の操作',
     apiManagement: 'API管理',
     memberManagement: 'メンバー管理',
     confirmDelete: 'プロジェクト {name} を削除してもよろしいですか？',

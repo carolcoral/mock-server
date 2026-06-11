@@ -53,12 +53,21 @@
             {{ formatTime(row.createTime) }}
           </template>
         </el-table-column>
-        <el-table-column :label="$t('project.actions')" width="280" fixed="right">
+        <el-table-column :label="$t('project.actions')" width="100" fixed="right" align="center">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)" :disabled="!canEditProject(row)">{{ $t('project.editProject') }}</el-button>
-            <el-button type="primary" link @click="$router.push(`/apis?projectId=${row.id}`)">{{ $t('project.apiManagement') }}</el-button>
-            <el-button type="success" link @click="handleManageMembers(row)" :disabled="!canManageMembers(row)">{{ $t('project.memberManagement') }}</el-button>
-            <el-button type="danger" link @click="handleDelete(row)" :disabled="!canDeleteProject(row)">{{ $t('project.deleteProject') }}</el-button>
+            <el-dropdown trigger="click" @command="(cmd) => handleActionCommand(cmd, row)">
+              <el-button type="primary" link>
+                {{ $t('common.more') }}<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="edit" :disabled="!canEditProject(row)">{{ $t('project.editProject') }}</el-dropdown-item>
+                  <el-dropdown-item command="api">{{ $t('project.apiManagement') }}</el-dropdown-item>
+                  <el-dropdown-item command="members" :disabled="!canManageMembers(row)">{{ $t('project.memberManagement') }}</el-dropdown-item>
+                  <el-dropdown-item command="delete" :disabled="!canDeleteProject(row)" divided style="color: #f56c6c;">{{ $t('project.deleteProject') }}</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
         </el-table-column>
       </el-table>
@@ -146,24 +155,21 @@
             {{ formatTime(row.createTime) }}
           </template>
         </el-table-column>
-        <el-table-column :label="$t('project.actions')" width="150" align="center">
+        <el-table-column :label="$t('project.actions')" width="100" align="center">
           <template #default="{ row }">
-            <el-button
-              v-if="row.role !== 'CREATOR'"
-              type="primary"
-              link
-              @click="handleUpdateMemberRole(row)"
-            >
-              {{ $t('project.modifyRole') }}
-            </el-button>
-            <el-button
-              v-if="row.role !== 'CREATOR'"
-              type="danger"
-              link
-              @click="handleRemoveMember(row)"
-            >
-              {{ $t('project.remove') }}
-            </el-button>
+            <template v-if="row.role !== 'CREATOR'">
+              <el-dropdown trigger="click" @command="(cmd) => handleMemberActionCommand(cmd, row)">
+                <el-button type="primary" link>
+                  {{ $t('common.more') }}<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="role">{{ $t('project.modifyRole') }}</el-dropdown-item>
+                    <el-dropdown-item command="remove" divided style="color: #f56c6c;">{{ $t('project.remove') }}</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </template>
             <span v-else style="color: #909399; font-size: 12px;">{{ $t('project.noOperation') }}</span>
           </template>
         </el-table-column>
@@ -208,13 +214,15 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete, Search } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Search, ArrowDown } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { formatTime, loadDateFormat } from '@/utils/dateFormat'
 
+const router = useRouter()
 const { t } = useI18n()
 const userStore = useUserStore()
 const isAdmin = computed(() => userStore.isAdmin)
@@ -345,10 +353,11 @@ const handleEdit = (row) => {
 
 const handleDelete = async (row) => {
   try {
-    await ElMessageBox.confirm(t('project.confirmDelete', { name: row.name }), t('common.info'), {
+    await ElMessageBox.confirm(t('project.confirmDelete', { name: row.name }), t('common.warning'), {
       confirmButtonText: t('common.confirm'),
       cancelButtonText: t('common.cancel'),
-      type: 'warning'
+      type: 'error',
+      confirmButtonClass: 'el-button--danger'
     })
 
     const response = await request({
@@ -366,6 +375,34 @@ const handleDelete = async (row) => {
       console.error('删除失败:', error)
       ElMessage.error(t('project.deleteFailed'))
     }
+  }
+}
+
+const handleActionCommand = (command, row) => {
+  switch (command) {
+    case 'edit':
+      handleEdit(row)
+      break
+    case 'api':
+      router.push(`/apis?projectId=${row.id}`)
+      break
+    case 'members':
+      handleManageMembers(row)
+      break
+    case 'delete':
+      handleDelete(row)
+      break
+  }
+}
+
+const handleMemberActionCommand = (command, row) => {
+  switch (command) {
+    case 'role':
+      handleUpdateMemberRole(row)
+      break
+    case 'remove':
+      handleRemoveMember(row)
+      break
   }
 }
 
@@ -556,11 +593,12 @@ const handleRemoveMember = async (member) => {
 
     await ElMessageBox.confirm(
       t('project.confirmRemove', { name: userName }),
-      t('common.info'),
+      t('common.warning'),
       {
         confirmButtonText: t('common.confirm'),
         cancelButtonText: t('common.cancel'),
-        type: 'warning'
+        type: 'error',
+        confirmButtonClass: 'el-button--danger'
       }
     )
 
