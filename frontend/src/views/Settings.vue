@@ -34,6 +34,10 @@
               <InfoFilled :width="'1em'" :height="'1em'" />
               <span>{{ $t('settings.system') }}</span>
             </el-menu-item>
+            <el-menu-item index="footer">
+              <Connection :width="'1em'" :height="'1em'" />
+              <span>{{ $t('settings.footer') }}</span>
+            </el-menu-item>
           </el-menu>
         </el-card>
       </el-col>
@@ -329,6 +333,70 @@
               />
             </div>
           </div>
+
+          <!-- 页脚设置 -->
+          <div v-if="activeMenu === 'footer'">
+            <h2>{{ $t('settings.footer') }}</h2>
+            <el-divider />
+            <el-form :model="footerSettings" label-width="140px">
+              <el-form-item :label="$t('settings.footerCopyright')">
+                <el-input v-model="footerSettings.copyright" :placeholder="$t('settings.footerCopyrightPlaceholder')" />
+              </el-form-item>
+              <el-divider content-position="left">{{ $t('settings.footerFriendLink') }}</el-divider>
+              <el-form-item :label="$t('settings.footerLinkUrl')">
+                <el-input v-model="footerSettings.friendLinkUrl" :placeholder="$t('settings.footerLinkUrlPlaceholder')" />
+              </el-form-item>
+              <el-form-item :label="$t('settings.footerLinkTitle')">
+                <el-input v-model="footerSettings.friendLinkTitle" :placeholder="$t('settings.footerLinkTitlePlaceholder')" />
+              </el-form-item>
+              <el-divider content-position="left">{{ $t('settings.footerBlogLink') }}</el-divider>
+              <el-form-item :label="$t('settings.footerLinkUrl')">
+                <el-input v-model="footerSettings.blogUrl" :placeholder="$t('settings.footerLinkUrlPlaceholder')" />
+              </el-form-item>
+              <el-form-item :label="$t('settings.footerLinkTitle')">
+                <el-input v-model="footerSettings.blogTitle" :placeholder="$t('settings.footerLinkTitlePlaceholder')" />
+              </el-form-item>
+              <el-divider content-position="left">{{ $t('settings.footerGithubLink') }}</el-divider>
+              <el-form-item :label="$t('settings.footerLinkUrl')">
+                <el-input v-model="footerSettings.githubUrl" :placeholder="$t('settings.footerLinkUrlPlaceholder')" />
+              </el-form-item>
+              <el-form-item :label="$t('settings.footerLinkTitle')">
+                <el-input v-model="footerSettings.githubTitle" :placeholder="$t('settings.footerLinkTitlePlaceholder')" />
+              </el-form-item>
+              <el-divider content-position="left">{{ $t('settings.footerEmailLink') }}</el-divider>
+              <el-form-item :label="$t('settings.footerEmailAddress')">
+                <el-input v-model="footerSettings.emailAddress" :placeholder="$t('settings.footerEmailPlaceholder')" />
+              </el-form-item>
+              <el-form-item :label="$t('settings.footerLinkTitle')">
+                <el-input v-model="footerSettings.emailTitle" :placeholder="$t('settings.footerLinkTitlePlaceholder')" />
+              </el-form-item>
+              <el-divider content-position="left">{{ $t('settings.footerCustomLinks') }}</el-divider>
+              <div v-for="(link, idx) in footerSettings.customLinks" :key="idx" style="margin-bottom: 12px;">
+                <el-row :gutter="12">
+                  <el-col :span="10">
+                    <el-input v-model="link.url" :placeholder="$t('settings.footerLinkUrlPlaceholder')" size="small" />
+                  </el-col>
+                  <el-col :span="10">
+                    <el-input v-model="link.title" :placeholder="$t('settings.footerLinkTitlePlaceholder')" size="small" />
+                  </el-col>
+                  <el-col :span="4">
+                    <el-button type="danger" size="small" @click="removeCustomLink(idx)" :icon="Delete">
+                      {{ $t('common.delete') }}
+                    </el-button>
+                  </el-col>
+                </el-row>
+              </div>
+              <el-form-item>
+                <el-button type="success" @click="addCustomLink" :icon="Edit">
+                  {{ $t('settings.footerAddCustomLink') }}
+                </el-button>
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" @click="saveFooterSettings" :loading="saving">{{ $t('settings.saveSettings') }}</el-button>
+                <el-button @click="resetFooterSettings">{{ $t('settings.resetSettings') }}</el-button>
+              </el-form-item>
+            </el-form>
+          </div>
         </el-card>
       </el-col>
     </el-row>
@@ -456,6 +524,20 @@ const mockSettings = reactive({
   axiosTimeout: 30000
 })
 
+// 页脚设置
+const footerSettings = reactive({
+  copyright: '',
+  friendLinkUrl: '',
+  friendLinkTitle: '',
+  blogUrl: '',
+  blogTitle: '',
+  githubUrl: '',
+  githubTitle: '',
+  emailAddress: '',
+  emailTitle: '',
+  customLinks: []
+})
+
 // 系统信息
 const systemInfo = reactive({
   version: '-',
@@ -537,6 +619,8 @@ const handleMenuSelect = (index) => {
     startAutoRefresh()
   } else if (index === 'announcement') {
     fetchAnnouncements()
+  } else if (index === 'footer') {
+    loadFooterConfig()
   }
 }
 
@@ -921,6 +1005,78 @@ const getPriorityType = (priority) => {
     'URGENT': 'danger'
   }
   return typeMap[priority] || ''
+}
+
+// 保存页脚设置
+const saveFooterSettings = async () => {
+  saving.value = true
+  try {
+    await request.post('/system-config/footer', {
+      copyright: footerSettings.copyright,
+      friendLinkUrl: footerSettings.friendLinkUrl,
+      friendLinkTitle: footerSettings.friendLinkTitle,
+      blogUrl: footerSettings.blogUrl,
+      blogTitle: footerSettings.blogTitle,
+      githubUrl: footerSettings.githubUrl,
+      githubTitle: footerSettings.githubTitle,
+      emailAddress: footerSettings.emailAddress,
+      emailTitle: footerSettings.emailTitle,
+      customLinks: footerSettings.customLinks
+    })
+    ElMessage.success(t('settings.settingsSaved'))
+  } catch (error) {
+    console.error('保存页脚配置失败:', error)
+    ElMessage.error(t('common.error'))
+  } finally {
+    saving.value = false
+  }
+}
+
+// 重置页脚设置
+const resetFooterSettings = () => {
+  footerSettings.copyright = '© 2026 carolcoral'
+  footerSettings.friendLinkUrl = 'https://xindu.site'
+  footerSettings.friendLinkTitle = ''
+  footerSettings.blogUrl = 'https://blog.xindu.site'
+  footerSettings.blogTitle = ''
+  footerSettings.githubUrl = 'https://github.com/carolcoral'
+  footerSettings.githubTitle = ''
+  footerSettings.emailAddress = 'lxw@cnkj.site'
+  footerSettings.emailTitle = ''
+  footerSettings.customLinks = []
+  ElMessage.info(t('settings.settingsReset'))
+}
+
+// 添加自定义链接
+const addCustomLink = () => {
+  footerSettings.customLinks.push({ url: '', title: '' })
+}
+
+// 删除自定义链接
+const removeCustomLink = (index) => {
+  footerSettings.customLinks.splice(index, 1)
+}
+
+// 加载页脚配置
+const loadFooterConfig = async () => {
+  try {
+    const response = await request.get('/system-config/footer')
+    if (response.code === 200 && response.data) {
+      const data = response.data
+      if (data.copyright) footerSettings.copyright = data.copyright
+      if (data.friendLinkUrl) footerSettings.friendLinkUrl = data.friendLinkUrl
+      if (data.friendLinkTitle) footerSettings.friendLinkTitle = data.friendLinkTitle
+      if (data.blogUrl) footerSettings.blogUrl = data.blogUrl
+      if (data.blogTitle) footerSettings.blogTitle = data.blogTitle
+      if (data.githubUrl) footerSettings.githubUrl = data.githubUrl
+      if (data.githubTitle) footerSettings.githubTitle = data.githubTitle
+      if (data.emailAddress) footerSettings.emailAddress = data.emailAddress
+      if (data.emailTitle) footerSettings.emailTitle = data.emailTitle
+      if (data.customLinks) footerSettings.customLinks = data.customLinks
+    }
+  } catch (error) {
+    console.error('加载页脚配置失败:', error)
+  }
 }
 
 // 更新 axios 全局超时时间

@@ -987,6 +987,31 @@ public class DynamicCompiler {
     private static final Map<String, File> extractedJars = new ConcurrentHashMap<>();
 
     /**
+     * 获取已提取的 JAR 缓存 Map
+     * <p>
+     * 由于 {@link #extractedJars} 是静态 final 字段，在类加载时初始化，
+     * 但某些环境（如麒麟服务器上的特定 JVM）中可能存在初始化顺序问题。
+     * 此方法提供安全访问，如果 Map 为 null 则创建新的 ConcurrentHashMap。
+     * </p>
+     */
+    private static Map<String, File> getExtractedJars() {
+        if (extractedJars == null) {
+            return new ConcurrentHashMap<>();
+        }
+        return extractedJars;
+    }
+
+    /**
+     * 获取已提取的 classes 目录缓存 Map
+     */
+    private static Map<String, File> getExtractedClassesDirs() {
+        if (extractedClassesDirs == null) {
+            return new ConcurrentHashMap<>();
+        }
+        return extractedClassesDirs;
+    }
+
+    /**
      * 从Spring Boot fat JAR中提取BOOT-INF/classes到临时目录
      * <p>
      * 当应用以 {@code java -jar} 方式运行时，项目自身的类文件（包括
@@ -1005,8 +1030,8 @@ public class DynamicCompiler {
      */
     private static File extractBootInfClasses(String fatJarPath, java.util.zip.ZipFile zip) {
         try {
-            // 检查缓存
-            File cached = extractedClassesDirs.get(fatJarPath);
+            // 检查缓存（使用安全 getter）
+            File cached = getExtractedClassesDirs().get(fatJarPath);
             if (cached != null && cached.exists()) {
                 return cached;
             }
@@ -1045,7 +1070,7 @@ public class DynamicCompiler {
             }
             if (extractedCount > 0) {
                 log.info("从fat JAR提取了 {} 个项目类文件到: {}", extractedCount, tmpDir.getAbsolutePath());
-                extractedClassesDirs.put(fatJarPath, tmpDir);
+                getExtractedClassesDirs().put(fatJarPath, tmpDir);
                 return tmpDir;
             }
         } catch (Exception e) {
@@ -1080,9 +1105,10 @@ public class DynamicCompiler {
         try {
             String jarName = jarEntry.getName().substring("BOOT-INF/lib/".length());
             String cacheKey = fatJarPath + "::" + jarName;
+            Map<String, File> jarCache = getExtractedJars();
 
             // 检查缓存
-            File cached = extractedJars.get(cacheKey);
+            File cached = jarCache.get(cacheKey);
             if (cached != null && cached.exists()) {
                 return cached;
             }
@@ -1091,7 +1117,7 @@ public class DynamicCompiler {
             File tmpJar = new File(System.getProperty("java.io.tmpdir"), jarName);
             // 如果文件已存在且大小匹配，直接复用
             if (tmpJar.exists() && tmpJar.length() == jarEntry.getSize()) {
-                extractedJars.put(cacheKey, tmpJar);
+                jarCache.put(cacheKey, tmpJar);
                 return tmpJar;
             }
 
@@ -1106,7 +1132,7 @@ public class DynamicCompiler {
             }
 
             if (tmpJar.exists() && tmpJar.length() > 0) {
-                extractedJars.put(cacheKey, tmpJar);
+                jarCache.put(cacheKey, tmpJar);
                 log.debug("从fat JAR提取依赖jar: {} -> {}", jarName, tmpJar.getAbsolutePath());
                 return tmpJar;
             }

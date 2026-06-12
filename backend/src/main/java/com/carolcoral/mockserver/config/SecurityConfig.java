@@ -125,7 +125,8 @@ public class SecurityConfig {
                         // 系统配置读写接口 - 需要管理员权限
                         .requestMatchers(
                                 "/api/system-config/language",
-                                "/api/system-config/date-format"
+                                "/api/system-config/date-format",
+                                "/api/system-config/footer"
                         ).hasRole("ADMIN")
                         // 用户信息接口 - 需要认证
                         .requestMatchers(

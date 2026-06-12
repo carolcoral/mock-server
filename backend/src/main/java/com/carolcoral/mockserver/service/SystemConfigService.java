@@ -96,4 +96,19 @@ public class SystemConfigService {
         systemConfigRepository.save(config);
         log.info("系统配置已保存: {} = {}", configKey, configValue);
     }
+
+    /**
+     * 删除系统配置
+     *
+     * @param configKey 配置键
+     */
+    @Operation(summary = "删除系统配置")
+    @Transactional
+    public void deleteConfig(String configKey) {
+        Optional<SystemConfig> existingConfigOpt = systemConfigRepository.findByConfigKey(configKey);
+        if (existingConfigOpt.isPresent()) {
+            systemConfigRepository.delete(existingConfigOpt.get());
+            log.info("系统配置已删除: {}", configKey);
+        }
+    }
 }

@@ -408,6 +408,18 @@ public class StartupConfig implements CommandLineRunner {
             initDefaultConfigIfAbsent("logRetentionDays", "30", "日志保留天数");
             initDefaultConfigIfAbsent("maxRequestBodySize", "10", "最大请求体大小（MB）");
             initDefaultConfigIfAbsent("axiosTimeout", "30000", "前端Axios请求超时时间（毫秒）");
+
+            // 页脚默认配置
+            initDefaultConfigIfAbsent("footerCopyright", "© 2026 carolcoral", "页脚版权信息");
+            initDefaultConfigIfAbsent("footerFriendLinkUrl", "https://xindu.site", "友情链接URL");
+            initDefaultConfigIfAbsent("footerFriendLinkTitle", "友情链接 - XINDU.SITE", "友情链接标题");
+            initDefaultConfigIfAbsent("footerBlogUrl", "https://blog.xindu.site", "博客链接URL");
+            initDefaultConfigIfAbsent("footerBlogTitle", "博客", "博客链接标题");
+            initDefaultConfigIfAbsent("footerGithubUrl", "https://github.com/carolcoral", "GitHub链接URL");
+            initDefaultConfigIfAbsent("footerGithubTitle", "GitHub", "GitHub链接标题");
+            initDefaultConfigIfAbsent("footerEmailAddress", "lxw@cnkj.site", "邮箱地址");
+            initDefaultConfigIfAbsent("footerEmailTitle", "发送邮件", "邮箱链接标题");
+
             log.info("系统配置默认值初始化完成");
         } catch (Exception e) {
             log.error("初始化系统配置默认值失败: {}", e.getMessage(), e);

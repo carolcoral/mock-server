@@ -28,16 +28,47 @@ print_step() {
     echo -e "${BLUE}[步骤]${NC} $1"
 }
 
+# 获取脚本所在目录（确保路径始终相对于脚本位置）
+# 兼容 bash run.sh 和 ./run.sh 两种执行方式
+if [ -L "$0" ]; then
+    SCRIPT_PATH="$(readlink -f "$0" 2>/dev/null || readlink "$0" 2>/dev/null || echo "$0")"
+else
+    SCRIPT_PATH="$0"
+fi
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" 2>/dev/null && pwd)"
+cd "$SCRIPT_DIR" 2>/dev/null || { echo "[错误] 无法进入脚本目录: $SCRIPT_DIR"; exit 1; }
+
+# 打印调试信息（帮助定位麒麟服务器上的路径问题）
+echo "[调试] 脚本路径: $SCRIPT_PATH"
+echo "[调试] 脚本目录: $SCRIPT_DIR"
+echo "[调试] 当前目录: $(pwd)"
+echo "[调试] 目录内容: $(ls -la "$SCRIPT_DIR" 2>/dev/null | head -20)"
+
+# 查找 jar 包：使用 find 命令（最跨平台可靠的方式）
+find_jar() {
+    local jar=""
+    # 1. 优先检查与 run.sh 同级目录的 jar
+    jar=$(find "$SCRIPT_DIR" -maxdepth 1 -name "mock-server-*.jar" -type f 2>/dev/null | head -n 1)
+    if [ -n "$jar" ] && [ -f "$jar" ]; then
+        echo "$jar"
+        return 0
+    fi
+    # 2. 检查 backend/target 目录
+    jar=$(find "$SCRIPT_DIR/backend/target" -maxdepth 1 -name "mock-server-*.jar" -type f 2>/dev/null | head -n 1)
+    if [ -n "$jar" ] && [ -f "$jar" ]; then
+        echo "$jar"
+        return 0
+    fi
+    return 1
+}
+
+JAR_FILE=$(find_jar)
+echo "[调试] find_jar 结果: '$JAR_FILE'"
+
 print_step "检查是否需要构建..."
 
-# 获取脚本所在目录（确保路径始终相对于脚本位置）
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
-
-# 检查是否需要构建（jar包不存在或前端dist不存在）
-JAR_FILE=$(ls backend/target/mock-server-*.jar 2>/dev/null | head -n 1)
-if [ -z "$JAR_FILE" ] || [ ! -d "frontend/dist" ]; then
-    print_info "检测到jar包或前端构建产物不存在，开始构建..."
+if [ -z "$JAR_FILE" ]; then
+    print_info "未找到 jar 包，开始构建..."
     print_info "正在运行 ./build-all-in-one.sh ..."
     bash ./build-all-in-one.sh
 
@@ -47,8 +78,10 @@ if [ -z "$JAR_FILE" ] || [ ! -d "frontend/dist" ]; then
     fi
 
     print_success "构建完成"
+    JAR_FILE=$(find_jar)
+    echo "[调试] 构建后 find_jar 结果: '$JAR_FILE'"
 else
-    print_info "jar包和前端构建产物已存在，跳过构建"
+    print_info "jar包已存在，跳过构建"
     print_info "如需重新构建，请运行: ./build-all-in-one.sh"
 fi
 
@@ -180,17 +213,31 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# 检查后端jar包是否存在（通配符匹配，不限制版本号）
-JAR_FILE=$(ls backend/target/mock-server-*.jar 2>/dev/null | head -n 1)
+# 最终确认 jar 包是否存在
+JAR_FILE=$(find_jar)
 if [ -z "$JAR_FILE" ] || [ ! -f "$JAR_FILE" ]; then
     print_error "后端jar包不存在，请先运行构建脚本: ./build-all-in-one.sh"
     exit 1
 fi
 print_info "找到jar包: $(basename $JAR_FILE)"
 
+# 根据 jar 包位置确定工作目录（data/logs 放在 jar 包同级或 backend 目录下）
+JAR_DIR=$(dirname "$JAR_FILE")
+if [ "$JAR_DIR" = "$SCRIPT_DIR" ]; then
+    # jar 包与 run.sh 同级，data/logs 也放在同级
+    DATA_DIR="$SCRIPT_DIR/data"
+    LOG_DIR="$SCRIPT_DIR/logs"
+else
+    # jar 包在 backend/target 下，保持原有行为
+    DATA_DIR="$SCRIPT_DIR/backend/data"
+    LOG_DIR="$SCRIPT_DIR/backend/logs"
+fi
+
 # 创建数据目录
-mkdir -p backend/data
-mkdir -p backend/logs
+mkdir -p "$DATA_DIR"
+mkdir -p "$LOG_DIR"
+print_info "数据目录: $DATA_DIR"
+print_info "日志目录: $LOG_DIR"
 
 # 查找并停止已存在的后端进程
 print_info "检查是否已有后端服务在运行..."
@@ -213,12 +260,27 @@ else
     print_info "未发现占用${SERVER_PORT}端口的进程"
 fi
 
+# 构造 Java 启动参数
+# jar 包与 run.sh 同级时，DB_URL 和 LOG_FILE_PATH 使用相对于工作目录的路径
+if [ "$JAR_DIR" = "$SCRIPT_DIR" ]; then
+    # 同级模式：工作目录为脚本所在目录，使用相对路径
+    JAVA_DB_URL="jdbc:sqlite:./data/mock-server.db"
+    JAVA_LOG_PATH="./logs/mock-server.log"
+else
+    JAVA_DB_URL="jdbc:sqlite:./backend/data/mock-server.db"
+    JAVA_LOG_PATH="./backend/logs/mock-server.log"
+fi
+
 print_info "启动后端服务..."
-nohup "$INTERNAL_JAVA_HOME/bin/java" -jar "$JAR_FILE" > backend/logs/server.log 2>&1 &
+nohup "$INTERNAL_JAVA_HOME/bin/java" \
+    -DDB_URL="$JAVA_DB_URL" \
+    -DLOG_FILE_PATH="$JAVA_LOG_PATH" \
+    -jar "$JAR_FILE" \
+    > "$LOG_DIR/server.log" 2>&1 &
 
 if [ $? -eq 0 ]; then
     print_success "后端服务已启动 (PID: $!)"
-    print_info "日志文件: backend/logs/server.log"
+    print_info "日志文件: $LOG_DIR/server.log"
     print_info "jar包: $(basename $JAR_FILE)"
 else
     print_error "后端服务启动失败"
@@ -243,7 +305,7 @@ print_info "=========================================="
 print_info "后端服务地址: http://localhost:${SERVER_PORT}"
 print_info "前端界面地址: http://localhost:${SERVER_PORT}"
 print_info "API文档地址: http://localhost:${SERVER_PORT}/swagger-ui.html"
-print_info "日志文件: backend/logs/server.log"
+print_info "日志文件: $LOG_DIR/server.log"
 print_info ""
 print_info "提示: 前端静态文件已集成到后端，无需单独启动前端服务"
 print_info ""

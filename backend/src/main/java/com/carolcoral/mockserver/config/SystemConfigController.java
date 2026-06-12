@@ -13,6 +13,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
  * 系统配置Controller
  * 用于管理系统级别的配置，如语言设置、日期格式、Mock超时配置等
@@ -151,6 +156,108 @@ public class SystemConfigController {
         }
         return defaultValue;
     }
+
+    // ========== 页脚配置 ==========
+
+    /**
+     * 获取页脚配置
+     * <p>返回页脚的版权信息、链接等配置，用于前端动态渲染页脚。</p>
+     *
+     * @return 页脚配置信息
+     */
+    @GetMapping("/footer")
+    @Operation(summary = "获取页脚配置")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResponse<FooterConfigDTO> getFooterConfig() {
+        FooterConfigDTO config = new FooterConfigDTO();
+        config.setCopyright(systemConfigService.getConfig("footerCopyright"));
+        config.setFriendLinkUrl(systemConfigService.getConfig("footerFriendLinkUrl"));
+        config.setFriendLinkTitle(systemConfigService.getConfig("footerFriendLinkTitle"));
+        config.setBlogUrl(systemConfigService.getConfig("footerBlogUrl"));
+        config.setBlogTitle(systemConfigService.getConfig("footerBlogTitle"));
+        config.setGithubUrl(systemConfigService.getConfig("footerGithubUrl"));
+        config.setGithubTitle(systemConfigService.getConfig("footerGithubTitle"));
+        config.setEmailAddress(systemConfigService.getConfig("footerEmailAddress"));
+        config.setEmailTitle(systemConfigService.getConfig("footerEmailTitle"));
+
+        // 自定义链接列表
+        List<Map<String, String>> customLinks = new ArrayList<>();
+        int index = 0;
+        while (true) {
+            String url = systemConfigService.getConfig("footerCustomLinkUrl" + index);
+            String title = systemConfigService.getConfig("footerCustomLinkTitle" + index);
+            if (url == null || url.isEmpty()) break;
+            Map<String, String> link = new LinkedHashMap<>();
+            link.put("url", url);
+            link.put("title", title != null ? title : "");
+            customLinks.add(link);
+            index++;
+        }
+        config.setCustomLinks(customLinks);
+        return ApiResponse.success(config);
+    }
+
+    /**
+     * 保存页脚配置
+     * <p>需要管理员权限。更新后会持久化到数据库。</p>
+     *
+     * @param dto 页脚配置DTO
+     * @return 操作结果
+     */
+    @PostMapping("/footer")
+    @Operation(summary = "保存页脚配置")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<Void> saveFooterConfig(@RequestBody FooterConfigDTO dto) {
+        if (dto.getCopyright() != null) {
+            systemConfigService.saveConfig("footerCopyright", dto.getCopyright(), "页脚版权信息");
+        }
+        if (dto.getFriendLinkUrl() != null) {
+            systemConfigService.saveConfig("footerFriendLinkUrl", dto.getFriendLinkUrl(), "友情链接URL");
+        }
+        if (dto.getFriendLinkTitle() != null) {
+            systemConfigService.saveConfig("footerFriendLinkTitle", dto.getFriendLinkTitle(), "友情链接标题");
+        }
+        if (dto.getBlogUrl() != null) {
+            systemConfigService.saveConfig("footerBlogUrl", dto.getBlogUrl(), "博客链接URL");
+        }
+        if (dto.getBlogTitle() != null) {
+            systemConfigService.saveConfig("footerBlogTitle", dto.getBlogTitle(), "博客链接标题");
+        }
+        if (dto.getGithubUrl() != null) {
+            systemConfigService.saveConfig("footerGithubUrl", dto.getGithubUrl(), "GitHub链接URL");
+        }
+        if (dto.getGithubTitle() != null) {
+            systemConfigService.saveConfig("footerGithubTitle", dto.getGithubTitle(), "GitHub链接标题");
+        }
+        if (dto.getEmailAddress() != null) {
+            systemConfigService.saveConfig("footerEmailAddress", dto.getEmailAddress(), "邮箱地址");
+        }
+        if (dto.getEmailTitle() != null) {
+            systemConfigService.saveConfig("footerEmailTitle", dto.getEmailTitle(), "邮箱链接标题");
+        }
+
+        // 保存自定义链接：先清除旧的，再写入新的
+        int index = 0;
+        while (systemConfigService.getConfig("footerCustomLinkUrl" + index) != null) {
+            systemConfigService.deleteConfig("footerCustomLinkUrl" + index);
+            systemConfigService.deleteConfig("footerCustomLinkTitle" + index);
+            index++;
+        }
+
+        if (dto.getCustomLinks() != null) {
+            for (int i = 0; i < dto.getCustomLinks().size(); i++) {
+                Map<String, String> link = dto.getCustomLinks().get(i);
+                if (link.get("url") != null && !link.get("url").isEmpty()) {
+                    systemConfigService.saveConfig("footerCustomLinkUrl" + i, link.get("url"), "自定义链接" + (i + 1) + " URL");
+                    systemConfigService.saveConfig("footerCustomLinkTitle" + i,
+                            link.get("title") != null ? link.get("title") : "", "自定义链接" + (i + 1) + " 标题");
+                }
+            }
+        }
+
+        log.info("管理员更新页脚配置");
+        return ApiResponse.success();
+    }
 }
 
 /**
@@ -275,5 +382,61 @@ class MockConfigDTO {
 
     public Integer getAxiosTimeout() { return axiosTimeout; }
     public void setAxiosTimeout(Integer axiosTimeout) { this.axiosTimeout = axiosTimeout; }
+}
+
+/**
+ * 页脚配置DTO
+ */
+class FooterConfigDTO {
+    /** 版权信息，如 "© 2026 carolcoral" */
+    private String copyright;
+    /** 友情链接URL */
+    private String friendLinkUrl;
+    /** 友情链接提示文本 */
+    private String friendLinkTitle;
+    /** 博客链接URL */
+    private String blogUrl;
+    /** 博客链接提示文本 */
+    private String blogTitle;
+    /** GitHub链接URL */
+    private String githubUrl;
+    /** GitHub链接提示文本 */
+    private String githubTitle;
+    /** 邮箱地址 */
+    private String emailAddress;
+    /** 邮箱链接提示文本 */
+    private String emailTitle;
+    /** 自定义链接列表 */
+    private List<Map<String, String>> customLinks;
+
+    public String getCopyright() { return copyright; }
+    public void setCopyright(String copyright) { this.copyright = copyright; }
+
+    public String getFriendLinkUrl() { return friendLinkUrl; }
+    public void setFriendLinkUrl(String friendLinkUrl) { this.friendLinkUrl = friendLinkUrl; }
+
+    public String getFriendLinkTitle() { return friendLinkTitle; }
+    public void setFriendLinkTitle(String friendLinkTitle) { this.friendLinkTitle = friendLinkTitle; }
+
+    public String getBlogUrl() { return blogUrl; }
+    public void setBlogUrl(String blogUrl) { this.blogUrl = blogUrl; }
+
+    public String getBlogTitle() { return blogTitle; }
+    public void setBlogTitle(String blogTitle) { this.blogTitle = blogTitle; }
+
+    public String getGithubUrl() { return githubUrl; }
+    public void setGithubUrl(String githubUrl) { this.githubUrl = githubUrl; }
+
+    public String getGithubTitle() { return githubTitle; }
+    public void setGithubTitle(String githubTitle) { this.githubTitle = githubTitle; }
+
+    public String getEmailAddress() { return emailAddress; }
+    public void setEmailAddress(String emailAddress) { this.emailAddress = emailAddress; }
+
+    public String getEmailTitle() { return emailTitle; }
+    public void setEmailTitle(String emailTitle) { this.emailTitle = emailTitle; }
+
+    public List<Map<String, String>> getCustomLinks() { return customLinks; }
+    public void setCustomLinks(List<Map<String, String>> customLinks) { this.customLinks = customLinks; }
 }
 

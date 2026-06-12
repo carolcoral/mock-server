@@ -46,7 +46,16 @@ RUN mkdir -p /app/data /app/logs /app/frontend/dist \
 RUN groupadd -r appgroup && useradd -r -g appgroup -d /app -s /bin/sh appuser
 
 # ---- 启动脚本 ----
-RUN printf '#!/bin/sh\nexec java ${JAVA_OPTS} -jar /app/mock-server.jar --server.port=8080\n' > /app/start.sh \
+# 以 root 启动时先修复 volume 目录权限，再切换到 appuser 运行 Java
+RUN printf '#!/bin/sh\n\
+# 确保数据目录存在且权限正确（支持以 root 启动时自动修复）\n\
+mkdir -p /app/data /app/logs\n\
+if [ "$(id -u)" = "0" ]; then\n\
+    chown -R appuser:appgroup /app/data /app/logs 2>/dev/null || true\n\
+    exec su -s /bin/sh appuser -c "exec java ${JAVA_OPTS} -jar /app/mock-server.jar --server.port=8080"\n\
+else\n\
+    exec java ${JAVA_OPTS} -jar /app/mock-server.jar --server.port=8080\n\
+fi\n' > /app/start.sh \
     && chmod +x /app/start.sh \
     && chown -R appuser:appgroup /app
 
