@@ -1,33 +1,21 @@
-main:
-  push:
-    - services:
-        - docker
-      stages:
-        # 同名镜像构建&推送
-        - name: Docker build
-          script: docker build -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest -f ./docker/Dockerfile .
-        - name: Docker push
-          script: docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest
-
 # ========================================
 # 云原生开发环境配置
 # ========================================
-# 使用与默认 CNB 云原生开发环境一致的方式：
-# 1. 基础镜像使用 Dockerfile（含 JDK 21、Maven、Node.js 等开发工具）
-# 2. 代码通过 git clone 自动挂载到 /workspace
-# 3. .codebuddy 数据通过 docker volumes 持久化（容器重启不丢失）
-# 4. session、终端历史等通过 volumes 自动保存/恢复
+# 使用 CNB 官方云原生开发环境基础镜像 cnbcool/default-dev-env
+# 该镜像已包含 JDK、Maven、Node.js 等完整开发工具链
+# 代码通过 git clone 自动挂载到 /workspace
+# .codebuddy、session、终端历史等通过 volumes 持久化挂载
+# 服务本身不需要构建镜像，直接在开发环境中运行
 # ========================================
 $:
   vscode:
     - docker:
-        # 直接使用 Dockerfile 构建的镜像作为开发环境基础镜像
-        # 该镜像包含 JDK 21 + Maven + Node.js，无需额外的 dev 镜像层
-        image: ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:latest
+        # CNB 云原生开发环境基础镜像（内置 JDK、Maven、Node.js 等）
+        image: cnbcool/default-dev-env
       services:
         - vscode
         - docker
-      # 持久化卷：保存 CodeBuddy 数据、session、终端历史等
+      # 持久化挂载卷：保存 CodeBuddy 数据、session、终端历史等
       # 关闭开发环境后数据不丢失，下次打开自动恢复
       volumes:
         # CodeBuddy AI 助手数据（skills、plugins、对话历史、记忆等）
@@ -40,7 +28,7 @@ $:
         - /root/.m2
         # npm 缓存（加速前端依赖安装）
         - /root/.npm
-      # 环境变量（开发环境专用）
+      # 环境变量
       env:
         TZ: Asia/Shanghai
         LANG: C.UTF-8
