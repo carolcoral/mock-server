@@ -8,7 +8,10 @@
           </div>
           <div class="stat-content">
             <h3>{{ $t('home.projectCount') }}</h3>
-            <p>{{ loading ? '-' : stats.projectCount }}</p>
+            <el-tooltip v-if="loading || stats.projectCount > 9999" :content="String(stats.projectCount)" placement="top" :disabled="loading">
+              <p>{{ loading ? '-' : formatCount(stats.projectCount) }}</p>
+            </el-tooltip>
+            <p v-else>{{ stats.projectCount }}</p>
           </div>
         </el-card>
       </el-col>
@@ -19,7 +22,10 @@
           </div>
           <div class="stat-content">
             <h3>{{ $t('home.apiCount') }}</h3>
-            <p>{{ loading ? '-' : stats.apiCount }}</p>
+            <el-tooltip v-if="loading || stats.apiCount > 9999" :content="String(stats.apiCount)" placement="top" :disabled="loading">
+              <p>{{ loading ? '-' : formatCount(stats.apiCount) }}</p>
+            </el-tooltip>
+            <p v-else>{{ stats.apiCount }}</p>
           </div>
         </el-card>
       </el-col>
@@ -30,7 +36,10 @@
           </div>
           <div class="stat-content">
             <h3>{{ $t('home.userCount') }}</h3>
-            <p>{{ loading ? '-' : stats.userCount }}</p>
+            <el-tooltip v-if="loading || stats.userCount > 9999" :content="String(stats.userCount)" placement="top" :disabled="loading">
+              <p>{{ loading ? '-' : formatCount(stats.userCount) }}</p>
+            </el-tooltip>
+            <p v-else>{{ stats.userCount }}</p>
           </div>
         </el-card>
       </el-col>
@@ -41,7 +50,10 @@
           </div>
           <div class="stat-content">
             <h3>{{ $t('home.todayRequests') }}</h3>
-            <p>{{ loading ? '-' : stats.requestCount }}</p>
+            <el-tooltip v-if="loading || stats.requestCount > 9999" :content="String(stats.requestCount)" placement="top" :disabled="loading">
+              <p>{{ loading ? '-' : formatCount(stats.requestCount) }}</p>
+            </el-tooltip>
+            <p v-else>{{ stats.requestCount }}</p>
           </div>
         </el-card>
       </el-col>
@@ -52,7 +64,10 @@
           </div>
           <div class="stat-content">
             <h3>{{ $t('home.totalRequests') }}</h3>
-            <p>{{ loading ? '-' : stats.totalRequestCount }}</p>
+            <el-tooltip v-if="loading || stats.totalRequestCount > 9999" :content="String(stats.totalRequestCount)" placement="top" :disabled="loading">
+              <p>{{ loading ? '-' : formatCount(stats.totalRequestCount) }}</p>
+            </el-tooltip>
+            <p v-else>{{ stats.totalRequestCount }}</p>
           </div>
         </el-card>
       </el-col>
@@ -150,6 +165,12 @@ const renderedContent = computed(() => {
   }
   return ''
 })
+
+// 数字格式化：超过9999显示9999+
+const formatCount = (count) => {
+  if (count > 9999) return '9999+'
+  return count
+}
 
   // 显示Swagger文档
   const showSwagger = async () => {

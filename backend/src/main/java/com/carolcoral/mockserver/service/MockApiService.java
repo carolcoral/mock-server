@@ -302,6 +302,32 @@ public class MockApiService {
     @Operation(summary = "根据项目ID查询接口列表")
     public ApiResponse<List<MockApi>> getMockApisByProjectId(@Parameter(description = "项目ID", example = "1") Long projectId) {
         try {
+            // 权限校验：检查当前用户是否有权限访问该项目
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || auth.getName().equals("anonymousUser")) {
+                return ApiResponse.error("未登录，无法查看项目接口");
+            }
+
+            Optional<User> userOpt = userRepository.findByUsername(auth.getName());
+            if (!userOpt.isPresent()) {
+                return ApiResponse.error("用户不存在");
+            }
+
+            User user = userOpt.get();
+
+            // 管理员可以查看所有项目的接口
+            if (user.getRole() != User.UserRole.ADMIN) {
+                // 检查用户是否有权限访问该项目
+                List<Long> accessibleProjectIds = projectRepository.findAccessibleProjectsByUserId(user.getId())
+                        .stream()
+                        .map(Project::getId)
+                        .collect(Collectors.toList());
+
+                if (!accessibleProjectIds.contains(projectId)) {
+                    return ApiResponse.error("没有权限访问该项目的接口");
+                }
+            }
+
             List<MockApi> apis = cacheUtil.getProjectApisFromCache(projectId);
 
             if (apis == null) {

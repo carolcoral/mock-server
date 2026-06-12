@@ -239,25 +239,49 @@ mkdir -p "$LOG_DIR"
 print_info "数据目录: $DATA_DIR"
 print_info "日志目录: $LOG_DIR"
 
+# PID文件路径（放在项目根目录）
+PID_FILE="$SCRIPT_DIR/.pid"
+
 # 查找并停止已存在的后端进程
 print_info "检查是否已有后端服务在运行..."
+
+# 方法1：通过PID文件查找并终止（优先，与端口无关）
+if [ -f "$PID_FILE" ]; then
+    PID_FROM_FILE=$(cat "$PID_FILE" 2>/dev/null)
+    if [ ! -z "$PID_FROM_FILE" ] && kill -0 "$PID_FROM_FILE" 2>/dev/null; then
+        print_info "发现已有后端进程 (PID文件: $PID_FROM_FILE)，正在停止..."
+        kill "$PID_FROM_FILE" 2>/dev/null
+        sleep 2
+        if kill -0 "$PID_FROM_FILE" 2>/dev/null; then
+            print_info "进程仍在运行，强制终止..."
+            kill -9 "$PID_FROM_FILE" 2>/dev/null
+            sleep 1
+        fi
+        print_success "旧进程已停止（通过PID文件）"
+    else
+        print_info "PID文件中的进程已不存在，清理PID文件"
+        rm -f "$PID_FILE"
+    fi
+fi
+
+# 方法2：通过端口查找并终止（兜底，处理PID文件丢失的情况）
 OLD_PID=$(lsof -ti:$SERVER_PORT 2>/dev/null || netstat -tuln 2>/dev/null | grep :$SERVER_PORT | awk '{print $NF}' | sed 's/.*://' || ss -tuln 2>/dev/null | grep :$SERVER_PORT | awk '{print $NF}' | sed 's/.*://')
 
 if [ ! -z "$OLD_PID" ]; then
-    print_info "发现已有进程占用${SERVER_PORT}端口 (PID: $OLD_PID)，正在停止..."
-    kill $OLD_PID 2>/dev/null
-    sleep 2
-
-    # 如果进程还在，强制杀死
-    if kill -0 $OLD_PID 2>/dev/null; then
-        print_info "进程仍在运行，强制终止..."
-        kill -9 $OLD_PID 2>/dev/null
-        sleep 1
+    # 检查是否是同一个进程（避免重复kill）
+    if [ "$OLD_PID" != "$PID_FROM_FILE" ]; then
+        print_info "发现已有进程占用${SERVER_PORT}端口 (PID: $OLD_PID)，正在停止..."
+        kill $OLD_PID 2>/dev/null
+        sleep 2
+        if kill -0 $OLD_PID 2>/dev/null; then
+            print_info "进程仍在运行，强制终止..."
+            kill -9 $OLD_PID 2>/dev/null
+            sleep 1
+        fi
+        print_success "旧进程已停止（通过端口检测）"
     fi
-
-    print_success "旧进程已停止"
-else
-    print_info "未发现占用${SERVER_PORT}端口的进程"
+elif [ ! -f "$PID_FILE" ]; then
+    print_info "未发现运行中的后端进程"
 fi
 
 # 构造 Java 启动参数
@@ -278,8 +302,12 @@ nohup "$INTERNAL_JAVA_HOME/bin/java" \
     -jar "$JAR_FILE" \
     > "$LOG_DIR/server.log" 2>&1 &
 
+NEW_PID=$!
 if [ $? -eq 0 ]; then
-    print_success "后端服务已启动 (PID: $!)"
+    # 保存PID到文件
+    echo "$NEW_PID" > "$PID_FILE"
+    print_success "后端服务已启动 (PID: $NEW_PID)"
+    print_info "PID文件: $PID_FILE"
     print_info "日志文件: $LOG_DIR/server.log"
     print_info "jar包: $(basename $JAR_FILE)"
 else

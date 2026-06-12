@@ -229,7 +229,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             requestUri.equals("/home") || requestUri.equals("/projects") ||
             requestUri.startsWith("/projects/") || requestUri.equals("/apis") ||
             requestUri.equals("/users") || requestUri.equals("/settings") ||
-            requestUri.equals("/guide") || requestUri.equals("/profile")) {
+            requestUri.equals("/statistics") || requestUri.equals("/guide") ||
+            requestUri.equals("/profile")) {
             return true;
         }
 

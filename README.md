@@ -2,7 +2,7 @@
 
 > 基于 Spring Boot + Vue 3 的 API 接口模拟服务器
 
-[![Version](https://img.shields.io/badge/version-2.0.4-blue)](https://github.com/carolcoral/mock-server)
+[![Version](https://img.shields.io/badge/version-2.0.5-blue)](https://github.com/carolcoral/mock-server)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 [![JDK](https://img.shields.io/badge/JDK-21%2B-orange)](#)
 [![Node](https://img.shields.io/badge/Node-18%2B-brightgreen)](#)
@@ -50,7 +50,7 @@
 
 ```bash
 ./build-all-in-one.sh
-java -jar backend/target/mock-server-2.0.4.jar
+java -jar backend/target/mock-server-2.0.5.jar
 ```
 
 ### 开发模式

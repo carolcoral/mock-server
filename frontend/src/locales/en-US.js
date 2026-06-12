@@ -36,7 +36,8 @@ export default {
     projects: 'Project Management',
     apis: 'API Management',
     userManagement: 'User Management',
-    settings: 'System Settings'
+    settings: 'System Settings',
+    statistics: 'Statistics'
   },
 
   // User
@@ -56,7 +57,45 @@ export default {
     passwordMinLength: 'Password must be at least 8 characters',
     passwordStrengthHint: 'Password must contain uppercase, lowercase, number and special character',
     passwordChanged: 'Password changed successfully, please login again',
-    passwordChangeFailed: 'Failed to change password, please try again'
+    passwordChangeFailed: 'Failed to change password, please try again',
+    confirmChangePassword: 'Are you sure you want to change your password? You will need to login again.'
+  },
+
+  // Profile
+  profile: {
+    title: 'Profile',
+    editProfile: 'Edit Profile',
+    changePassword: 'Change Password',
+    username: 'Username',
+    email: 'Email',
+    emailPlaceholder: 'Enter email address',
+    emailRequired: 'Please enter email address',
+    emailInvalid: 'Please enter a valid email format',
+    language: 'Language Preference',
+    role: 'Role',
+    admin: 'Admin',
+    normalUser: 'Normal User',
+    save: 'Save Changes',
+    reset: 'Reset',
+    createdAt: 'Created At',
+    updatedAt: 'Updated At',
+    profileSaved: 'Profile updated successfully',
+    profileSaveFailed: 'Update failed, please try again',
+    profileLoadFailed: 'Failed to fetch user profile',
+    currentPassword: 'Current Password',
+    currentPasswordPlaceholder: 'Enter current password',
+    newPassword: 'New Password',
+    newPasswordPlaceholder: 'Enter new password (at least 8 characters)',
+    confirmPassword: 'Confirm New Password',
+    confirmPasswordPlaceholder: 'Enter new password again',
+    confirmPasswordRequired: 'Please confirm new password',
+    passwordMismatch: 'Passwords do not match',
+    passwordMinLength: 'Password must be at least 8 characters',
+    passwordStrengthHint: 'Password must contain uppercase, lowercase, number and special character',
+    savePassword: 'Change Password',
+    passwordChanged: 'Password changed successfully, please login again',
+    passwordChangeFailed: 'Failed to change password, please try again',
+    confirmChangePassword: 'Are you sure you want to change your password? You will need to login again.'
   },
 
   // Login
@@ -482,6 +521,24 @@ export default {
     createFailed: 'Create failed',
     editFailed: 'Edit failed',
     fetchFailed: 'Failed to fetch user list'
+  },
+
+  // Statistics
+  statistics: {
+    title: 'Statistics',
+    requestFrequency: 'Request Frequency',
+    daily: 'Daily',
+    hourly: 'Hourly',
+    sourceIps: 'Source IPs (TOP15)',
+    creationTrend: 'Project & API Creation Trend',
+    requestCount: 'Requests',
+    newProjects: 'New Projects',
+    newApis: 'New APIs',
+    iops: 'IOPS',
+    iopsTrend: 'System IOPS Trend (Requests/sec)',
+    currentIops: 'Current IOPS',
+    avgIops: 'Average IOPS',
+    peakIops: 'Peak IOPS'
   },
 
   // Footer

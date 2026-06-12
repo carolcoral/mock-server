@@ -65,16 +65,28 @@
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="project.name" :label="$t('api.project')" min-width="120" show-overflow-tooltip />
         <el-table-column prop="name" :label="$t('api.apiName')" min-width="150" />
-        <el-table-column :label="$t('api.apiPath')" min-width="320" show-overflow-tooltip>
+        <el-table-column :label="$t('api.apiPath')" min-width="360" show-overflow-tooltip>
           <template #default="{ row }">
-            <el-button
-              type="primary"
-              link
-              @click="handleCopyPath(row)"
-              style="font-family: monospace;"
-            >
-              /api/mock-server/{{ row.project?.code }}{{ row.path }}
-            </el-button>
+            <div class="path-cell">
+              <el-button
+                type="primary"
+                link
+                @click="handleCopyPath(row)"
+                style="font-family: monospace;"
+              >
+                /api/mock-server/{{ row.project?.code }}{{ row.path }}
+              </el-button>
+              <el-tooltip :content="$t('api.copyPath')" placement="top">
+                <el-button
+                  class="copy-btn"
+                  size="small"
+                  circle
+                  @click.stop="handleCopyPath(row)"
+                >
+                  <el-icon><CopyDocument /></el-icon>
+                </el-button>
+              </el-tooltip>
+            </div>
           </template>
         </el-table-column>
         <el-table-column prop="method" :label="$t('api.apiMethod')" width="100">
@@ -100,11 +112,20 @@
           </template>
         </el-table-column>
         <el-table-column prop="responseDelay" :label="$t('api.delayMs')" width="100" align="center" />
-        <el-table-column :label="$t('api.actions')" width="250" fixed="right">
+        <el-table-column :label="$t('api.actions')" width="120" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)">{{ $t('api.edit') }}</el-button>
-            <el-button type="success" link @click="handleResponses(row)">{{ $t('api.manageResponses') }}</el-button>
-            <el-button type="danger" link @click="handleDelete(row)">{{ $t('api.delete') }}</el-button>
+            <el-dropdown trigger="click" @command="(cmd) => handleApiAction(cmd, row)">
+              <el-button type="primary" link>
+                {{ $t('common.more') }}<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="edit">{{ $t('api.edit') }}</el-dropdown-item>
+                  <el-dropdown-item command="responses">{{ $t('api.manageResponses') }}</el-dropdown-item>
+                  <el-dropdown-item command="delete" divided style="color: #f56c6c;">{{ $t('api.delete') }}</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
         </el-table-column>
       </el-table>
@@ -496,7 +517,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Refresh, Edit, Delete, InfoFilled, WarningFilled } from '@element-plus/icons-vue'
+import { Plus, Refresh, Edit, Delete, InfoFilled, WarningFilled, ArrowDown, CopyDocument } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { useRoute } from 'vue-router'
 import { getAccessibleProjects } from '@/api/project'
@@ -852,6 +873,21 @@ const handleCreate = () => {
 }
 
 // 编辑接口
+// 下拉菜单操作分发
+const handleApiAction = (command, row) => {
+  switch (command) {
+    case 'edit':
+      handleEdit(row)
+      break
+    case 'responses':
+      handleResponses(row)
+      break
+    case 'delete':
+      handleDelete(row)
+      break
+  }
+}
+
 const handleEdit = async (row) => {
   dialogTitle.value = t('api.editApi')
   isEdit.value = true
@@ -1298,15 +1334,39 @@ const handleDelete = async (row) => {
   }
 }
 
-// 复制接口路径
+// 复制接口路径（兼容 Chrome 140+ 及非 HTTPS 环境）
 const handleCopyPath = async (row) => {
   const path = `/api/mock-server/${row.project?.code}${row.path}`
   try {
+    // 优先使用现代 Clipboard API（HTTPS 环境）
     await navigator.clipboard.writeText(path)
     ElMessage.success(t('api.copySuccess'))
-  } catch (error) {
-    console.error('复制失败:', error)
-    ElMessage.error(t('api.copyFailed'))
+  } catch (err) {
+    // 降级到传统 document.execCommand 方式（兼容 Chrome 140+ 限流/非HTTPS）
+    console.warn('Clipboard API 不可用，使用降级方案:', err.message || err)
+    try {
+      const textarea = document.createElement('textarea')
+      textarea.value = path
+      textarea.setAttribute('readonly', '')
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      textarea.style.left = '-9999px'
+      textarea.style.top = (window.scrollY + window.innerHeight) + 'px'
+      document.body.appendChild(textarea)
+      textarea.focus()
+      textarea.select()
+      textarea.setSelectionRange(0, 99999)
+      const successful = document.execCommand('copy')
+      document.body.removeChild(textarea)
+      if (successful) {
+        ElMessage.success(t('api.copySuccess'))
+      } else {
+        ElMessage.error(t('api.copyFailed'))
+      }
+    } catch (fallbackErr) {
+      console.error('降级复制也失败:', fallbackErr)
+      ElMessage.error(t('api.copyFailed'))
+    }
   }
 }
 
@@ -1590,6 +1650,34 @@ onMounted(() => {
 
 :deep(.status-code-color-5) {
   background-color: #fce4ec !important;
+}
+
+/* 复制路径按钮布局 */
+.path-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.copy-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #dcdfe6;
+  background: #fff;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+::deep(.path-cell:hover .copy-btn),
+::deep(.copy-btn:focus-visible) {
+  opacity: 1;
+}
+
+::deep(.copy-btn:hover) {
+  border-color: #409eff;
+  color: #409eff;
 }
 </style>
 

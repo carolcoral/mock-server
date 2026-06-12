@@ -36,7 +36,8 @@ export default {
     projects: '项目管理',
     apis: '接口管理',
     userManagement: '用户管理',
-    settings: '系统设置'
+    settings: '系统设置',
+    statistics: '数据统计'
   },
 
   // 用户相关
@@ -56,7 +57,45 @@ export default {
     passwordMinLength: '密码长度不能少于8位',
     passwordStrengthHint: '密码需包含大小写字母、数字和特殊字符',
     passwordChanged: '密码修改成功，请重新登录',
-    passwordChangeFailed: '密码修改失败，请稍后重试'
+    passwordChangeFailed: '密码修改失败，请稍后重试',
+    confirmChangePassword: '确认要修改密码吗？修改成功后需要重新登录。'
+  },
+
+  // 个人信息页
+  profile: {
+    title: '个人信息',
+    editProfile: '编辑个人信息',
+    changePassword: '修改密码',
+    username: '用户名',
+    email: '邮箱',
+    emailPlaceholder: '请输入邮箱地址',
+    emailRequired: '请输入邮箱地址',
+    emailInvalid: '请输入正确的邮箱格式',
+    language: '语言偏好',
+    role: '角色',
+    admin: '管理员',
+    normalUser: '普通用户',
+    save: '保存修改',
+    reset: '重置',
+    createdAt: '创建时间',
+    updatedAt: '更新时间',
+    profileSaved: '个人信息更新成功',
+    profileSaveFailed: '更新失败，请稍后重试',
+    profileLoadFailed: '获取用户信息失败',
+    currentPassword: '当前密码',
+    currentPasswordPlaceholder: '请输入当前密码',
+    newPassword: '新密码',
+    newPasswordPlaceholder: '请输入新密码（至少8位）',
+    confirmPassword: '确认新密码',
+    confirmPasswordPlaceholder: '请再次输入新密码',
+    confirmPasswordRequired: '请确认新密码',
+    passwordMismatch: '两次输入的密码不一致',
+    passwordMinLength: '密码长度不能少于8位',
+    passwordStrengthHint: '密码需包含大小写字母、数字和特殊字符',
+    savePassword: '修改密码',
+    passwordChanged: '密码修改成功，请重新登录',
+    passwordChangeFailed: '密码修改失败，请稍后重试',
+    confirmChangePassword: '确认要修改密码吗？修改成功后需要重新登录。'
   },
 
   // 登录页面
@@ -482,6 +521,24 @@ export default {
     createFailed: '创建失败',
     editFailed: '编辑失败',
     fetchFailed: '获取用户列表失败'
+  },
+
+  // 数据统计
+  statistics: {
+    title: '数据统计',
+    requestFrequency: '请求频率统计',
+    daily: '按天',
+    hourly: '按小时',
+    sourceIps: '来源IP统计（TOP15）',
+    creationTrend: '项目与接口新增趋势',
+    requestCount: '请求次数',
+    newProjects: '新增项目',
+    newApis: '新增接口',
+    iops: 'IOPS',
+    iopsTrend: '系统IOPS趋势（每秒请求数）',
+    currentIops: '当前IOPS',
+    avgIops: '平均IOPS',
+    peakIops: '峰值IOPS'
   },
 
   // 页脚

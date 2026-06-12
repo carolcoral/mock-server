@@ -14,7 +14,7 @@
 
     <groupId>com.carolcoral</groupId>
     <artifactId>mock-server</artifactId>
-    <version>2.0.4</version>
+    <version>2.0.5</version>
     <name>mock-server</name>
     <description>Mock Server for API Simulation</description>
 
@@ -126,6 +126,13 @@
             <groupId>com.jayway.jsonpath</groupId>
             <artifactId>json-path</artifactId>
             <version>2.9.0</version>
+        </dependency>
+
+        <!-- Fastjson for custom mock response processing -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+            <version>2.0.53</version>
         </dependency>
 
         <!-- Dotenv for .env file support -->

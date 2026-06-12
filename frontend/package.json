@@ -1,6 +1,6 @@
 {
   "name": "mock-server-ui",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "private": true,
   "type": "module",
   "scripts": {
@@ -16,6 +16,7 @@
     "@vueuse/core": "^10.7.0",
     "axios": "^1.15.1",
     "crypto-js": "^4.2.0",
+    "echarts": "^6.1.0",
     "element-plus": "^2.4.4",
     "jsoneditor": "^9.10.2",
     "marked": "^17.0.4",

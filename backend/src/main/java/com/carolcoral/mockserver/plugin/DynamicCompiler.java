@@ -188,10 +188,24 @@ public class DynamicCompiler {
             }
 
             // 1. 尝试从URLClassLoader获取classpath（IDE、Maven直接运行）
+            // 注意：JDK 9+的AppClassLoader不再继承URLClassLoader，需要兼容处理
             ClassLoader cl = Thread.currentThread().getContextClassLoader();
             while (cl != null) {
+                URL[] urls = null;
                 if (cl instanceof URLClassLoader urlCl) {
-                    for (URL url : urlCl.getURLs()) {
+                    urls = urlCl.getURLs();
+                } else {
+                    // JDK 9+: 通过反射尝试获取URLs（某些类加载器实现getURLs但未继承URLClassLoader）
+                    try {
+                        java.lang.reflect.Method getURLsMethod = cl.getClass().getMethod("getURLs");
+                        getURLsMethod.setAccessible(true);
+                        urls = (URL[]) getURLsMethod.invoke(cl);
+                    } catch (Exception ignored) {
+                        // 不支持，跳过此ClassLoader
+                    }
+                }
+                if (urls != null) {
+                    for (URL url : urls) {
                         String path = urlToPath(url);
                         if (path != null && !paths.contains(path)) {
                             paths.add(path);
@@ -267,22 +281,60 @@ public class DynamicCompiler {
                 }
             }
 
-            // 6. 从Maven本地仓库扫描关键依赖
+            // 6. 从Maven本地仓库动态扫描依赖
+            //    优先通过java.class.path中的Maven仓库路径发现依赖，
+            //    辅以常用依赖列表作为兜底，确保JDK 21+非URLClassLoader环境也能覆盖
             String m2Repo = System.getProperty("user.home") + "/.m2/repository";
             File m2Dir = new File(m2Repo);
             if (m2Dir.exists() && m2Dir.canRead()) {
-                // 查找常见的关键依赖
+                // 6a. 动态发现：从classpath已有的jar中提取groupId，扫描同groupId下的所有jar
+                Set<String> scannedGroupIds = new LinkedHashSet<>();
+                for (String cpEntry : paths) {
+                    // 匹配Maven仓库路径: .../repository/com/alibaba/fastjson/2.0.53/fastjson-2.0.53.jar
+                    int repoIdx = cpEntry.replace('\\', '/').indexOf("/.m2/repository/");
+                    if (repoIdx >= 0) {
+                        String relativePath = cpEntry.substring(repoIdx + "/.m2/repository/".length());
+                        String[] parts = relativePath.split("/");
+                        // parts: {groupId segments..., artifactId, version, artifactId-version.jar}
+                        if (parts.length >= 3) {
+                            StringBuilder groupId = new StringBuilder();
+                            for (int i = 0; i < parts.length - 2; i++) {
+                                if (groupId.length() > 0) groupId.append("/");
+                                groupId.append(parts[i]);
+                            }
+                            if (!scannedGroupIds.contains(groupId.toString())) {
+                                scannedGroupIds.add(groupId.toString());
+                                // 递归扫描该groupId下的所有jar
+                                File groupDir = new File(m2Dir, groupId.toString());
+                                findJars(groupDir, paths);
+                                log.debug("动态扫描Maven依赖: groupId={}", groupId);
+                            }
+                        }
+                    }
+                }
+
+                // 6b. 兜底：硬编码常用依赖列表（覆盖6a未扫描到但项目实际使用的依赖）
                 String[][] commonDeps = {
-                    // groupId, artifactId prefix
-                    {"com", "jayway", "json-path"},
+                    // Jackson 系列
                     {"com", "fasterxml", "jackson-core"},
                     {"com", "fasterxml", "jackson-databind"},
                     {"com", "fasterxml", "jackson-annotations"},
+                    // JSON 处理
+                    {"com", "jayway", "json-path"},
+                    {"com", "alibaba", "fastjson"},
+                    // SLF4J
                     {"org", "slf4j", "slf4j-api"},
+                    // Spring 核心
                     {"org", "springframework", "spring-beans"},
                     {"org", "springframework", "spring-context"},
                     {"org", "springframework", "spring-web"},
-                    {"org", "yaml", "snakeyaml"}
+                    {"org", "springframework", "spring-webmvc"},
+                    // YAML
+                    {"org", "yaml", "snakeyaml"},
+                    // JWT
+                    {"io", "jsonwebtoken", "jjwt-api"},
+                    {"io", "jsonwebtoken", "jjwt-impl"},
+                    {"io", "jsonwebtoken", "jjwt-jackson"},
                 };
 
                 for (String[] dep : commonDeps) {
@@ -294,10 +346,18 @@ public class DynamicCompiler {
                         String prefix = dep[dep.length - 1];
                         File[] versions = depBase.listFiles((dir, name) -> name.startsWith(prefix));
                         if (versions != null && versions.length > 0) {
-                            // 找到最新版本
                             Arrays.sort(versions, (a, b) -> b.getName().compareTo(a.getName()));
                             File latestVersion = versions[0];
+                            // 查找jar文件（fastjson等使用 artifactId.jar 命名）
                             File jarFile = new File(latestVersion, prefix + ".jar");
+                            if (!jarFile.exists()) {
+                                // 尝试带版本号的命名: artifactId-version.jar
+                                File[] jars = latestVersion.listFiles((dir, name) ->
+                                    name.startsWith(prefix) && name.endsWith(".jar"));
+                                if (jars != null && jars.length > 0) {
+                                    jarFile = jars[0];
+                                }
+                            }
                             if (jarFile.exists() && !paths.contains(jarFile.getAbsolutePath())) {
                                 paths.add(jarFile.getAbsolutePath());
                             }

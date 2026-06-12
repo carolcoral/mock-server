@@ -36,6 +36,10 @@
           <el-icon><User /></el-icon>
           <span>{{ $t('nav.userManagement') }}</span>
         </el-menu-item>
+        <el-menu-item index="/statistics" v-if="userStore.isAdmin">
+          <el-icon><DataAnalysis /></el-icon>
+          <span>{{ $t('nav.statistics') }}</span>
+        </el-menu-item>
         <el-menu-item index="/settings" v-if="userStore.isAdmin">
           <el-icon><Setting /></el-icon>
           <span>{{ $t('nav.settings') }}</span>
@@ -57,7 +61,7 @@
         <div class="header-right">
           <el-dropdown @command="handleCommand">
             <span class="user-info">
-              <el-avatar :size="32" :src="userStore.userAvatar" :key="userStore.userAvatar" @error="handleAvatarError">
+              <el-avatar :size="32" :src="avatarSrc" @error="handleAvatarError">
                 <el-icon><UserFilled /></el-icon>
               </el-avatar>
               <span class="username">{{ userStore.username }}</span>
@@ -130,12 +134,12 @@
     </el-container>
 
     <!-- 修改密码对话框 -->
-    <el-dialog v-model="passwordDialogVisible" :title="$t('user.changePassword')" width="480px" :close-on-click-modal="false">
+    <el-dialog v-model="passwordDialogVisible" :title="$t('user.changePassword')" width="520px" :close-on-click-modal="false">
       <el-form
         ref="passwordFormRef"
         :model="passwordForm"
         :rules="passwordRules"
-        label-width="110px"
+        label-width="160px"
       >
         <el-form-item :label="$t('user.oldPassword')" prop="oldPassword">
           <el-input
@@ -173,10 +177,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import { logout } from '@/api/auth'
 import request from '@/utils/request'
@@ -187,7 +191,8 @@ import {
   User,
   Setting,
   UserFilled,
-  ArrowDown
+  ArrowDown,
+  DataAnalysis
 } from '@element-plus/icons-vue'
 
 const { t } = useI18n()
@@ -322,6 +327,17 @@ const submitChangePassword = async () => {
     return
   }
 
+  // 二次确认
+  try {
+    await ElMessageBox.confirm(
+      t('user.confirmChangePassword'),
+      t('common.warning'),
+      { confirmButtonText: t('common.confirm'), cancelButtonText: t('common.cancel'), type: 'warning' }
+    )
+  } catch {
+    return
+  }
+
   changingPassword.value = true
   try {
     const response = await request.post('/users/change-password', {
@@ -347,11 +363,16 @@ const submitChangePassword = async () => {
   }
 }
 
-// 头像加载错误处理
+// 头像加载错误处理 - 回退到本地默认头像
+const avatarSrc = ref(userStore.userAvatar)
 const handleAvatarError = () => {
-  console.warn('头像加载失败，使用默认图标')
-  return false
+  avatarSrc.value = '/default-avatar.png'
 }
+
+// 用户信息变更时重置头像源
+watch(() => userStore.userAvatar, (newVal) => {
+  avatarSrc.value = newVal
+})
 
 // 退出登录
 const handleLogout = async () => {

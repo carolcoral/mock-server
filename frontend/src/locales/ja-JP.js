@@ -36,7 +36,8 @@ export default {
     projects: 'プロジェクト管理',
     apis: 'API管理',
     userManagement: 'ユーザー管理',
-    settings: 'システム設定'
+    settings: 'システム設定',
+    statistics: '統計データ'
   },
 
   // ユーザー関連
@@ -56,7 +57,45 @@ export default {
     passwordMinLength: 'パスワードは8文字以上必要です',
     passwordStrengthHint: 'パスワードには大文字、小文字、数字、特殊文字を含める必要があります',
     passwordChanged: 'パスワードが変更されました。再度ログインしてください',
-    passwordChangeFailed: 'パスワードの変更に失敗しました。もう一度お試しください'
+    passwordChangeFailed: 'パスワードの変更に失敗しました。もう一度お試しください',
+    confirmChangePassword: 'パスワードを変更してもよろしいですか？変更後は再度ログインが必要です。'
+  },
+
+  // プロフィール
+  profile: {
+    title: '個人情報',
+    editProfile: '個人情報編集',
+    changePassword: 'パスワード変更',
+    username: 'ユーザー名',
+    email: 'メール',
+    emailPlaceholder: 'メールアドレスを入力',
+    emailRequired: 'メールアドレスを入力してください',
+    emailInvalid: '正しいメール形式を入力してください',
+    language: '言語設定',
+    role: '役割',
+    admin: '管理者',
+    normalUser: '一般ユーザー',
+    save: '変更を保存',
+    reset: 'リセット',
+    createdAt: '作成日時',
+    updatedAt: '更新日時',
+    profileSaved: '個人情報が更新されました',
+    profileSaveFailed: '更新に失敗しました。もう一度お試しください',
+    profileLoadFailed: 'ユーザー情報の取得に失敗しました',
+    currentPassword: '現在のパスワード',
+    currentPasswordPlaceholder: '現在のパスワードを入力',
+    newPassword: '新しいパスワード',
+    newPasswordPlaceholder: '新しいパスワードを入力（8文字以上）',
+    confirmPassword: '新しいパスワードの確認',
+    confirmPasswordPlaceholder: '新しいパスワードを再入力',
+    confirmPasswordRequired: '新しいパスワードを確認してください',
+    passwordMismatch: 'パスワードが一致しません',
+    passwordMinLength: 'パスワードは8文字以上必要です',
+    passwordStrengthHint: 'パスワードには大文字、小文字、数字、特殊文字を含める必要があります',
+    savePassword: 'パスワードを変更',
+    passwordChanged: 'パスワードが変更されました。再度ログインしてください',
+    passwordChangeFailed: 'パスワードの変更に失敗しました。もう一度お試しください',
+    confirmChangePassword: 'パスワードを変更してもよろしいですか？変更後は再度ログインが必要です。'
   },
 
   // ログイン
@@ -482,6 +521,24 @@ export default {
     createFailed: '作成失敗',
     editFailed: '編集失敗',
     fetchFailed: 'ユーザーリストの取得に失敗しました'
+  },
+
+  // 統計データ
+  statistics: {
+    title: '統計データ',
+    requestFrequency: 'リクエスト頻度統計',
+    daily: '日次',
+    hourly: '時間別',
+    sourceIps: '送信元IP統計（TOP15）',
+    creationTrend: 'プロジェクトとAPIの新規追加傾向',
+    requestCount: 'リクエスト数',
+    newProjects: '新規プロジェクト',
+    newApis: '新規API',
+    iops: 'IOPS',
+    iopsTrend: 'システムIOPS傾向（リクエスト/秒）',
+    currentIops: '現在のIOPS',
+    avgIops: '平均IOPS',
+    peakIops: 'ピークIOPS'
   },
 
   // フッター

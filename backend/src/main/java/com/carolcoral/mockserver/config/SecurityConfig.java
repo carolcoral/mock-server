@@ -74,7 +74,6 @@ public class SecurityConfig {
                                 // API 接口
                                 "/api/auth/**",
                                 "/api/mock-server/**",
-                                "/api/mock-apis/**",
                                 "/api/mock/**",
                                 "/api/ws/**",
                                 "/api/error",
@@ -114,6 +113,7 @@ public class SecurityConfig {
                                 "/apis",
                                 "/users",
                                 "/settings",
+                                "/statistics",
                                 "/guide",
                                 "/profile"
                         ).permitAll()
@@ -125,8 +125,7 @@ public class SecurityConfig {
                         // 系统配置读写接口 - 需要管理员权限
                         .requestMatchers(
                                 "/api/system-config/language",
-                                "/api/system-config/date-format",
-                                "/api/system-config/footer"
+                                "/api/system-config/date-format"
                         ).hasRole("ADMIN")
                         // 用户信息接口 - 需要认证
                         .requestMatchers(
@@ -137,8 +136,11 @@ public class SecurityConfig {
                         ).authenticated()
                         // 系统配置读取接口 - 需要认证
                         .requestMatchers(
-                                "/api/system-config"
+                                "/api/system-config",
+                                "/api/system-config/footer"
                         ).authenticated()
+                        // Mock API管理接口 - 需要认证
+                        .requestMatchers("/api/mock-apis/**").authenticated()
                         // 允许所有OPTIONS预检请求
                         .requestMatchers(request -> "OPTIONS".equals(request.getMethod())).permitAll()
                         // 其他所有请求需要认证
