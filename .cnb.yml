@@ -36,3 +36,31 @@ $:
       ports:
         - 8080  # Spring Boot 后端
         - 5173  # Vite 前端开发服务器
+
+# ========================================
+# 自动同步到 GitHub
+# ========================================
+# 每次新增 tag 时，自动将代码推送到 GitHub 镜像仓库。
+# GITHUB_TOKEN 从 CNB 密钥仓库获取：
+#   https://cnb.cool/xindu.site/secret/-/blob/main/token.yaml
+# ========================================
+tag:
+  - stages:
+      - name: sync-to-github
+        image: alpine/git:latest
+        env:
+          GITHUB_TOKEN:
+            from_secret:
+              source: xindu.site/secret
+              file: token.yaml
+              key: GITHUB_TOKEN
+        script:
+          - git config --global user.email "cnb@sync.bot"
+          - git config --global user.name "CNB Sync Bot"
+          - |
+            if git remote get-url github &>/dev/null; then
+              git remote set-url github https://x-access-token:${GITHUB_TOKEN}@github.com/carolcoral/mock-server.git
+            else
+              git remote add github https://x-access-token:${GITHUB_TOKEN}@github.com/carolcoral/mock-server.git
+            fi
+          - git push github --mirror
