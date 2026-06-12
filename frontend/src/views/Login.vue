@@ -3,7 +3,14 @@
     <div class="login-overlay"></div>
     <div class="login-card">
       <div class="login-header">
-        <h1>Mock Server</h1>
+        <h1>
+          <svg class="login-logo-icon" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+            <line x1="12" y1="22.08" x2="12" y2="12"/>
+          </svg>
+          Mock Server
+        </h1>
         <p>{{ $t('login.subtitle') }}</p>
       </div>
       
@@ -47,9 +54,6 @@
         </el-form-item>
       </el-form>
       
-      <div class="login-footer">
-        <p>© 2024 carolcoral</p>
-      </div>
     </div>
   </div>
 </template>
@@ -233,12 +237,43 @@ onMounted(() => {
 
 .login-header h1 {
   margin: 0 0 10px 0;
-  font-size: 28px;
-  font-weight: 600;
-  color: #303133;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  background: linear-gradient(
+    135deg,
+    #667eea 0%,
+    #e83e8c 25%,
+    #fd7e14 50%,
+    #764ba2 75%,
+    #20c997 100%
+  );
+  background-size: 300% 300%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 4s ease infinite;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.login-logo-icon {
+  flex-shrink: 0;
+  color: #667eea;
+  -webkit-text-fill-color: #667eea;
+  animation: iconPulse 3s ease-in-out infinite;
+}
+
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes iconPulse {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
 }
 
 .login-header p {
@@ -264,17 +299,6 @@ onMounted(() => {
 .login-button:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-
-.login-footer {
-  text-align: center;
-  font-size: 12px;
-  color: #909399;
-  line-height: 1.8;
-}
-
-.login-footer p {
-  margin: 5px 0;
 }
 
 @media (max-width: 480px) {

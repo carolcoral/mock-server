@@ -1506,16 +1506,10 @@ print_step "=========================================="
 [ "$NPM_READY" = true ] && print_success "npm $REQUIRED_NPM_MAJOR+    - 已就绪" || print_warning "npm $REQUIRED_NPM_MAJOR+    - 需要安装"
 echo ""
 
-# 确认安装
+# 确认安装（默认为 y 自动安装）
 if [ "$NEED_INSTALL" = true ]; then
     print_info "即将安装缺失的依赖工具，部分操作需要管理员权限"
     echo ""
-    read -p "是否继续安装？[Y/n] " -n 1 -r
-    echo ""
-    if [[ ! $REPLY =~ ^[Yy]$ ]] && [ -n "$REPLY" ]; then
-        print_info "安装已取消"
-        exit 0
-    fi
 fi
 
 INSTALL_HAS_ERROR=false

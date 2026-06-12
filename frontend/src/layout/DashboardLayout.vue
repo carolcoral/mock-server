@@ -2,7 +2,14 @@
   <div class="dashboard-layout">
     <!-- 侧边栏 -->
     <el-aside width="220px" class="sidebar">
+      <!-- 动态线条背景 -->
+      <canvas ref="sidebarCanvas" class="sidebar-canvas"></canvas>
       <div class="logo">
+        <svg class="sidebar-logo-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+          <line x1="12" y1="22.08" x2="12" y2="12"/>
+        </svg>
         <h2>Mock Server</h2>
       </div>
       <el-menu
@@ -73,21 +80,21 @@
       </el-main>
 
       <!-- 页脚 -->
-      <el-footer class="footer" height="auto">
+      <el-footer v-if="hasFooterContent" class="footer" height="auto">
         <div class="footer-content">
-          <div class="footer-copyright">
+          <div v-if="footerConfig.enableCopyright" class="footer-copyright">
             <span>{{ footerConfig.copyright || '&copy; 2026 carolcoral' }}</span>
           </div>
           <div class="footer-links">
             <!-- 友情链接 -->
-            <a v-if="footerConfig.friendLinkUrl" :href="footerConfig.friendLinkUrl" target="_blank" rel="noopener noreferrer" :title="footerConfig.friendLinkTitle || $t('footer.friendLink')" class="footer-link">
+            <a v-if="footerConfig.enableFriendLink && footerConfig.friendLinkUrl" :href="footerConfig.friendLinkUrl" target="_blank" rel="noopener noreferrer" :title="footerConfig.friendLinkTitle || $t('footer.friendLink')" class="footer-link">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#E74C3C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
               </svg>
             </a>
             <!-- 博客 -->
-            <a v-if="footerConfig.blogUrl" :href="footerConfig.blogUrl" target="_blank" rel="noopener noreferrer" :title="footerConfig.blogTitle || $t('footer.blog')" class="footer-link">
+            <a v-if="footerConfig.enableBlog && footerConfig.blogUrl" :href="footerConfig.blogUrl" target="_blank" rel="noopener noreferrer" :title="footerConfig.blogTitle || $t('footer.blog')" class="footer-link">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#E67E22" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
@@ -96,21 +103,22 @@
               </svg>
             </a>
             <!-- GitHub -->
-            <a v-if="footerConfig.githubUrl" :href="footerConfig.githubUrl" target="_blank" rel="noopener noreferrer" :title="footerConfig.githubTitle || $t('footer.github')" class="footer-link">
+            <a v-if="footerConfig.enableGithub && footerConfig.githubUrl" :href="footerConfig.githubUrl" target="_blank" rel="noopener noreferrer" :title="footerConfig.githubTitle || $t('footer.github')" class="footer-link">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="#24292E">
                 <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
               </svg>
             </a>
             <!-- 邮箱 -->
-            <a v-if="footerConfig.emailAddress" :href="'mailto:' + footerConfig.emailAddress" :title="footerConfig.emailTitle || $t('footer.email')" class="footer-link">
+            <a v-if="footerConfig.enableEmail && footerConfig.emailAddress" :href="'mailto:' + footerConfig.emailAddress" :title="footerConfig.emailTitle || $t('footer.email')" class="footer-link">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#3498DB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="2" y="4" width="20" height="16" rx="2"/>
                 <path d="M22 4L12 13 2 4"/>
               </svg>
             </a>
             <!-- 自定义链接 -->
-            <a v-for="(link, idx) in footerConfig.customLinks" :key="'custom-'+idx" :href="link.url" target="_blank" rel="noopener noreferrer" :title="link.title" class="footer-link">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#909399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <a v-if="footerConfig.enableCustomLinks" v-for="(link, idx) in footerConfig.customLinks" :key="'custom-'+idx" :href="link.url" target="_blank" rel="noopener noreferrer" :title="link.title" class="footer-link">
+              <span v-if="link.svgIcon" v-html="link.svgIcon" class="footer-link-custom-svg"></span>
+              <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#909399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"/>
                 <line x1="2" y1="12" x2="22" y2="12"/>
                 <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
@@ -165,7 +173,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
@@ -195,15 +203,21 @@ const appVersion = ref('')
 
 // 页脚配置
 const footerConfig = reactive({
+  enableCopyright: true,
   copyright: '',
+  enableFriendLink: true,
   friendLinkUrl: '',
   friendLinkTitle: '',
+  enableBlog: true,
   blogUrl: '',
   blogTitle: '',
+  enableGithub: true,
   githubUrl: '',
   githubTitle: '',
+  enableEmail: true,
   emailAddress: '',
   emailTitle: '',
+  enableCustomLinks: true,
   customLinks: []
 })
 
@@ -219,6 +233,16 @@ const fetchVersion = async () => {
     appVersion.value = ''
   }
 }
+
+// 判断是否有页脚内容需要展示
+const hasFooterContent = computed(() => {
+  return (footerConfig.enableCopyright && footerConfig.copyright) ||
+    (footerConfig.enableFriendLink && footerConfig.friendLinkUrl) ||
+    (footerConfig.enableBlog && footerConfig.blogUrl) ||
+    (footerConfig.enableGithub && footerConfig.githubUrl) ||
+    (footerConfig.enableEmail && footerConfig.emailAddress) ||
+    (footerConfig.enableCustomLinks && footerConfig.customLinks && footerConfig.customLinks.length > 0)
+})
 
 // 获取页脚配置
 const fetchFooterConfig = async () => {
@@ -344,10 +368,162 @@ const handleLogout = async () => {
   router.push('/login')
 }
 
+// 监听页脚配置变更事件
+const handleFooterConfigUpdated = () => {
+  fetchFooterConfig()
+}
+
+// ========== 侧边栏动态线条动画 ==========
+const sidebarCanvas = ref(null)
+let animationId = null
+
+class FloatingLine {
+  constructor(w, h) {
+    this.w = w
+    this.h = h
+    this.reset()
+  }
+
+  reset() {
+    // 随机起始位置（偏左侧区域）
+    this.x = Math.random() * this.w * 0.9
+    this.y = Math.random() * this.h
+    // 随机方向角度
+    this.angle = Math.random() * Math.PI * 2
+    this.speed = 0.3 + Math.random() * 0.6
+    // 线段长度
+    this.length = 20 + Math.random() * 60
+    // 线条颜色（蓝紫青之间）
+    const hues = [220, 260, 280, 180, 200]
+    this.hue = hues[Math.floor(Math.random() * hues.length)]
+    this.alpha = 0.03 + Math.random() * 0.07
+    this.lineWidth = 0.5 + Math.random() * 1.2
+    // 轨迹点
+    this.trail = []
+    this.maxTrail = 30 + Math.floor(Math.random() * 50)
+    // 方向变化计时
+    this.dirChangeTimer = 0
+    this.dirChangeInterval = 60 + Math.random() * 120
+    // 目标角度
+    this.targetAngle = this.angle
+  }
+
+  update() {
+    // 平滑转向
+    this.dirChangeTimer++
+    if (this.dirChangeTimer >= this.dirChangeInterval) {
+      this.dirChangeTimer = 0
+      this.dirChangeInterval = 60 + Math.random() * 120
+      this.targetAngle = this.angle + (Math.random() - 0.5) * Math.PI * 0.8
+    }
+    this.angle += (this.targetAngle - this.angle) * 0.02
+
+    // 边界反弹
+    this.x += Math.cos(this.angle) * this.speed
+    this.y += Math.sin(this.angle) * this.speed
+
+    if (this.x < -10 || this.x > this.w + 10) {
+      this.angle = Math.PI - this.angle
+      this.targetAngle = this.angle
+    }
+    if (this.y < -10 || this.y > this.h + 10) {
+      this.angle = -this.angle
+      this.targetAngle = this.angle
+    }
+
+    // 记录轨迹
+    this.trail.push({ x: this.x, y: this.y })
+    if (this.trail.length > this.maxTrail) {
+      this.trail.shift()
+    }
+
+    // 偶尔重置
+    if (Math.random() < 0.0003) {
+      this.reset()
+    }
+  }
+
+  draw(ctx) {
+    if (this.trail.length < 2) return
+
+    for (let i = 1; i < this.trail.length; i++) {
+      const p0 = this.trail[i - 1]
+      const p1 = this.trail[i]
+      const progress = i / this.trail.length
+      const alpha = this.alpha * progress * 0.6
+
+      ctx.beginPath()
+      ctx.moveTo(p0.x, p0.y)
+      ctx.lineTo(p1.x, p1.y)
+      ctx.strokeStyle = `hsla(${this.hue}, 70%, 60%, ${alpha})`
+      ctx.lineWidth = this.lineWidth * progress
+      ctx.lineCap = 'round'
+      ctx.stroke()
+    }
+  }
+}
+
+const initSidebarCanvas = () => {
+  const canvas = sidebarCanvas.value
+  if (!canvas) return
+
+  const sidebar = canvas.parentElement
+  const resize = () => {
+    const rect = sidebar.getBoundingClientRect()
+    canvas.width = rect.width * devicePixelRatio
+    canvas.height = rect.height * devicePixelRatio
+    canvas.style.width = rect.width + 'px'
+    canvas.style.height = rect.height + 'px'
+  }
+  resize()
+
+  const ctx = canvas.getContext('2d')
+  ctx.scale(devicePixelRatio, devicePixelRatio)
+
+  // 创建 6-8 条随机游走线条
+  const lines = []
+  const lineCount = 6 + Math.floor(Math.random() * 3)
+  for (let i = 0; i < lineCount; i++) {
+    lines.push(new FloatingLine(canvas.width / devicePixelRatio, canvas.height / devicePixelRatio))
+  }
+
+  const animate = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+    lines.forEach(line => {
+      line.update()
+      line.draw(ctx)
+    })
+
+    animationId = requestAnimationFrame(animate)
+  }
+
+  animate()
+
+  // 窗口大小变化时重新调整
+  window.addEventListener('resize', resize)
+}
+
+const destroySidebarCanvas = () => {
+  if (animationId) {
+    cancelAnimationFrame(animationId)
+    animationId = null
+  }
+}
+
 // 页面加载时获取数据
 onMounted(() => {
   fetchVersion()
   fetchFooterConfig()
+  window.addEventListener('footer-config-updated', handleFooterConfigUpdated)
+  // 延迟初始化 canvas，等 DOM 渲染完成
+  setTimeout(() => initSidebarCanvas(), 100)
+})
+
+// 组件卸载时清理事件监听
+onBeforeUnmount(() => {
+  window.removeEventListener('footer-config-updated', handleFooterConfigUpdated)
+  destroySidebarCanvas()
 })
 </script>
 
@@ -359,36 +535,151 @@ onMounted(() => {
 }
 
 .sidebar {
-  background-color: #304156;
+  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 40%, #0f3460 100%);
   overflow-y: auto;
-  box-shadow: 2px 0 6px rgba(0, 21, 41, 0.35);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3), inset -1px 0 0 rgba(255, 255, 255, 0.05);
   position: relative;
   display: flex;
   flex-direction: column;
 }
 
+/* 动态线条 Canvas 层 */
+.sidebar-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+/* 侧边栏顶部光晕 */
+.sidebar::after {
+  content: '';
+  position: absolute;
+  top: -60px;
+  left: -30px;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(102, 126, 234, 0.15) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
 .logo {
-  height: 60px;
+  height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #2b3a4a;
+  gap: 8px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   color: #fff;
+  position: relative;
+  z-index: 1;
 }
 
 .logo h2 {
   margin: 0;
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  background: linear-gradient(
+    135deg,
+    #667eea 0%,
+    #e83e8c 30%,
+    #fd7e14 60%,
+    #20c997 100%
+  );
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: sidebarGradientShift 5s ease infinite;
+}
+
+.sidebar-logo-icon {
+  flex-shrink: 0;
+  color: #667eea;
+}
+
+@keyframes sidebarGradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
 
 .el-menu-vertical {
   border-right: none;
+  position: relative;
+  z-index: 1;
+  padding: 8px 0;
 }
 
-.el-menu-vertical .el-menu-item {
+/* Element Plus 菜单背景覆盖 */
+.sidebar :deep(.el-menu) {
+  background-color: transparent !important;
+  border-right: none !important;
+}
+
+.sidebar :deep(.el-menu-item) {
   height: 50px;
   line-height: 50px;
+  margin: 2px 10px;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.65);
+  background-color: transparent !important;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+/* 菜单项 hover 光效 */
+.sidebar :deep(.el-menu-item)::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 0;
+  background: linear-gradient(180deg, #667eea, #764ba2, #e83e8c);
+  border-radius: 0 3px 3px 0;
+  transform: translateY(-50%);
+  transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar :deep(.el-menu-item:hover) {
+  color: #fff !important;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.12) 0%, rgba(118, 75, 162, 0.08) 100%) !important;
+  transform: translateX(2px);
+}
+
+.sidebar :deep(.el-menu-item:hover)::before {
+  height: 60%;
+}
+
+/* 选中态 */
+.sidebar :deep(.el-menu-item.is-active) {
+  color: #fff !important;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.15) 100%) !important;
+  box-shadow: 0 2px 12px rgba(102, 126, 234, 0.15), inset 0 0 0 1px rgba(102, 126, 234, 0.25);
+  font-weight: 600;
+}
+
+.sidebar :deep(.el-menu-item.is-active)::before {
+  height: 80%;
+  background: linear-gradient(180deg, #667eea, #e83e8c);
+}
+
+/* 菜单图标动效 */
+.sidebar :deep(.el-menu-item .el-icon) {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s ease;
+}
+
+.sidebar :deep(.el-menu-item:hover .el-icon) {
+  transform: scale(1.15);
+}
+
+.sidebar :deep(.el-menu-item.is-active .el-icon) {
+  transform: scale(1.1);
 }
 
 .sidebar-version {
@@ -396,10 +687,11 @@ onMounted(() => {
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 12px 0;
+  padding: 14px 0;
   text-align: center;
-  background-color: #2b3a4a;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(0deg, rgba(0,0,0,0.3) 0%, transparent 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  z-index: 1;
 }
 
 .version-text {
@@ -509,6 +801,12 @@ onMounted(() => {
 
 .footer-link svg {
   display: block;
+}
+
+.footer-link-custom-svg :deep(svg) {
+  display: block;
+  width: 20px;
+  height: 20px;
 }
 
 @media (max-width: 768px) {

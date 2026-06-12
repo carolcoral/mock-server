@@ -338,59 +338,103 @@
           <div v-if="activeMenu === 'footer'">
             <h2>{{ $t('settings.footer') }}</h2>
             <el-divider />
-            <el-form :model="footerSettings" label-width="140px">
-              <el-form-item :label="$t('settings.footerCopyright')">
+            <el-form :model="footerSettings" label-width="160px">
+              <!-- 版权信息 -->
+              <el-divider content-position="left">
+                <el-switch v-model="footerSettings.enableCopyright" size="small" style="margin-right: 8px;" />
+                {{ $t('settings.footerCopyright') }}
+              </el-divider>
+              <el-form-item v-if="footerSettings.enableCopyright" :label="$t('settings.footerCopyright')">
                 <el-input v-model="footerSettings.copyright" :placeholder="$t('settings.footerCopyrightPlaceholder')" />
               </el-form-item>
-              <el-divider content-position="left">{{ $t('settings.footerFriendLink') }}</el-divider>
-              <el-form-item :label="$t('settings.footerLinkUrl')">
-                <el-input v-model="footerSettings.friendLinkUrl" :placeholder="$t('settings.footerLinkUrlPlaceholder')" />
-              </el-form-item>
-              <el-form-item :label="$t('settings.footerLinkTitle')">
-                <el-input v-model="footerSettings.friendLinkTitle" :placeholder="$t('settings.footerLinkTitlePlaceholder')" />
-              </el-form-item>
-              <el-divider content-position="left">{{ $t('settings.footerBlogLink') }}</el-divider>
-              <el-form-item :label="$t('settings.footerLinkUrl')">
-                <el-input v-model="footerSettings.blogUrl" :placeholder="$t('settings.footerLinkUrlPlaceholder')" />
-              </el-form-item>
-              <el-form-item :label="$t('settings.footerLinkTitle')">
-                <el-input v-model="footerSettings.blogTitle" :placeholder="$t('settings.footerLinkTitlePlaceholder')" />
-              </el-form-item>
-              <el-divider content-position="left">{{ $t('settings.footerGithubLink') }}</el-divider>
-              <el-form-item :label="$t('settings.footerLinkUrl')">
-                <el-input v-model="footerSettings.githubUrl" :placeholder="$t('settings.footerLinkUrlPlaceholder')" />
-              </el-form-item>
-              <el-form-item :label="$t('settings.footerLinkTitle')">
-                <el-input v-model="footerSettings.githubTitle" :placeholder="$t('settings.footerLinkTitlePlaceholder')" />
-              </el-form-item>
-              <el-divider content-position="left">{{ $t('settings.footerEmailLink') }}</el-divider>
-              <el-form-item :label="$t('settings.footerEmailAddress')">
-                <el-input v-model="footerSettings.emailAddress" :placeholder="$t('settings.footerEmailPlaceholder')" />
-              </el-form-item>
-              <el-form-item :label="$t('settings.footerLinkTitle')">
-                <el-input v-model="footerSettings.emailTitle" :placeholder="$t('settings.footerLinkTitlePlaceholder')" />
-              </el-form-item>
-              <el-divider content-position="left">{{ $t('settings.footerCustomLinks') }}</el-divider>
-              <div v-for="(link, idx) in footerSettings.customLinks" :key="idx" style="margin-bottom: 12px;">
-                <el-row :gutter="12">
-                  <el-col :span="10">
-                    <el-input v-model="link.url" :placeholder="$t('settings.footerLinkUrlPlaceholder')" size="small" />
-                  </el-col>
-                  <el-col :span="10">
-                    <el-input v-model="link.title" :placeholder="$t('settings.footerLinkTitlePlaceholder')" size="small" />
-                  </el-col>
-                  <el-col :span="4">
-                    <el-button type="danger" size="small" @click="removeCustomLink(idx)" :icon="Delete">
-                      {{ $t('common.delete') }}
-                    </el-button>
-                  </el-col>
-                </el-row>
-              </div>
-              <el-form-item>
-                <el-button type="success" @click="addCustomLink" :icon="Edit">
-                  {{ $t('settings.footerAddCustomLink') }}
-                </el-button>
-              </el-form-item>
+              <!-- 友情链接 -->
+              <el-divider content-position="left">
+                <el-switch v-model="footerSettings.enableFriendLink" size="small" style="margin-right: 8px;" />
+                {{ $t('settings.footerFriendLink') }}
+              </el-divider>
+              <template v-if="footerSettings.enableFriendLink">
+                <el-form-item :label="$t('settings.footerLinkUrl')">
+                  <el-input v-model="footerSettings.friendLinkUrl" :placeholder="$t('settings.footerLinkUrlPlaceholder')" />
+                </el-form-item>
+                <el-form-item :label="$t('settings.footerLinkTitle')">
+                  <el-input v-model="footerSettings.friendLinkTitle" :placeholder="$t('settings.footerLinkTitlePlaceholder')" />
+                </el-form-item>
+              </template>
+              <!-- 博客链接 -->
+              <el-divider content-position="left">
+                <el-switch v-model="footerSettings.enableBlog" size="small" style="margin-right: 8px;" />
+                {{ $t('settings.footerBlogLink') }}
+              </el-divider>
+              <template v-if="footerSettings.enableBlog">
+                <el-form-item :label="$t('settings.footerLinkUrl')">
+                  <el-input v-model="footerSettings.blogUrl" :placeholder="$t('settings.footerLinkUrlPlaceholder')" />
+                </el-form-item>
+                <el-form-item :label="$t('settings.footerLinkTitle')">
+                  <el-input v-model="footerSettings.blogTitle" :placeholder="$t('settings.footerLinkTitlePlaceholder')" />
+                </el-form-item>
+              </template>
+              <!-- GitHub链接 -->
+              <el-divider content-position="left">
+                <el-switch v-model="footerSettings.enableGithub" size="small" style="margin-right: 8px;" />
+                {{ $t('settings.footerGithubLink') }}
+              </el-divider>
+              <template v-if="footerSettings.enableGithub">
+                <el-form-item :label="$t('settings.footerLinkUrl')">
+                  <el-input v-model="footerSettings.githubUrl" :placeholder="$t('settings.footerLinkUrlPlaceholder')" />
+                </el-form-item>
+                <el-form-item :label="$t('settings.footerLinkTitle')">
+                  <el-input v-model="footerSettings.githubTitle" :placeholder="$t('settings.footerLinkTitlePlaceholder')" />
+                </el-form-item>
+              </template>
+              <!-- 邮箱链接 -->
+              <el-divider content-position="left">
+                <el-switch v-model="footerSettings.enableEmail" size="small" style="margin-right: 8px;" />
+                {{ $t('settings.footerEmailLink') }}
+              </el-divider>
+              <template v-if="footerSettings.enableEmail">
+                <el-form-item :label="$t('settings.footerEmailAddress')">
+                  <el-input v-model="footerSettings.emailAddress" :placeholder="$t('settings.footerEmailPlaceholder')" />
+                </el-form-item>
+                <el-form-item :label="$t('settings.footerLinkTitle')">
+                  <el-input v-model="footerSettings.emailTitle" :placeholder="$t('settings.footerLinkTitlePlaceholder')" />
+                </el-form-item>
+              </template>
+              <!-- 自定义链接 -->
+              <el-divider content-position="left">
+                <el-switch v-model="footerSettings.enableCustomLinks" size="small" style="margin-right: 8px;" />
+                {{ $t('settings.footerCustomLinks') }}
+              </el-divider>
+              <template v-if="footerSettings.enableCustomLinks">
+                <div v-for="(link, idx) in footerSettings.customLinks" :key="idx" class="custom-link-item">
+                  <el-row :gutter="12">
+                    <el-col :span="10">
+                      <el-input v-model="link.url" :placeholder="$t('settings.footerLinkUrlPlaceholder')" size="small" />
+                    </el-col>
+                    <el-col :span="10">
+                      <el-input v-model="link.title" :placeholder="$t('settings.footerLinkTitlePlaceholder')" size="small" />
+                    </el-col>
+                    <el-col :span="4">
+                      <el-button type="danger" size="small" @click="removeCustomLink(idx)" :icon="Delete">
+                        {{ $t('common.delete') }}
+                      </el-button>
+                    </el-col>
+                  </el-row>
+                  <el-row :gutter="12" style="margin-top: 8px;">
+                    <el-col :span="20">
+                      <el-input v-model="link.svgIcon" type="textarea" :rows="3" size="small"
+                        placeholder="SVG 图标代码（可选，粘贴完整的 SVG 标签）" />
+                    </el-col>
+                    <el-col :span="4" style="display: flex; align-items: flex-start; padding-top: 4px;">
+                      <div v-if="link.svgIcon" class="svg-preview" v-html="link.svgIcon"></div>
+                    </el-col>
+                  </el-row>
+                </div>
+                <el-form-item>
+                  <el-button type="success" @click="addCustomLink" :icon="Edit">
+                    {{ $t('settings.footerAddCustomLink') }}
+                  </el-button>
+                </el-form-item>
+              </template>
               <el-form-item>
                 <el-button type="primary" @click="saveFooterSettings" :loading="saving">{{ $t('settings.saveSettings') }}</el-button>
                 <el-button @click="resetFooterSettings">{{ $t('settings.resetSettings') }}</el-button>
@@ -465,7 +509,7 @@ const saving = ref(false)
 // 基础设置
 const basicSettings = reactive({
   appName: 'Mock Server',
-  version: 'v2.0.3',
+  version: 'v2.0.4',
   language: localStorage.getItem('locale') || 'zh-CN',
   dateFormat: 'YYYY-MM-DD'
 })
@@ -526,15 +570,21 @@ const mockSettings = reactive({
 
 // 页脚设置
 const footerSettings = reactive({
+  enableCopyright: true,
   copyright: '',
+  enableFriendLink: true,
   friendLinkUrl: '',
   friendLinkTitle: '',
+  enableBlog: true,
   blogUrl: '',
   blogTitle: '',
+  enableGithub: true,
   githubUrl: '',
   githubTitle: '',
+  enableEmail: true,
   emailAddress: '',
   emailTitle: '',
+  enableCustomLinks: true,
   customLinks: []
 })
 
@@ -1012,18 +1062,26 @@ const saveFooterSettings = async () => {
   saving.value = true
   try {
     await request.post('/system-config/footer', {
+      enableCopyright: footerSettings.enableCopyright,
       copyright: footerSettings.copyright,
+      enableFriendLink: footerSettings.enableFriendLink,
       friendLinkUrl: footerSettings.friendLinkUrl,
       friendLinkTitle: footerSettings.friendLinkTitle,
+      enableBlog: footerSettings.enableBlog,
       blogUrl: footerSettings.blogUrl,
       blogTitle: footerSettings.blogTitle,
+      enableGithub: footerSettings.enableGithub,
       githubUrl: footerSettings.githubUrl,
       githubTitle: footerSettings.githubTitle,
+      enableEmail: footerSettings.enableEmail,
       emailAddress: footerSettings.emailAddress,
       emailTitle: footerSettings.emailTitle,
+      enableCustomLinks: footerSettings.enableCustomLinks,
       customLinks: footerSettings.customLinks
     })
     ElMessage.success(t('settings.settingsSaved'))
+    // 通知 DashboardLayout 刷新页脚配置
+    window.dispatchEvent(new CustomEvent('footer-config-updated'))
   } catch (error) {
     console.error('保存页脚配置失败:', error)
     ElMessage.error(t('common.error'))
@@ -1034,22 +1092,28 @@ const saveFooterSettings = async () => {
 
 // 重置页脚设置
 const resetFooterSettings = () => {
+  footerSettings.enableCopyright = true
   footerSettings.copyright = '© 2026 carolcoral'
+  footerSettings.enableFriendLink = true
   footerSettings.friendLinkUrl = 'https://xindu.site'
   footerSettings.friendLinkTitle = ''
+  footerSettings.enableBlog = true
   footerSettings.blogUrl = 'https://blog.xindu.site'
   footerSettings.blogTitle = ''
+  footerSettings.enableGithub = true
   footerSettings.githubUrl = 'https://github.com/carolcoral'
   footerSettings.githubTitle = ''
+  footerSettings.enableEmail = true
   footerSettings.emailAddress = 'lxw@cnkj.site'
   footerSettings.emailTitle = ''
+  footerSettings.enableCustomLinks = true
   footerSettings.customLinks = []
   ElMessage.info(t('settings.settingsReset'))
 }
 
 // 添加自定义链接
 const addCustomLink = () => {
-  footerSettings.customLinks.push({ url: '', title: '' })
+  footerSettings.customLinks.push({ url: '', title: '', svgIcon: '' })
 }
 
 // 删除自定义链接
@@ -1063,15 +1127,21 @@ const loadFooterConfig = async () => {
     const response = await request.get('/system-config/footer')
     if (response.code === 200 && response.data) {
       const data = response.data
+      if (data.enableCopyright !== undefined) footerSettings.enableCopyright = data.enableCopyright
       if (data.copyright) footerSettings.copyright = data.copyright
+      if (data.enableFriendLink !== undefined) footerSettings.enableFriendLink = data.enableFriendLink
       if (data.friendLinkUrl) footerSettings.friendLinkUrl = data.friendLinkUrl
       if (data.friendLinkTitle) footerSettings.friendLinkTitle = data.friendLinkTitle
+      if (data.enableBlog !== undefined) footerSettings.enableBlog = data.enableBlog
       if (data.blogUrl) footerSettings.blogUrl = data.blogUrl
       if (data.blogTitle) footerSettings.blogTitle = data.blogTitle
+      if (data.enableGithub !== undefined) footerSettings.enableGithub = data.enableGithub
       if (data.githubUrl) footerSettings.githubUrl = data.githubUrl
       if (data.githubTitle) footerSettings.githubTitle = data.githubTitle
+      if (data.enableEmail !== undefined) footerSettings.enableEmail = data.enableEmail
       if (data.emailAddress) footerSettings.emailAddress = data.emailAddress
       if (data.emailTitle) footerSettings.emailTitle = data.emailTitle
+      if (data.enableCustomLinks !== undefined) footerSettings.enableCustomLinks = data.enableCustomLinks
       if (data.customLinks) footerSettings.customLinks = data.customLinks
     }
   } catch (error) {
@@ -1182,6 +1252,20 @@ h2 {
   justify-content: flex-end;
   margin-top: 20px;
   padding: 0 10px;
+}
+
+.custom-link-item {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #fafafa;
+  border-radius: 6px;
+  border: 1px solid #ebeef5;
+}
+
+.svg-preview :deep(svg) {
+  width: 28px;
+  height: 28px;
+  display: block;
 }
 </style>
 
