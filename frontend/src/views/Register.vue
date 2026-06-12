@@ -11,36 +11,56 @@
           </svg>
           Mock Server
         </h1>
-        <p>{{ $t('login.subtitle') }}</p>
+        <p>{{ $t('register.subtitle') }}</p>
       </div>
-      
+
       <el-form
-        ref="loginFormRef"
-        :model="loginForm"
+        ref="registerFormRef"
+        :model="registerForm"
         :rules="rules"
         class="login-form"
-        @submit.prevent="handleLogin"
+        @submit.prevent="handleRegister"
       >
         <el-form-item prop="username">
           <el-input
-            v-model="loginForm.username"
-            :placeholder="$t('login.usernamePlaceholder')"
+            v-model="registerForm.username"
+            :placeholder="$t('register.usernamePlaceholder')"
             prefix-icon="User"
             size="large"
           />
         </el-form-item>
-        
+
+        <el-form-item prop="email">
+          <el-input
+            v-model="registerForm.email"
+            :placeholder="$t('register.emailPlaceholder')"
+            prefix-icon="Message"
+            size="large"
+          />
+        </el-form-item>
+
         <el-form-item prop="password">
           <el-input
-            v-model="loginForm.password"
+            v-model="registerForm.password"
             type="password"
-            :placeholder="$t('login.passwordPlaceholder')"
+            :placeholder="$t('register.passwordPlaceholder')"
             prefix-icon="Lock"
             size="large"
             show-password
           />
         </el-form-item>
-        
+
+        <el-form-item prop="confirmPassword">
+          <el-input
+            v-model="registerForm.confirmPassword"
+            type="password"
+            :placeholder="$t('register.confirmPasswordPlaceholder')"
+            prefix-icon="Lock"
+            size="large"
+            show-password
+          />
+        </el-form-item>
+
         <el-form-item>
           <el-button
             type="primary"
@@ -49,13 +69,13 @@
             class="login-button"
             native-type="submit"
           >
-            {{ $t('login.loginButton') }}
+            {{ $t('register.registerButton') }}
           </el-button>
         </el-form-item>
       </el-form>
 
-      <div v-if="registrationEnabled" class="register-link-wrapper">
-        <router-link to="/register" class="register-link">{{ $t('login.registerLink') }}</router-link>
+      <div class="register-link-wrapper">
+        <router-link to="/login" class="register-link">{{ $t('login.toLogin') }}</router-link>
       </div>
     </div>
   </div>
@@ -64,7 +84,6 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import axios from 'axios'
@@ -72,80 +91,79 @@ import { useBingBackground } from '@/composables/useBingBackground'
 
 const { t } = useI18n()
 const router = useRouter()
-const userStore = useUserStore()
-const loginFormRef = ref()
+const registerFormRef = ref()
 const loading = ref(false)
-const registrationEnabled = ref(false)
 
 const { bgImage, fetchBingBg } = useBingBackground()
 
-// 登录表单
-const loginForm = reactive({
+const registerForm = reactive({
   username: '',
-  password: ''
+  email: '',
+  password: '',
+  confirmPassword: ''
 })
 
-// 表单验证规则（使用 computed 确保响应语言切换）
+const validateConfirmPassword = (_rule, value, callback) => {
+  if (!value) {
+    callback(new Error(t('register.confirmPasswordRequired')))
+  } else if (value !== registerForm.password) {
+    callback(new Error(t('register.passwordMismatch')))
+  } else {
+    callback()
+  }
+}
+
 const rules = computed(() => ({
   username: [
-    { required: true, message: t('login.usernameRequired'), trigger: 'blur' },
-    { min: 3, max: 50, message: t('login.usernameLength'), trigger: 'blur' }
+    { required: true, message: t('register.usernameRequired'), trigger: 'blur' },
+    { min: 3, max: 50, message: t('register.usernameLength'), trigger: 'blur' }
+  ],
+  email: [
+    { required: true, message: t('register.emailRequired'), trigger: 'blur' },
+    { type: 'email', message: t('register.emailInvalid'), trigger: 'blur' }
   ],
   password: [
-    { required: true, message: t('login.passwordRequired'), trigger: 'blur' },
-    { min: 8, message: t('login.passwordMinLength'), trigger: 'blur' },
-    {
-      pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/,
-      message: t('login.passwordStrengthHint'),
-      trigger: 'blur'
-    }
+    { required: true, message: t('register.passwordRequired'), trigger: 'blur' },
+    { min: 8, message: t('register.passwordMinLength'), trigger: 'blur' }
+  ],
+  confirmPassword: [
+    { validator: validateConfirmPassword, trigger: 'blur' }
   ]
 }))
 
-// 处理登录
-const handleLogin = async () => {
-  if (!loginFormRef.value) return
-  
+const handleRegister = async () => {
+  if (!registerFormRef.value) return
+
   try {
-    await loginFormRef.value.validate()
+    await registerFormRef.value.validate()
   } catch {
-    // 表单验证失败，不需要额外提示（element-plus会自动显示验证错误）
     return
   }
-  
+
   loading.value = true
   try {
-    const result = await userStore.login(loginForm.username, loginForm.password)
-    
-    if (result.success) {
-      ElMessage.success(t('login.loginSuccess'))
-      router.push('/dashboard')
+    const response = await axios.post('/api/auth/register', {
+      username: registerForm.username,
+      email: registerForm.email,
+      password: registerForm.password
+    })
+
+    if (response.data && response.data.code === 200) {
+      ElMessage.success(t('register.registerSuccess'))
+      router.push('/login')
     } else {
-      ElMessage.error(result.message || t('login.loginFailed'))
+      ElMessage.error(response.data?.message || t('register.registerFailed'))
     }
   } catch (error) {
-    ElMessage.error(error.message || t('login.networkError'))
+    const msg = error.response?.data?.message || error.message || t('register.registerFailed')
+    ElMessage.error(msg)
   } finally {
     loading.value = false
   }
 }
 
-// 获取注册开关状态
-const fetchRegistrationConfig = async () => {
-  try {
-    const response = await axios.get('/api/public/system-config')
-    if (response.data && response.data.code === 200 && response.data.data) {
-      registrationEnabled.value = response.data.data.enableRegistration || false
-    }
-  } catch {
-    // 静默失败，默认不显示注册入口
-  }
-}
-
-// 页面加载时获取 Bing 每日图片作为背景
 onMounted(() => {
   fetchBingBg()
-  fetchRegistrationConfig()
 })
 </script>
 
@@ -165,7 +183,6 @@ onMounted(() => {
   transition: background-image 0.8s ease;
 }
 
-/* 半透明遮罩层，确保登录卡片清晰可读 */
 .login-overlay {
   position: absolute;
   inset: 0;
@@ -281,7 +298,7 @@ onMounted(() => {
     width: 90%;
     padding: 30px 20px;
   }
-  
+
   .login-header h1 {
     font-size: 24px;
   }

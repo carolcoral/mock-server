@@ -66,6 +66,7 @@ public class WebConfig implements WebMvcConfigurer {
         
         // SPA 常见路由转发到 index.html（Vue Router history 模式）
         registry.addViewController("/login").setViewName("forward:/index.html");
+        registry.addViewController("/register").setViewName("forward:/index.html");
         registry.addViewController("/dashboard").setViewName("forward:/index.html");
         registry.addViewController("/home").setViewName("forward:/index.html");
         registry.addViewController("/projects").setViewName("forward:/index.html");

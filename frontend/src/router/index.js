@@ -14,6 +14,12 @@ const routes = [
     meta: { requiresAuth: false }
   },
   {
+    path: '/register',
+    name: 'Register',
+    component: () => import('@/views/Register.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
     path: '/dashboard',
     name: 'Dashboard',
     component: () => import('@/layout/DashboardLayout.vue'),
@@ -100,8 +106,8 @@ router.beforeEach((to, from, next) => {
     }
   }
   
-  // 如果已登录，不允许访问登录页
-  if (to.path === '/login' && userStore.isLoggedIn) {
+  // 如果已登录，不允许访问登录页和注册页
+  if ((to.path === '/login' || to.path === '/register') && userStore.isLoggedIn) {
     next('/dashboard')
     return
   }

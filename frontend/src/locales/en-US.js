@@ -111,7 +111,36 @@ export default {
     passwordStrengthHint: 'Password must contain uppercase, lowercase, number and special character',
     loginSuccess: 'Login successful',
     loginFailed: 'Login failed',
-    networkError: 'Login failed, please check network connection'
+    networkError: 'Login failed, please check network connection',
+    registerLink: "Don't have an account? Register now",
+    toLogin: 'Already have an account? Back to login'
+  },
+
+  // Register page
+  register: {
+    title: 'User Registration',
+    subtitle: 'Create your Mock Server account',
+    username: 'Username',
+    usernamePlaceholder: 'Enter username',
+    usernameRequired: 'Please enter username',
+    usernameLength: 'Length must be between 3 and 50 characters',
+    email: 'Email',
+    emailPlaceholder: 'Enter email address',
+    emailRequired: 'Please enter email address',
+    emailInvalid: 'Please enter a valid email address',
+    password: 'Password',
+    passwordPlaceholder: 'Enter password',
+    passwordRequired: 'Please enter password',
+    passwordMinLength: 'Password must be at least 8 characters',
+    confirmPassword: 'Confirm Password',
+    confirmPasswordPlaceholder: 'Enter password again',
+    confirmPasswordRequired: 'Please confirm password',
+    passwordMismatch: 'Passwords do not match',
+    registerButton: 'Register',
+    registerSuccess: 'Registration successful, please login',
+    registerFailed: 'Registration failed',
+    registrationDisabled: 'Registration is disabled',
+    emailDomainNotAllowed: 'The email domain is not in the allowed registration list'
   },
 
   // Home / Dashboard
@@ -254,7 +283,11 @@ export default {
     autoRefreshing: 'Auto-refreshing...',
     manualRefresh: 'Manual Refresh',
     noEnvVars: 'No environment variables',
-    javaVendor: 'Java Vendor'
+    javaVendor: 'Java Vendor',
+    registration: 'Registration Settings',
+    enableRegistration: 'Enable User Registration',
+    allowedEmailDomains: 'Allowed Email Domains',
+    allowedEmailDomainsPlaceholder: 'Enter domains, separate multiple with commas, leave empty for no restriction. Example: example.com,qq.com'
   },
 
   // Project Management

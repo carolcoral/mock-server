@@ -61,6 +61,8 @@ public class SystemConfigController {
         config.setLogRetentionDays(parseIntConfig("logRetentionDays", 30));
         config.setMaxRequestBodySize(parseIntConfig("maxRequestBodySize", 10));
         config.setAxiosTimeout(parseIntConfig("axiosTimeout", 30000));
+        config.setEnableRegistration(parseBooleanConfig("enableRegistration", false));
+        config.setAllowedEmailDomains(systemConfigService.getConfig("allowedEmailDomains"));
         return ApiResponse.success(config);
     }
 
@@ -155,6 +157,28 @@ public class SystemConfigController {
             return Boolean.parseBoolean(value);
         }
         return defaultValue;
+    }
+
+    /**
+     * 保存注册配置
+     * <p>需要管理员权限。控制是否开启用户注册功能及允许的邮箱域名。</p>
+     *
+     * @param dto 注册配置DTO
+     * @return 操作结果
+     */
+    @PostMapping("/registration")
+    @Operation(summary = "保存注册配置")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<Void> saveRegistrationConfig(@RequestBody RegistrationConfigDTO dto) {
+        if (dto.getEnableRegistration() != null) {
+            systemConfigService.saveConfig("enableRegistration", String.valueOf(dto.getEnableRegistration()), "是否开启用户注册");
+        }
+        if (dto.getAllowedEmailDomains() != null) {
+            systemConfigService.saveConfig("allowedEmailDomains", dto.getAllowedEmailDomains(), "允许注册的邮箱域名（逗号分隔）");
+        }
+        log.info("管理员更新注册配置: enableRegistration={}, allowedEmailDomains={}",
+                dto.getEnableRegistration(), dto.getAllowedEmailDomains());
+        return ApiResponse.success();
     }
 
     // ========== 页脚配置 ==========
@@ -312,6 +336,10 @@ class SystemConfigDTO {
     private Integer maxRequestBodySize;
     /** 前端Axios请求超时时间（毫秒） */
     private Integer axiosTimeout;
+    /** 是否开启用户注册功能 */
+    private Boolean enableRegistration;
+    /** 允许注册的邮箱域名（逗号分隔，空表示不限制） */
+    private String allowedEmailDomains;
 
     public String getDefaultLanguage() {
         return defaultLanguage;
@@ -346,6 +374,26 @@ class SystemConfigDTO {
 
     public Integer getAxiosTimeout() { return axiosTimeout; }
     public void setAxiosTimeout(Integer axiosTimeout) { this.axiosTimeout = axiosTimeout; }
+
+    public Boolean getEnableRegistration() { return enableRegistration; }
+    public void setEnableRegistration(Boolean enableRegistration) { this.enableRegistration = enableRegistration; }
+
+    public String getAllowedEmailDomains() { return allowedEmailDomains; }
+    public void setAllowedEmailDomains(String allowedEmailDomains) { this.allowedEmailDomains = allowedEmailDomains; }
+}
+
+/**
+ * 注册配置DTO
+ */
+class RegistrationConfigDTO {
+    private Boolean enableRegistration;
+    private String allowedEmailDomains;
+
+    public Boolean getEnableRegistration() { return enableRegistration; }
+    public void setEnableRegistration(Boolean enableRegistration) { this.enableRegistration = enableRegistration; }
+
+    public String getAllowedEmailDomains() { return allowedEmailDomains; }
+    public void setAllowedEmailDomains(String allowedEmailDomains) { this.allowedEmailDomains = allowedEmailDomains; }
 }
 
 /**

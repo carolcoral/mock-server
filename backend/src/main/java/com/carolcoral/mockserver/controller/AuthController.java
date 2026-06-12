@@ -9,6 +9,8 @@ package com.carolcoral.mockserver.controller;
 import com.carolcoral.mockserver.dto.ApiResponse;
 import com.carolcoral.mockserver.dto.LoginRequest;
 import com.carolcoral.mockserver.dto.LoginResponse;
+import com.carolcoral.mockserver.dto.RegisterRequest;
+import com.carolcoral.mockserver.service.SystemConfigService;
 import com.carolcoral.mockserver.service.UserService;
 import com.carolcoral.mockserver.util.JwtTokenUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -19,7 +21,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 /**
  * 认证控制器
@@ -36,13 +40,16 @@ public class AuthController {
      * 构造器
      */
     public AuthController(UserService userService,
-        JwtTokenUtil jwtTokenUtil) {
+        JwtTokenUtil jwtTokenUtil,
+        SystemConfigService systemConfigService) {
         this.userService = userService;
         this.jwtTokenUtil = jwtTokenUtil;
+        this.systemConfigService = systemConfigService;
     }
 
     private final UserService userService;
     private final JwtTokenUtil jwtTokenUtil;
+    private final SystemConfigService systemConfigService;
 
     /**
      * 用户登录
@@ -101,6 +108,48 @@ public class AuthController {
      * @param token JWT令牌
      * @return 验证结果
      */
+    /**
+     * 用户注册
+     *
+     * @param registerRequest 注册请求
+     * @return 注册结果
+     */
+    @Operation(summary = "用户注册", description = "用户注册接口，需管理员在系统设置中开启注册功能")
+    @PostMapping("/register")
+    public ApiResponse<?> register(@Parameter(description = "注册请求") @Valid @RequestBody RegisterRequest registerRequest) {
+        log.info("用户注册请求: username={}, email={}", registerRequest.getUsername(), registerRequest.getEmail());
+
+        // 检查注册功能是否开启
+        String enableReg = systemConfigService.getConfig("enableRegistration");
+        if (!"true".equals(enableReg)) {
+            return ApiResponse.error("注册功能未开启");
+        }
+
+        // 检查邮箱域名是否在允许列表中
+        String allowedDomains = systemConfigService.getConfig("allowedEmailDomains");
+        if (allowedDomains != null && !allowedDomains.isEmpty()) {
+            String emailDomain = registerRequest.getEmail().substring(registerRequest.getEmail().indexOf('@') + 1).toLowerCase();
+            List<String> domainList = Arrays.asList(allowedDomains.toLowerCase().split("\\s*,\\s*"));
+            boolean matched = domainList.stream().anyMatch(d -> d.equals(emailDomain) || emailDomain.endsWith("." + d));
+            if (!matched) {
+                return ApiResponse.error("不支持该邮箱域名注册，允许的域名: " + allowedDomains);
+            }
+        }
+
+        // 检查邮箱是否已被使用
+        if (userService.isEmailTaken(registerRequest.getEmail())) {
+            return ApiResponse.error("该邮箱已被注册");
+        }
+
+        // 创建用户
+        com.carolcoral.mockserver.entity.User user = new com.carolcoral.mockserver.entity.User();
+        user.setUsername(registerRequest.getUsername());
+        user.setPassword(registerRequest.getPassword());
+        user.setEmail(registerRequest.getEmail());
+
+        return userService.createUser(user);
+    }
+
     @Operation(summary = "验证Swagger访问权限", description = "验证已登录用户的token，授权访问Swagger UI")
     @PostMapping("/verify-swagger-access")
     public ApiResponse<Boolean> verifySwaggerAccess(@RequestHeader("Authorization") String authorizationHeader) {

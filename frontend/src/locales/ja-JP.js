@@ -111,7 +111,36 @@ export default {
     passwordStrengthHint: 'パスワードには大文字、小文字、数字、特殊文字を含める必要があります',
     loginSuccess: 'ログイン成功',
     loginFailed: 'ログイン失敗',
-    networkError: 'ログインに失敗しました。ネットワーク接続を確認してください'
+    networkError: 'ログインに失敗しました。ネットワーク接続を確認してください',
+    registerLink: 'アカウントをお持ちでない方はこちら',
+    toLogin: 'アカウントをお持ちの方はログイン'
+  },
+
+  // 登録ページ
+  register: {
+    title: 'ユーザー登録',
+    subtitle: 'Mock Serverアカウントを作成',
+    username: 'ユーザー名',
+    usernamePlaceholder: 'ユーザー名を入力してください',
+    usernameRequired: 'ユーザー名を入力してください',
+    usernameLength: '3〜50文字で入力してください',
+    email: 'メールアドレス',
+    emailPlaceholder: 'メールアドレスを入力してください',
+    emailRequired: 'メールアドレスを入力してください',
+    emailInvalid: '正しいメールアドレスを入力してください',
+    password: 'パスワード',
+    passwordPlaceholder: 'パスワードを入力してください',
+    passwordRequired: 'パスワードを入力してください',
+    passwordMinLength: 'パスワードは8文字以上必要です',
+    confirmPassword: 'パスワード確認',
+    confirmPasswordPlaceholder: 'もう一度パスワードを入力してください',
+    confirmPasswordRequired: 'パスワードを確認してください',
+    passwordMismatch: 'パスワードが一致しません',
+    registerButton: '登録',
+    registerSuccess: '登録が完了しました。ログインしてください',
+    registerFailed: '登録に失敗しました',
+    registrationDisabled: '登録機能は無効になっています',
+    emailDomainNotAllowed: 'このメールドメインは登録許可リストに含まれていません'
   },
 
   // ホーム / ダッシュボード
@@ -254,7 +283,11 @@ export default {
     autoRefreshing: '自動更新中...',
     manualRefresh: '手動更新',
     noEnvVars: '環境変数はありません',
-    javaVendor: 'Javaベンダー'
+    javaVendor: 'Javaベンダー',
+    registration: '登録設定',
+    enableRegistration: 'ユーザー登録を有効にする',
+    allowedEmailDomains: '登録許可メールドメイン',
+    allowedEmailDomainsPlaceholder: 'ドメインを入力してください。複数はカンマで区切ります。空白の場合は制限なし。例：example.com,qq.com'
   },
 
   // プロジェクト管理

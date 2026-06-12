@@ -111,7 +111,36 @@ export default {
     passwordStrengthHint: '密码必须包含大小写字母、数字和特殊字符',
     loginSuccess: '登录成功',
     loginFailed: '登录失败',
-    networkError: '登录失败，请检查网络连接'
+    networkError: '登录失败，请检查网络连接',
+    registerLink: '没有账号？立即注册',
+    toLogin: '已有账号？返回登录'
+  },
+
+  // 注册页面
+  register: {
+    title: '用户注册',
+    subtitle: '创建您的Mock Server账号',
+    username: '用户名',
+    usernamePlaceholder: '请输入用户名',
+    usernameRequired: '请输入用户名',
+    usernameLength: '长度在 3 到 50 个字符',
+    email: '邮箱',
+    emailPlaceholder: '请输入邮箱地址',
+    emailRequired: '请输入邮箱地址',
+    emailInvalid: '请输入正确的邮箱格式',
+    password: '密码',
+    passwordPlaceholder: '请输入密码',
+    passwordRequired: '请输入密码',
+    passwordMinLength: '密码长度至少8位',
+    confirmPassword: '确认密码',
+    confirmPasswordPlaceholder: '请再次输入密码',
+    confirmPasswordRequired: '请再次输入密码',
+    passwordMismatch: '两次输入的密码不一致',
+    registerButton: '注册',
+    registerSuccess: '注册成功，请登录',
+    registerFailed: '注册失败',
+    registrationDisabled: '注册功能未开启',
+    emailDomainNotAllowed: '该邮箱域名不在允许的注册范围内'
   },
 
   // 首页/仪表盘
@@ -254,7 +283,11 @@ export default {
     autoRefreshing: '自动刷新中...',
     manualRefresh: '手动刷新',
     noEnvVars: '暂无环境变量',
-    javaVendor: 'Java厂商'
+    javaVendor: 'Java厂商',
+    registration: '注册设置',
+    enableRegistration: '开启用户注册',
+    allowedEmailDomains: '允许注册的邮箱域名',
+    allowedEmailDomainsPlaceholder: '请输入域名，多个用逗号分隔，留空表示不限制。如：example.com,qq.com'
   },
 
   // 项目管理

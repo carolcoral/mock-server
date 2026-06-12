@@ -303,6 +303,26 @@ public class UserService {
     }
 
     /**
+     * 检查邮箱是否已被使用
+     *
+     * @param email 邮箱
+     * @return 是否已存在
+     */
+    public boolean isEmailTaken(String email) {
+        return userRepository.existsByEmail(email);
+    }
+
+    /**
+     * 检查用户名是否已被使用
+     *
+     * @param username 用户名
+     * @return 是否已存在
+     */
+    public boolean isUsernameTaken(String username) {
+        return userRepository.existsByUsername(username);
+    }
+
+    /**
      * 查询所有用户
      *
      * @return 用户列表

@@ -38,6 +38,10 @@
               <Connection :width="'1em'" :height="'1em'" />
               <span>{{ $t('settings.footer') }}</span>
             </el-menu-item>
+            <el-menu-item index="registration">
+              <UserFilled :width="'1em'" :height="'1em'" />
+              <span>{{ $t('settings.registration') }}</span>
+            </el-menu-item>
           </el-menu>
         </el-card>
       </el-col>
@@ -441,6 +445,28 @@
               </el-form-item>
             </el-form>
           </div>
+        <!-- 注册设置 -->
+          <div v-if="activeMenu === 'registration'">
+            <h2>{{ $t('settings.registration') }}</h2>
+            <el-divider />
+            <el-form :model="registrationSettings" label-width="200px">
+              <el-form-item :label="$t('settings.enableRegistration')">
+                <el-switch v-model="registrationSettings.enableRegistration" />
+              </el-form-item>
+              <el-form-item :label="$t('settings.allowedEmailDomains')">
+                <el-input
+                  v-model="registrationSettings.allowedEmailDomains"
+                  type="textarea"
+                  :rows="3"
+                  :placeholder="$t('settings.allowedEmailDomainsPlaceholder')"
+                />
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" @click="saveRegistrationSettings" :loading="saving">{{ $t('settings.saveSettings') }}</el-button>
+                <el-button @click="resetRegistrationSettings">{{ $t('settings.resetSettings') }}</el-button>
+              </el-form-item>
+            </el-form>
+          </div>
         </el-card>
       </el-col>
     </el-row>
@@ -485,7 +511,7 @@
 <script setup>
 import { ref, reactive, onMounted, onBeforeUnmount, watch, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Setting, Lock, Key, Connection, InfoFilled, Bell, Edit, Delete, Refresh, Timer } from '@element-plus/icons-vue'
+import { Setting, Lock, Key, Connection, InfoFilled, Bell, Edit, Delete, Refresh, Timer, UserFilled } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import request from '@/utils/request'
 import { setDateFormat } from '@/utils/dateFormat'
@@ -588,6 +614,12 @@ const footerSettings = reactive({
   customLinks: []
 })
 
+// 注册设置
+const registrationSettings = reactive({
+  enableRegistration: false,
+  allowedEmailDomains: ''
+})
+
 // 系统信息
 const systemInfo = reactive({
   version: '-',
@@ -671,6 +703,8 @@ const handleMenuSelect = (index) => {
     fetchAnnouncements()
   } else if (index === 'footer') {
     loadFooterConfig()
+  } else if (index === 'registration') {
+    loadRegistrationConfig()
   }
 }
 
@@ -1119,6 +1153,44 @@ const addCustomLink = () => {
 // 删除自定义链接
 const removeCustomLink = (index) => {
   footerSettings.customLinks.splice(index, 1)
+}
+
+// 加载注册设置
+const loadRegistrationConfig = async () => {
+  try {
+    const response = await request.get('/system-config')
+    if (response.code === 200 && response.data) {
+      const data = response.data
+      if (data.enableRegistration !== undefined) registrationSettings.enableRegistration = data.enableRegistration
+      if (data.allowedEmailDomains !== undefined) registrationSettings.allowedEmailDomains = data.allowedEmailDomains || ''
+    }
+  } catch (error) {
+    console.error('加载注册配置失败:', error)
+  }
+}
+
+// 保存注册设置
+const saveRegistrationSettings = async () => {
+  saving.value = true
+  try {
+    await request.post('/system-config/registration', {
+      enableRegistration: registrationSettings.enableRegistration,
+      allowedEmailDomains: registrationSettings.allowedEmailDomains
+    })
+    ElMessage.success(t('settings.settingsSaved'))
+  } catch (error) {
+    console.error('保存注册设置失败:', error)
+    ElMessage.error(t('common.error'))
+  } finally {
+    saving.value = false
+  }
+}
+
+// 重置注册设置
+const resetRegistrationSettings = () => {
+  registrationSettings.enableRegistration = false
+  registrationSettings.allowedEmailDomains = ''
+  ElMessage.info(t('settings.settingsReset'))
 }
 
 // 加载页脚配置

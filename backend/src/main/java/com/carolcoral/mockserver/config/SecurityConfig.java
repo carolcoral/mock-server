@@ -73,6 +73,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 // API 接口
                                 "/api/auth/**",
+                                "/api/public/**",
                                 "/api/mock-server/**",
                                 "/api/mock/**",
                                 "/api/ws/**",
@@ -106,6 +107,7 @@ public class SecurityConfig {
                                 "/*.map",
                                 // SPA 路由（Vue Router history 模式）
                                 "/login",
+                                "/register",
                                 "/dashboard",
                                 "/home",
                                 "/projects",
