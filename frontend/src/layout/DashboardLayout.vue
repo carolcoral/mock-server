@@ -405,7 +405,7 @@ const handleLogout = async () => {
   userStore.logout()
   ElMessage.success(t('common.logoutSuccess'))
   // 使用硬跳转确保页面状态完全重置，避免 Vue Router 导航被取消
-  window.location.href = '/login'
+  window.location.href = '/'
 }
 
 // 监听页脚配置变更事件

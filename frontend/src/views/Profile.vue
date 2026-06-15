@@ -363,7 +363,7 @@ const handleChangePassword = async () => {
           console.warn('后端登出调用失败', e)
         }
         userStore.logout()
-        window.location.href = '/login'
+        window.location.href = '/'
       }, 1500)
     } else {
       ElMessage.error(response.message || t('profile.passwordChangeFailed'))

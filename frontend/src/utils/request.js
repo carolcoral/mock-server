@@ -64,7 +64,7 @@ service.interceptors.response.use(
       ElMessage.error('登录已过期，请重新登录')
       const userStore = useUserStore()
       userStore.logout()
-      window.location.href = '/login'
+      window.location.href = '/'
       return Promise.reject(new Error(res.message || '登录已过期'))
     } else if (res.code === 403) {
       // 禁止访问
@@ -89,7 +89,7 @@ service.interceptors.response.use(
           message = '未授权，请登录'
           const userStore = useUserStore()
           userStore.logout()
-          window.location.href = '/login'
+          window.location.href = '/'
           break
         case 403:
           message = '没有权限'
