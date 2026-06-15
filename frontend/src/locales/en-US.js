@@ -27,7 +27,10 @@ export default {
     settings: 'Settings',
     logout: 'Logout',
     logoutSuccess: 'Logged out successfully',
-    welcome: 'Welcome'
+    welcome: 'Welcome',
+    backHome: 'Back to Home',
+    fullscreen: 'Fullscreen',
+    exitFullscreen: 'Exit Fullscreen'
   },
 
   // Navigation

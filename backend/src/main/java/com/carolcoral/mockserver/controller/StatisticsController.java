@@ -72,7 +72,7 @@ public class StatisticsController {
             if ("hourly".equals(granularity)) {
                 groupBy = "strftime('%Y-%m-%d %H:00', r.request_time)";
             } else {
-                groupBy = "DATE(r.request_time)";
+                groupBy = "strftime('%Y-%m-%d', r.request_time)";
             }
 
             String sql = "SELECT " + groupBy + " as timeKey, COUNT(*) as cnt " +
@@ -215,7 +215,7 @@ public class StatisticsController {
      * @param minutes 统计最近N分钟
      * @return IOPS时间序列数据
      */
-    @Operation(summary = "获取IOPS统计", description = "按分钟统计每秒请求数（IOPS），用于系统性能监控")
+    @Operation(summary = "获取IOPS统计", description = "按分钟/秒统计请求数，用于系统性能监控")
     @GetMapping("/iops")
     public ApiResponse<Map<String, Object>> getIops(
             @Parameter(description = "统计最近N分钟", example = "60") @RequestParam(defaultValue = "60") int minutes) {
@@ -225,7 +225,23 @@ public class StatisticsController {
 
             LocalDateTime startTime = LocalDateTime.now().minusMinutes(minutes);
 
-            String sql = "SELECT strftime('%Y-%m-%d %H:%M', r.request_time) as timeKey, COUNT(*) as cnt " +
+            // 短时间窗口（≤60分钟）按秒分组，长窗口按分钟分组
+            String timeFormat;
+            String unit;
+            double divisor;
+            if (minutes <= 60) {
+                // 按秒分组，每桶即为 1 秒的请求量，直接作为 IOPS
+                timeFormat = "%Y-%m-%d %H:%M:%S";
+                unit = "req/s";
+                divisor = 1.0;
+            } else {
+                // 按分钟分组，显示为 req/min（低流量下比 req/s 更有意义）
+                timeFormat = "%Y-%m-%d %H:%M";
+                unit = "req/min";
+                divisor = 1.0;
+            }
+
+            String sql = "SELECT strftime('" + timeFormat + "', r.request_time) as timeKey, COUNT(*) as cnt " +
                     "FROM t_request_log r " +
                     "WHERE r.request_time >= :startTime " +
                     "GROUP BY timeKey " +
@@ -241,13 +257,13 @@ public class StatisticsController {
             for (Object[] row : rows) {
                 labels.add(String.valueOf(row[0]));
                 long count = ((Number) row[1]).longValue();
-                values.add(Math.round(count / 60.0 * 100.0) / 100.0); // 转换为每秒请求数
+                values.add(Math.round(count / divisor * 100.0) / 100.0);
             }
 
             Map<String, Object> result = new HashMap<>();
             result.put("labels", labels);
             result.put("values", values);
-            result.put("unit", "req/s");
+            result.put("unit", unit);
 
             return ApiResponse.success(result);
         } catch (Exception e) {

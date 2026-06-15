@@ -2,6 +2,10 @@
   <div class="login-container" :style="{ backgroundImage: `url(${bgImage})` }">
     <div class="login-overlay"></div>
     <div class="login-card">
+      <router-link to="/" class="back-home-link">
+        <el-icon><ArrowLeft /></el-icon>
+        <span>{{ $t('common.backHome') }}</span>
+      </router-link>
       <div class="login-header">
         <h1>
           <svg class="login-logo-icon" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -86,6 +90,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
+import { ArrowLeft } from '@element-plus/icons-vue'
 import axios from 'axios'
 import { useBingBackground } from '@/composables/useBingBackground'
 
@@ -204,6 +209,21 @@ onMounted(() => {
   backdrop-filter: blur(10px);
   position: relative;
   z-index: 1;
+}
+
+.back-home-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #909399;
+  text-decoration: none;
+  font-size: 13px;
+  margin-bottom: 12px;
+  transition: color 0.3s ease;
+}
+
+.back-home-link:hover {
+  color: #667eea;
 }
 
 .login-header {

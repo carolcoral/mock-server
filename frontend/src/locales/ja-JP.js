@@ -27,7 +27,10 @@ export default {
     settings: '設定',
     logout: 'ログアウト',
     logoutSuccess: 'ログアウトしました',
-    welcome: 'ようこそ'
+    welcome: 'ようこそ',
+    backHome: 'ホームに戻る',
+    fullscreen: '全画面',
+    exitFullscreen: '全画面解除'
   },
 
   // ナビゲーション

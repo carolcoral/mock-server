@@ -248,12 +248,33 @@
           <span v-if="validationResult" :style="{ color: validationResult.success ? '#67C23A' : '#F56C6C', fontSize: '13px', marginLeft: '8px' }">
             {{ validationResult.success ? $t('api.validatePassed') : $t('api.validateFailed') + validationResult.message }}
           </span>
+          <el-button size="small" style="margin-left: auto;" @click="apiCodeFullscreen = !apiCodeFullscreen">
+            {{ apiCodeFullscreen ? $t('common.exitFullscreen') : $t('common.fullscreen') }}
+          </el-button>
         </div>
-        <el-form-item prop="customResponseSource" label-width="0">
+        <el-form-item prop="customResponseSource" label-width="0" :class="{ 'api-code-fullscreen': apiCodeFullscreen }">
+          <div v-if="apiCodeFullscreen" class="api-fullscreen-toolbar">
+            <el-select
+              v-model="selectedTemplateId"
+              :placeholder="$t('api.selectTemplate')"
+              clearable filterable size="small" style="width: 240px;"
+              @change="handleTemplateSelect"
+              :disabled="!isEdit"
+            >
+              <el-option v-for="tpl in projectTemplates" :key="tpl.id" :label="tpl.name" :value="tpl.id">
+                <span>{{ tpl.name }}</span>
+                <span style="float: right; color: #909399; font-size: 12px;">{{ tpl.project?.name }}</span>
+              </el-option>
+            </el-select>
+            <el-button size="small" @click="loadTemplateCode" :disabled="!isEdit">{{ $t('api.loadTemplate') }}</el-button>
+            <el-button size="small" type="success" @click="validateCustomCode" :loading="validatingCode">{{ $t('api.compileValidate') }}</el-button>
+            <el-button size="small" type="warning" @click="clearCustomCode" :disabled="!isEdit">{{ $t('api.clearCode') }}</el-button>
+            <el-button size="small" style="margin-left: auto;" @click="apiCodeFullscreen = false">{{ $t('common.exitFullscreen') }}</el-button>
+          </div>
           <MonacoEditor
             v-model="form.customResponseSource"
             :read-only="!isEdit"
-            height="420px"
+            :height="apiCodeFullscreen ? 'calc(100vh - 60px)' : '420px'"
           />
         </el-form-item>
       </el-form>
@@ -579,6 +600,9 @@ const formRef = ref()
 // 自定义代码相关
 const validatingCode = ref(false)
 const validationResult = ref(null)
+
+// 代码编辑器全屏
+const apiCodeFullscreen = ref(false)
 
 // 模板下拉选择相关
 const selectedTemplateId = ref(null)
@@ -1769,6 +1793,39 @@ onMounted(() => {
 ::deep(.copy-btn:hover) {
   border-color: #409eff;
   color: #409eff;
+}
+
+/* 自定义代码编辑器全屏 */
+.api-code-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  background: #f0f2f5 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.api-code-fullscreen :deep(.el-form-item__content) {
+  margin-left: 0 !important;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.api-fullscreen-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e6e6e6;
+  flex-shrink: 0;
+}
+
+.api-fullscreen-toolbar + .monaco-editor-wrapper {
+  flex: 1;
 }
 </style>
 

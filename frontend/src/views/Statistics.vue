@@ -11,7 +11,7 @@
           <div class="iops-card-inner">
             <div class="iops-label">{{ $t('statistics.currentIops') }}</div>
             <div class="iops-value">{{ currentIops }}</div>
-            <div class="iops-unit">req/s</div>
+            <div class="iops-unit">{{ iopsUnit }}</div>
           </div>
         </el-card>
       </el-col>
@@ -20,7 +20,7 @@
           <div class="iops-card-inner">
             <div class="iops-label">{{ $t('statistics.avgIops') }}</div>
             <div class="iops-value">{{ avgIops }}</div>
-            <div class="iops-unit">req/s</div>
+            <div class="iops-unit">{{ iopsUnit }}</div>
           </div>
         </el-card>
       </el-col>
@@ -29,7 +29,7 @@
           <div class="iops-card-inner">
             <div class="iops-label">{{ $t('statistics.peakIops') }}</div>
             <div class="iops-value">{{ peakIops }}</div>
-            <div class="iops-unit">req/s</div>
+            <div class="iops-unit">{{ iopsUnit }}</div>
           </div>
         </el-card>
       </el-col>
@@ -98,6 +98,7 @@ const iopsMinutes = ref(60)
 const currentIops = ref('--')
 const avgIops = ref('--')
 const peakIops = ref('--')
+const iopsUnit = ref('req/s')
 
 const iopsChart = ref(null)
 const requestFreqChart = ref(null)
@@ -118,6 +119,7 @@ const fetchIops = async () => {
     })
     if (response.code === 200 && response.data) {
       const vals = response.data.values || []
+      iopsUnit.value = response.data.unit || 'req/s'
       if (vals.length > 0) {
         currentIops.value = vals[vals.length - 1].toFixed(2)
         avgIops.value = (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2)
@@ -145,7 +147,7 @@ const renderIopsChart = (data) => {
       trigger: 'axis',
       formatter: (params) => {
         const p = params[0]
-        return `${p.axisValue}<br/>${t('statistics.iops')}: ${p.value} req/s`
+        return `${p.axisValue}<br/>${t('statistics.iops')}: ${p.value} ${iopsUnit.value}`
       }
     },
     grid: { left: '3%', right: '8%', bottom: '15%', top: '10px', containLabel: true },
@@ -160,8 +162,8 @@ const renderIopsChart = (data) => {
     },
     yAxis: {
       type: 'value',
-      name: 'req/s',
-      minInterval: 0.01
+      name: iopsUnit.value,
+      minInterval: iopsUnit.value === 'req/s' ? 0.01 : 1
     },
     dataZoom: [
       { type: 'slider', start: 0, end: 100, height: 20, bottom: 0 },
@@ -215,7 +217,7 @@ const renderRequestFreqChart = (data) => {
     freqChartInstance = echarts.init(requestFreqChart.value)
   }
 
-  const labels = data.labels || []
+  const labels = (data.labels || []).filter(l => l != null && l !== '')
   const option = {
     tooltip: {
       trigger: 'axis',
@@ -324,11 +326,11 @@ const renderCreationTrendChart = (data) => {
     trendChartInstance = echarts.init(creationTrendChart.value)
   }
 
-  const labels = data.labels || []
+  const labels = (data.labels || []).filter(l => l != null && l !== '')
   const option = {
     tooltip: { trigger: 'axis' },
-    legend: { data: [t('statistics.newProjects'), t('statistics.newApis')], bottom: 0 },
-    grid: { left: '3%', right: '4%', bottom: '18%', top: '10px', containLabel: true },
+    legend: { data: [t('statistics.newProjects'), t('statistics.newApis')], top: 0 },
+    grid: { left: '3%', right: '4%', bottom: '12%', top: '40px', containLabel: true },
     xAxis: {
       type: 'category',
       data: labels,
@@ -336,7 +338,7 @@ const renderCreationTrendChart = (data) => {
     },
     yAxis: { type: 'value', minInterval: 1 },
     dataZoom: [
-      { type: 'slider', start: Math.max(0, ((labels.length - 14) / labels.length) * 100), end: 100, height: 20, bottom: 2 },
+      { type: 'slider', start: Math.max(0, ((labels.length - 14) / labels.length) * 100), end: 100, height: 18, bottom: 2 },
       { type: 'inside' }
     ],
     series: [

@@ -126,11 +126,19 @@
           <span v-if="validationResult" :style="{ color: validationResult.success ? '#67C23A' : '#F56C6C', fontSize: '13px', marginLeft: '8px' }">
             {{ validationResult.success ? $t('codeTemplate.validatePassed') : $t('codeTemplate.validateFailed') + validationResult.message }}
           </span>
+          <el-button size="small" style="margin-left: auto;" @click="codeFullscreen = !codeFullscreen">
+            {{ codeFullscreen ? $t('common.exitFullscreen') : $t('common.fullscreen') }}
+          </el-button>
         </div>
-        <el-form-item prop="sourceCode" label-width="0">
+        <el-form-item prop="sourceCode" label-width="0" :class="{ 'code-fullscreen': codeFullscreen }">
+          <div v-if="codeFullscreen" class="fullscreen-toolbar">
+            <el-button size="small" @click="loadDefaultTemplateCode">{{ $t('codeTemplate.useDefaultTemplate') }}</el-button>
+            <el-button size="small" type="success" @click="validateTemplateCode" :loading="validatingCode">{{ $t('codeTemplate.compileValidate') }}</el-button>
+            <el-button size="small" style="margin-left: auto;" @click="codeFullscreen = false">{{ $t('common.exitFullscreen') }}</el-button>
+          </div>
           <MonacoEditor
             v-model="form.sourceCode"
-            height="420px"
+            :height="codeFullscreen ? 'calc(100vh - 60px)' : '420px'"
           />
         </el-form-item>
       </el-form>
@@ -242,6 +250,9 @@ const formRef = ref()
 // 编译验证相关
 const validatingCode = ref(false)
 const validationResult = ref(null)
+
+// 代码编辑器全屏
+const codeFullscreen = ref(false)
 
 const form = reactive({
   id: null,
@@ -672,5 +683,38 @@ onMounted(async () => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+
+/* 代码编辑器全屏 */
+.code-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  background: #f0f2f5 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.code-fullscreen :deep(.el-form-item__content) {
+  margin-left: 0 !important;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.fullscreen-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e6e6e6;
+  flex-shrink: 0;
+}
+
+.fullscreen-toolbar + .monaco-editor-wrapper {
+  flex: 1;
 }
 </style>

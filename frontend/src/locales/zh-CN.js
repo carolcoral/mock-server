@@ -27,7 +27,10 @@ export default {
     settings: '设置',
     logout: '退出登录',
     logoutSuccess: '已退出登录',
-    welcome: '欢迎使用'
+    welcome: '欢迎使用',
+    backHome: '返回首页',
+    fullscreen: '全屏',
+    exitFullscreen: '退出全屏'
   },
 
   // 导航菜单
