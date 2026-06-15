@@ -58,9 +58,11 @@ main:
           script:
             - git config --global user.email "cnb@sync.bot"
             - git config --global user.name "CNB Sync Bot"
-            - git remote remove github 2>/dev/null || true
-            - git remote add github https://x-access-token:${GITHUB_TOKEN}@github.com/carolcoral/mock-server.git
-            - git push github --mirror
+            - |
+              set -e
+              git remote remove github 2>/dev/null || true
+              git remote add github "https://x-access-token:${GITHUB_TOKEN}@github.com/carolcoral/mock-server.git"
+              git push github --mirror
   web_trigger_sync_to_github:
     - stages:
         - name: sync-to-github
@@ -74,6 +76,8 @@ main:
           script:
             - git config --global user.email "cnb@sync.bot"
             - git config --global user.name "CNB Sync Bot"
-            - git remote remove github 2>/dev/null || true
-            - git remote add github https://x-access-token:${GITHUB_TOKEN}@github.com/carolcoral/mock-server.git
-            - git push github --mirror
+            - |
+              set -e
+              git remote remove github 2>/dev/null || true
+              git remote add github "https://x-access-token:${GITHUB_TOKEN}@github.com/carolcoral/mock-server.git"
+              git push github --mirror
