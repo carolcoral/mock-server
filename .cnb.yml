@@ -46,15 +46,10 @@ $:
 # ========================================
 main:
   tag_push:
-    - stages:
+    - imports: https://cnb.cool/xindu.site/secret/-/blob/main/token.yaml
+      stages:
         - name: sync-to-github
           image: cnbcool/git-auto-tag:latest
-          env:
-            GITHUB_TOKEN:
-              from_secret:
-                source: xindu.site/secret
-                file: token.yaml
-                key: GITHUB_TOKEN
           script:
             - git config --global user.email "cnb@sync.bot"
             - git config --global user.name "CNB Sync Bot"
@@ -64,15 +59,10 @@ main:
               git remote add github "https://x-access-token:${GITHUB_TOKEN}@github.com/carolcoral/mock-server.git"
               git push github --mirror
   web_trigger_sync_to_github:
-    - stages:
+    - imports: https://cnb.cool/xindu.site/secret/-/blob/main/token.yaml
+      stages:
         - name: sync-to-github
           image: cnbcool/git-auto-tag:latest
-          env:
-            GITHUB_TOKEN:
-              from_secret:
-                source: xindu.site/secret
-                file: token.yaml
-                key: GITHUB_TOKEN
           script:
             - git config --global user.email "cnb@sync.bot"
             - git config --global user.name "CNB Sync Bot"
