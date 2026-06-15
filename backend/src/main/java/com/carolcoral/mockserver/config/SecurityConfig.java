@@ -117,7 +117,8 @@ public class SecurityConfig {
                                 "/settings",
                                 "/statistics",
                                 "/guide",
-                                "/profile"
+                                "/profile",
+                                "/code-templates"
                         ).permitAll()
                         // Swagger UI 页面
                         .requestMatchers(

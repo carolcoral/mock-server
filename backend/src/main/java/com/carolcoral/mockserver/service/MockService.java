@@ -14,6 +14,7 @@ import com.carolcoral.mockserver.entity.Project;
 import com.carolcoral.mockserver.entity.ResponseRequestParam;
 import com.carolcoral.mockserver.plugin.TransformerRegistry;
 import com.carolcoral.mockserver.repository.MockApiRepository;
+import com.carolcoral.mockserver.service.SystemConfigService;
 import com.carolcoral.mockserver.util.CacheUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -47,13 +48,14 @@ public class MockService {
      */
     public MockService(CacheUtil cacheUtil, ObjectMapper objectMapper, RequestLogService requestLogService,
                       ResponseRequestParamService responseRequestParamService, MockApiRepository mockApiRepository,
-                      TransformerRegistry transformerRegistry) {
+                      TransformerRegistry transformerRegistry, SystemConfigService systemConfigService) {
         this.cacheUtil = cacheUtil;
         this.objectMapper = objectMapper;
         this.requestLogService = requestLogService;
         this.responseRequestParamService = responseRequestParamService;
         this.mockApiRepository = mockApiRepository;
         this.transformerRegistry = transformerRegistry;
+        this.systemConfigService = systemConfigService;
     }
 
     private final CacheUtil cacheUtil;
@@ -62,6 +64,28 @@ public class MockService {
     private final ResponseRequestParamService responseRequestParamService;
     private final MockApiRepository mockApiRepository;
     private final TransformerRegistry transformerRegistry;
+    private final SystemConfigService systemConfigService;
+
+    /** 自定义接口响应缓存 key=apiId, value=缓存条目 */
+    private final java.util.concurrent.ConcurrentHashMap<Long, CachedCustomResponse> customResponseCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * 自定义响应缓存条目
+     */
+    private static class CachedCustomResponse {
+        final MockResponseDTO response;
+        final long expireAt; // 过期时间戳（毫秒）
+
+        CachedCustomResponse(MockResponseDTO response, long expireAt) {
+            this.response = response;
+            this.expireAt = expireAt;
+        }
+
+        boolean isExpired() {
+            return System.currentTimeMillis() > expireAt;
+        }
+    }
 
     /**
      * 处理Mock请求
@@ -215,6 +239,19 @@ public class MockService {
             // 此步骤不会干扰原有的响应匹配、延迟、随机返回等功能
             // 优先级：动态源码编译 > Spring Bean类名引用
             if (mockApi.getCustomResponseSource() != null && !mockApi.getCustomResponseSource().trim().isEmpty()) {
+                // 获取缓存配置
+                int cacheSeconds = getCustomResponseCacheSeconds();
+                if (cacheSeconds > 0) {
+                    // 检查缓存
+                    CachedCustomResponse cached = customResponseCache.get(mockApi.getId());
+                    if (cached != null && !cached.isExpired()) {
+                        log.info("使用缓存自定义响应: apiId={}, 剩余有效时间={}ms",
+                                mockApi.getId(), cached.expireAt - System.currentTimeMillis());
+                        statusCode = cached.response.getStatusCode();
+                        return cached.response;
+                    }
+                }
+
                 // 使用动态编译模式：编译页面提交的Java源码并执行
                 log.info("使用动态源码编译模式: apiId={}", mockApi.getId());
                 responseDTO = transformerRegistry.transformWithSource(
@@ -225,6 +262,13 @@ public class MockService {
                         mockApi.getName(),
                         mockApi.getPath()
                 );
+
+                // 缓存转换结果
+                if (cacheSeconds > 0 && responseDTO != null) {
+                    long expireAt = System.currentTimeMillis() + cacheSeconds * 1000L;
+                    customResponseCache.put(mockApi.getId(), new CachedCustomResponse(responseDTO, expireAt));
+                    log.info("缓存自定义响应: apiId={}, 缓存时间={}秒", mockApi.getId(), cacheSeconds);
+                }
             } else if (mockApi.getCustomResponseHandler() != null && !mockApi.getCustomResponseHandler().trim().isEmpty()) {
                 // 使用Spring Bean引用模式
                 responseDTO = transformerRegistry.transform(
@@ -252,6 +296,48 @@ public class MockService {
                 requestLogService.logRequestAsync(matchedApi, request, statusCode, responseTime, userId);
             }
         }
+    }
+
+    /**
+     * 获取自定义接口响应缓存时间（秒）
+     *
+     * @return 缓存秒数，0 表示不缓存
+     */
+    private int getCustomResponseCacheSeconds() {
+        try {
+            String val = systemConfigService.getConfig("customResponseCacheSeconds");
+            if (val != null && !val.trim().isEmpty()) {
+                return Integer.parseInt(val.trim());
+            }
+        } catch (NumberFormatException e) {
+            log.warn("解析customResponseCacheSeconds配置失败", e);
+        }
+        return 600; // 默认 600 秒
+    }
+
+    /**
+     * 清除指定接口的自定义响应缓存
+     *
+     * @param apiId 接口ID
+     */
+    public void evictCustomResponseCache(Long apiId) {
+        CachedCustomResponse removed = customResponseCache.remove(apiId);
+        if (removed != null) {
+            log.info("清除自定义响应缓存: apiId={}", apiId);
+        }
+    }
+
+    /**
+     * 清除所有自定义响应缓存
+     * <p>
+     * 在系统配置中缓存时间被设置为 0 时调用，确保所有已缓存的响应被立即清除，
+     * 后续请求将重新执行自定义代码计算最新响应。
+     * </p>
+     */
+    public void clearCustomResponseCache() {
+        int size = customResponseCache.size();
+        customResponseCache.clear();
+        log.info("已清除全部自定义响应缓存，共 {} 条", size);
     }
 
     /**

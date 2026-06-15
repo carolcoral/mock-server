@@ -5,7 +5,9 @@ import { useUserStore } from '@/stores/user'
 const routes = [
   {
     path: '/',
-    redirect: '/login'
+    name: 'Welcome',
+    component: () => import('@/views/Welcome.vue'),
+    meta: { requiresAuth: false }
   },
   {
     path: '/login',
@@ -71,6 +73,12 @@ const routes = [
         path: '/profile',
         name: 'Profile',
         component: () => import('@/views/Profile.vue'),
+        meta: { requiresAuth: true }
+      },
+      {
+        path: '/code-templates',
+        name: 'CodeTemplates',
+        component: () => import('@/views/CodeTemplates.vue'),
         meta: { requiresAuth: true }
       },
       {

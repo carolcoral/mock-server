@@ -273,6 +273,9 @@ const fetchProfile = async () => {
 const handleSave = async () => {
   if (!formRef.value) return
 
+  // 先清除密码表单的残留校验状态，避免与个人信息表单相互干扰
+  passwordFormRef.value?.clearValidate()
+
   try {
     await formRef.value.validate()
   } catch {
@@ -299,6 +302,8 @@ const handleSave = async () => {
       }
       // 刷新数据
       await fetchProfile()
+      // 语言切换和表单刷新后，重新清除密码区域残留校验状态（避免重渲染时 Element Plus 自动触发空值校验）
+      passwordFormRef.value?.clearValidate()
     } else {
       ElMessage.error(response.message || t('profile.profileSaveFailed'))
     }

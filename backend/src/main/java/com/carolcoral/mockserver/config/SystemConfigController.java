@@ -7,6 +7,7 @@
 package com.carolcoral.mockserver.config;
 
 import com.carolcoral.mockserver.dto.ApiResponse;
+import com.carolcoral.mockserver.service.MockService;
 import com.carolcoral.mockserver.service.SystemConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -34,12 +35,14 @@ public class SystemConfigController {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SystemConfigController.class);
 
     private final SystemConfigService systemConfigService;
+    private final MockService mockService;
 
     /**
      * 构造器
      */
-    public SystemConfigController(SystemConfigService systemConfigService) {
+    public SystemConfigController(SystemConfigService systemConfigService, MockService mockService) {
         this.systemConfigService = systemConfigService;
+        this.mockService = mockService;
     }
 
     /**
@@ -61,6 +64,7 @@ public class SystemConfigController {
         config.setLogRetentionDays(parseIntConfig("logRetentionDays", 30));
         config.setMaxRequestBodySize(parseIntConfig("maxRequestBodySize", 10));
         config.setAxiosTimeout(parseIntConfig("axiosTimeout", 30000));
+        config.setCustomResponseCacheSeconds(parseIntConfig("customResponseCacheSeconds", 600));
         config.setEnableRegistration(parseBooleanConfig("enableRegistration", false));
         config.setAllowedEmailDomains(systemConfigService.getConfig("allowedEmailDomains"));
         return ApiResponse.success(config);
@@ -127,9 +131,17 @@ public class SystemConfigController {
         if (dto.getAxiosTimeout() != null) {
             systemConfigService.saveConfig("axiosTimeout", String.valueOf(dto.getAxiosTimeout()), "前端Axios请求超时时间（毫秒）");
         }
-        log.info("管理员更新Mock配置: defaultResponseDelay={}, maxResponseDelay={}, enableRequestLog={}, logRetentionDays={}, maxRequestBodySize={}, axiosTimeout={}",
+        if (dto.getCustomResponseCacheSeconds() != null) {
+            systemConfigService.saveConfig("customResponseCacheSeconds", String.valueOf(dto.getCustomResponseCacheSeconds()), "自定义接口响应缓存时间（秒），0表示不缓存");
+            // 当缓存时间设置为 0 时，立即清除所有已缓存的响应，确保后续请求使用新逻辑
+            if (dto.getCustomResponseCacheSeconds() == 0) {
+                mockService.clearCustomResponseCache();
+                log.info("缓存时间设置为0，已清除所有自定义响应缓存");
+            }
+        }
+        log.info("管理员更新Mock配置: defaultResponseDelay={}, maxResponseDelay={}, enableRequestLog={}, logRetentionDays={}, maxRequestBodySize={}, axiosTimeout={}, customResponseCacheSeconds={}",
                 dto.getDefaultResponseDelay(), dto.getMaxResponseDelay(), dto.getEnableRequestLog(),
-                dto.getLogRetentionDays(), dto.getMaxRequestBodySize(), dto.getAxiosTimeout());
+                dto.getLogRetentionDays(), dto.getMaxRequestBodySize(), dto.getAxiosTimeout(), dto.getCustomResponseCacheSeconds());
         return ApiResponse.success();
     }
 
@@ -336,6 +348,8 @@ class SystemConfigDTO {
     private Integer maxRequestBodySize;
     /** 前端Axios请求超时时间（毫秒） */
     private Integer axiosTimeout;
+    /** 自定义接口响应缓存时间（秒），0表示不缓存 */
+    private Integer customResponseCacheSeconds;
     /** 是否开启用户注册功能 */
     private Boolean enableRegistration;
     /** 允许注册的邮箱域名（逗号分隔，空表示不限制） */
@@ -377,6 +391,9 @@ class SystemConfigDTO {
 
     public Boolean getEnableRegistration() { return enableRegistration; }
     public void setEnableRegistration(Boolean enableRegistration) { this.enableRegistration = enableRegistration; }
+
+    public Integer getCustomResponseCacheSeconds() { return customResponseCacheSeconds; }
+    public void setCustomResponseCacheSeconds(Integer customResponseCacheSeconds) { this.customResponseCacheSeconds = customResponseCacheSeconds; }
 
     public String getAllowedEmailDomains() { return allowedEmailDomains; }
     public void setAllowedEmailDomains(String allowedEmailDomains) { this.allowedEmailDomains = allowedEmailDomains; }
@@ -462,6 +479,12 @@ class MockConfigDTO {
 
     public Integer getAxiosTimeout() { return axiosTimeout; }
     public void setAxiosTimeout(Integer axiosTimeout) { this.axiosTimeout = axiosTimeout; }
+
+    public Integer getCustomResponseCacheSeconds() { return customResponseCacheSeconds; }
+    public void setCustomResponseCacheSeconds(Integer customResponseCacheSeconds) { this.customResponseCacheSeconds = customResponseCacheSeconds; }
+
+    /** 自定义接口响应缓存时间（秒），0表示不缓存 */
+    private Integer customResponseCacheSeconds;
 }
 
 /**

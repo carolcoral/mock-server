@@ -408,6 +408,7 @@ public class StartupConfig implements CommandLineRunner {
             initDefaultConfigIfAbsent("logRetentionDays", "30", "日志保留天数");
             initDefaultConfigIfAbsent("maxRequestBodySize", "10", "最大请求体大小（MB）");
             initDefaultConfigIfAbsent("axiosTimeout", "30000", "前端Axios请求超时时间（毫秒）");
+            initDefaultConfigIfAbsent("customResponseCacheSeconds", "600", "自定义接口响应缓存时间（秒），0表示不缓存");
 
             // 页脚默认配置
             initDefaultConfigIfAbsent("footerCopyright", "© 2026 carolcoral", "页脚版权信息");

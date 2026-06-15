@@ -42,12 +42,13 @@ public class MockApiService {
     /**
      * 构造器
      */
-    public MockApiService(MockApiRepository mockApiRepository, MockResponseRepository mockResponseRepository, ProjectRepository projectRepository, CacheUtil cacheUtil, UserRepository userRepository) {
+    public MockApiService(MockApiRepository mockApiRepository, MockResponseRepository mockResponseRepository, ProjectRepository projectRepository, CacheUtil cacheUtil, UserRepository userRepository, MockService mockService) {
         this.mockApiRepository = mockApiRepository;
         this.mockResponseRepository = mockResponseRepository;
         this.projectRepository = projectRepository;
         this.cacheUtil = cacheUtil;
         this.userRepository = userRepository;
+        this.mockService = mockService;
     }
 
     private final MockApiRepository mockApiRepository;
@@ -55,6 +56,7 @@ public class MockApiService {
     private final ProjectRepository projectRepository;
     private final CacheUtil cacheUtil;
     private final UserRepository userRepository;
+    private final MockService mockService;
 
     /**
      * 创建接口
@@ -184,8 +186,11 @@ public class MockApiService {
                 existingApi.setCustomResponseSource(mockApi.getCustomResponseSource());
                 // 清除动态编译缓存，确保下次请求时重新编译新代码
                 DynamicCompiler.evictCache(mockApi.getId());
-                log.info("清除自定义响应处理器缓存: apiId={}", mockApi.getId());
+                log.info("清除动态编译缓存: apiId={}", mockApi.getId());
             }
+            // 无论是否修改了自定义响应处理器，都清除响应结果缓存
+            // 确保更新接口后，下一次请求能使用最新配置生成响应
+            mockService.evictCustomResponseCache(mockApi.getId());
 
             MockApi updatedApi = mockApiRepository.save(existingApi);
 
@@ -230,6 +235,9 @@ public class MockApiService {
 
             // 清除动态编译缓存
             DynamicCompiler.evictCache(apiId);
+
+            // 清除自定义响应结果缓存
+            mockService.evictCustomResponseCache(apiId);
 
             // 清除项目接口缓存
             if (projectId != null) {

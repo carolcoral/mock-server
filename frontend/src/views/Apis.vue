@@ -221,7 +221,27 @@
           <el-icon style="color: #E6A23C; margin-right: 6px;"><WarningFilled /></el-icon>
           <span style="color: #E6A23C; font-size: 13px;" v-html="$t('api.customHandlerHint')"></span>
         </div>
-        <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+        <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <el-select
+            v-model="selectedTemplateId"
+            :placeholder="$t('api.selectTemplate')"
+            clearable
+            filterable
+            size="small"
+            style="width: 240px;"
+            @change="handleTemplateSelect"
+            :disabled="!isEdit"
+          >
+            <el-option
+              v-for="tpl in projectTemplates"
+              :key="tpl.id"
+              :label="tpl.name"
+              :value="tpl.id"
+            >
+              <span>{{ tpl.name }}</span>
+              <span style="float: right; color: #909399; font-size: 12px;">{{ tpl.project?.name }}</span>
+            </el-option>
+          </el-select>
           <el-button size="small" @click="loadTemplateCode" :disabled="!isEdit">{{ $t('api.loadTemplate') }}</el-button>
           <el-button size="small" type="success" @click="validateCustomCode" :loading="validatingCode">{{ $t('api.compileValidate') }}</el-button>
           <el-button size="small" type="warning" @click="clearCustomCode" :disabled="!isEdit">{{ $t('api.clearCode') }}</el-button>
@@ -230,14 +250,10 @@
           </span>
         </div>
         <el-form-item prop="customResponseSource" label-width="0">
-          <el-input
+          <MonacoEditor
             v-model="form.customResponseSource"
-            type="textarea"
-            :rows="16"
-            :placeholder="$t('api.codePlaceholder')"
-            style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px; line-height: 1.5;"
-            :disabled="!isEdit"
-            spellcheck="false"
+            :read-only="!isEdit"
+            height="420px"
           />
         </el-form-item>
       </el-form>
@@ -514,13 +530,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Edit, Delete, InfoFilled, WarningFilled, ArrowDown, CopyDocument } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { useRoute } from 'vue-router'
 import { getAccessibleProjects } from '@/api/project'
+import { getEnabledTemplatesByProjectId } from '@/api/codeTemplate'
+import { defineAsyncComponent } from 'vue'
+
+const MonacoEditor = defineAsyncComponent(() => import('@/components/MonacoEditor.vue'))
 
 const { t } = useI18n()
 const route = useRoute()
@@ -559,6 +579,41 @@ const formRef = ref()
 // 自定义代码相关
 const validatingCode = ref(false)
 const validationResult = ref(null)
+
+// 模板下拉选择相关
+const selectedTemplateId = ref(null)
+const projectTemplates = ref([])
+
+// 获取当前项目下的已启用模板列表
+const fetchProjectTemplates = async (projectId) => {
+  if (!projectId) {
+    projectTemplates.value = []
+    selectedTemplateId.value = null
+    return
+  }
+  try {
+    const response = await getEnabledTemplatesByProjectId(projectId)
+    if (response.code === 200) {
+      projectTemplates.value = response.data || []
+    }
+  } catch (error) {
+    console.error('获取模板列表失败:', error)
+    projectTemplates.value = []
+  }
+}
+
+// 模板下拉选择处理
+const handleTemplateSelect = (templateId) => {
+  if (!templateId) {
+    return
+  }
+  const template = projectTemplates.value.find(t => t.id === templateId)
+  if (template && template.sourceCode) {
+    form.customResponseSource = template.sourceCode
+    validationResult.value = null
+    ElMessage.success('已从模板加载代码')
+  }
+}
 
 // 响应管理相关
 const responseDialogVisible = ref(false)
@@ -869,6 +924,12 @@ const handleCreate = () => {
   form.responseDelay = 0
   form.enableRandom = false
   form.customResponseSource = ''
+  selectedTemplateId.value = null
+  projectTemplates.value = []
+  // 加载默认项目的模板列表
+  if (form.projectId) {
+    fetchProjectTemplates(form.projectId)
+  }
   dialogVisible.value = true
 }
 
@@ -902,9 +963,15 @@ const handleEdit = async (row) => {
   form.responseDelay = row.responseDelay || 0
   form.enableRandom = row.enableRandom || false
   form.customResponseSource = row.customResponseSource || ''
+  // 编辑时projectId从row中获取
+  form.projectId = row.project?.id || null
 
   // 检查是否有多个激活响应
   await checkMultipleActiveResponses(row.id)
+
+  // 加载当前项目的模板列表
+  selectedTemplateId.value = null
+  await fetchProjectTemplates(row.project?.id)
 
   dialogVisible.value = true
 }
@@ -1374,6 +1441,21 @@ const handleCopyPath = async (row) => {
 const handleSubmit = async () => {
   try {
     await formRef.value.validate()
+
+    // 如果有自定义代码，必须先编译验证通过
+    if (form.customResponseSource && form.customResponseSource.trim()) {
+      const tempId = form.id || Date.now()
+      const validateResp = await request({
+        url: `/mock-apis/${tempId}/custom-response-source/validate`,
+        method: 'post',
+        data: { sourceCode: form.customResponseSource }
+      })
+      if (validateResp.code !== 200) {
+        ElMessage.error('代码编译未通过，请修正后重试: ' + (validateResp.message || ''))
+        return
+      }
+    }
+
     submitLoading.value = true
 
     // 创建时需要包含project对象
@@ -1421,6 +1503,7 @@ const loadTemplateCode = () => {
 import com.carolcoral.mockserver.dto.MockResponseDTO;
 import com.carolcoral.mockserver.plugin.CustomResponseTransformer;
 import java.util.*;
+import com.alibaba.fastjson.JSON;
 
 /**
  * 自定义响应处理器模板
@@ -1565,14 +1648,14 @@ const validateCustomCode = async () => {
     })
     if (response.code === 200) {
       validationResult.value = { success: true, message: response.data || t('api.validatePassed') }
-      ElMessage.success(t('api.validateSuccess'))
+      ElMessage.success({ message: t('api.validateSuccess'), duration: 5000 })
     } else {
       validationResult.value = { success: false, message: response.message || t('api.validateFailed') }
-      ElMessage.error(response.message || t('api.validateFailed'))
+      ElMessage.error({ message: response.message || t('api.validateFailed'), duration: 5000 })
     }
   } catch (error) {
     validationResult.value = { success: false, message: error.message || t('api.validateFailed') }
-    ElMessage.error(t('api.validateFailed') + (error.message || ''))
+    ElMessage.error({ message: t('api.validateFailed') + (error.message || ''), duration: 5000 })
   } finally {
     validatingCode.value = false
   }
@@ -1584,6 +1667,14 @@ const clearCustomCode = () => {
   validationResult.value = null
   ElMessage.success(t('api.codeCleared'))
 }
+
+// 监听项目ID变化（创建模式），重新加载模板列表
+watch(() => form.projectId, (newProjectId) => {
+  if (!isEdit.value && newProjectId) {
+    selectedTemplateId.value = null
+    fetchProjectTemplates(newProjectId)
+  }
+})
 
 // 页面加载时获取数据
 onMounted(() => {

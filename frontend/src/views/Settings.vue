@@ -177,6 +177,10 @@
                 <el-input-number v-model="mockSettings.axiosTimeout" :min="5000" :max="120000" step="1000" />
                 <span style="margin-left: 10px; color: #909399;">{{ $t('settings.axiosTimeoutUnit') }}</span>
               </el-form-item>
+              <el-form-item :label="$t('settings.customResponseCacheSeconds')">
+                <el-input-number v-model="mockSettings.customResponseCacheSeconds" :min="0" :max="86400" step="60" />
+                <span style="margin-left: 10px; color: #909399;">{{ $t('settings.customResponseCacheUnit') }}</span>
+              </el-form-item>
               <el-form-item>
                 <el-button type="primary" @click="saveMockSettings" :loading="saving">{{ $t('settings.saveSettings') }}</el-button>
                 <el-button @click="resetMockSettings">{{ $t('settings.resetSettings') }}</el-button>
@@ -591,7 +595,8 @@ const mockSettings = reactive({
   logRetentionDays: 30,
   enableRandomResponse: false,
   maxRequestBodySize: 10,
-  axiosTimeout: 30000
+  axiosTimeout: 30000,
+  customResponseCacheSeconds: 600
 })
 
 // 页脚设置
@@ -802,7 +807,8 @@ const saveMockSettings = async () => {
       enableRequestLog: mockSettings.enableRequestLog,
       logRetentionDays: mockSettings.logRetentionDays,
       maxRequestBodySize: mockSettings.maxRequestBodySize,
-      axiosTimeout: mockSettings.axiosTimeout
+      axiosTimeout: mockSettings.axiosTimeout,
+      customResponseCacheSeconds: mockSettings.customResponseCacheSeconds
     })
     // 同步更新 axios 全局超时时间
     updateAxiosTimeout(mockSettings.axiosTimeout)
@@ -823,6 +829,7 @@ const resetMockSettings = () => {
   mockSettings.logRetentionDays = 30
   mockSettings.maxRequestBodySize = 10
   mockSettings.axiosTimeout = 30000
+  mockSettings.customResponseCacheSeconds = 600
   ElMessage.info(t('settings.settingsReset'))
 }
 
@@ -1248,6 +1255,7 @@ const loadConfig = async () => {
         mockSettings.axiosTimeout = data.axiosTimeout
         updateAxiosTimeout(data.axiosTimeout)
       }
+      if (data.customResponseCacheSeconds != null) mockSettings.customResponseCacheSeconds = data.customResponseCacheSeconds
     }
   } catch (error) {
     console.error('加载配置失败:', error)

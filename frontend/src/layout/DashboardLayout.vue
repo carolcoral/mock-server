@@ -1,7 +1,7 @@
 <template>
   <div class="dashboard-layout">
     <!-- 侧边栏 -->
-    <el-aside width="220px" class="sidebar">
+    <el-aside :width="collapsed ? '64px' : '220px'" class="sidebar" :class="{ collapsed }">
       <!-- 动态线条背景 -->
       <canvas ref="sidebarCanvas" class="sidebar-canvas"></canvas>
       <div class="logo">
@@ -10,10 +10,11 @@
           <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
           <line x1="12" y1="22.08" x2="12" y2="12"/>
         </svg>
-        <h2>Mock Server</h2>
+        <h2 v-show="!collapsed">Mock Server</h2>
       </div>
       <el-menu
         :default-active="activeMenu"
+        :collapse="collapsed"
         class="el-menu-vertical"
         background-color="#304156"
         text-color="#bfcbd9"
@@ -32,6 +33,10 @@
           <el-icon><Connection /></el-icon>
           <span>{{ $t('nav.apis') }}</span>
         </el-menu-item>
+        <el-menu-item index="/code-templates">
+          <el-icon><Document /></el-icon>
+          <span>{{ $t('nav.codeTemplates') }}</span>
+        </el-menu-item>
         <el-menu-item index="/users" v-if="userStore.isAdmin">
           <el-icon><User /></el-icon>
           <span>{{ $t('nav.userManagement') }}</span>
@@ -45,8 +50,15 @@
           <span>{{ $t('nav.settings') }}</span>
         </el-menu-item>
       </el-menu>
+      <!-- 展开/收缩切换按钮 -->
+      <div class="sidebar-toggle" @click="collapsed = !collapsed">
+        <el-icon :size="18">
+          <Fold v-if="!collapsed" />
+          <Expand v-else />
+        </el-icon>
+      </div>
       <!-- 版本号 -->
-      <div class="sidebar-version">
+      <div class="sidebar-version" v-show="!collapsed">
         <span class="version-text">{{ appVersion }}</span>
       </div>
     </el-aside>
@@ -192,13 +204,19 @@ import {
   Setting,
   UserFilled,
   ArrowDown,
-  DataAnalysis
+  DataAnalysis,
+  Document,
+  Fold,
+  Expand
 } from '@element-plus/icons-vue'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+
+// 侧边栏展开/收缩状态（默认展开）
+const collapsed = ref(false)
 
 // 当前激活的菜单
 const activeMenu = computed(() => route.path)
@@ -395,6 +413,20 @@ const handleFooterConfigUpdated = () => {
   fetchFooterConfig()
 }
 
+// 侧边栏折叠/展开时重新调整 canvas 尺寸
+watch(collapsed, () => {
+  setTimeout(() => {
+    const canvas = sidebarCanvas.value
+    if (!canvas) return
+    const sidebar = canvas.parentElement
+    const rect = sidebar.getBoundingClientRect()
+    canvas.width = rect.width * devicePixelRatio
+    canvas.height = rect.height * devicePixelRatio
+    canvas.style.width = rect.width + 'px'
+    canvas.style.height = rect.height + 'px'
+  }, 350) // 等待 CSS transition 完成
+})
+
 // ========== 侧边栏动态线条动画 ==========
 const sidebarCanvas = ref(null)
 let animationId = null
@@ -563,6 +595,7 @@ onBeforeUnmount(() => {
   position: relative;
   display: flex;
   flex-direction: column;
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* 动态线条 Canvas 层 */
@@ -705,15 +738,42 @@ onBeforeUnmount(() => {
 }
 
 .sidebar-version {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
   padding: 14px 0;
   text-align: center;
-  background: linear-gradient(0deg, rgba(0,0,0,0.3) 0%, transparent 100%);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   z-index: 1;
+}
+
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  margin-top: auto;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.45);
+  background: linear-gradient(0deg, rgba(0,0,0,0.15) 0%, transparent 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  z-index: 2;
+  transition: color 0.3s ease, background-color 0.3s ease;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.sidebar-toggle:hover {
+  color: #fff;
+  background: linear-gradient(0deg, rgba(102, 126, 234, 0.15) 0%, rgba(102, 126, 234, 0.05) 100%);
+}
+
+/* 折叠态：菜单项居中适配 */
+.sidebar.collapsed :deep(.el-menu-item) {
+  justify-content: center;
+  padding: 0 !important;
+  margin: 2px 8px;
+}
+
+.sidebar.collapsed :deep(.el-menu-item span) {
+  display: none;
 }
 
 .version-text {
