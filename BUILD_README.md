@@ -29,7 +29,7 @@
 
 2. **运行 JAR 包**
    ```bash
-   java -jar backend/target/mock-server-2.0.5.jar
+   java -jar backend/target/mock-server-2.1.0.jar
    ```
 
 ### 方式三：开发模式

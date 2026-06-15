@@ -64,7 +64,7 @@ public class SystemInfoController {
 
             // ========== 应用信息 ==========
             info.put("appName", "Mock Server");
-            info.put("appVersion", "2.0.5");
+            info.put("appVersion", "2.1.0");
             info.put("springBootVersion", org.springframework.boot.SpringBootVersion.getVersion());
             info.put("springVersion", org.springframework.core.SpringVersion.getVersion());
 

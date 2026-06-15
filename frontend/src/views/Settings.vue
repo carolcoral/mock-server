@@ -539,7 +539,7 @@ const saving = ref(false)
 // 基础设置
 const basicSettings = reactive({
   appName: 'Mock Server',
-  version: 'v2.0.5',
+  version: 'v2.1.0',
   language: localStorage.getItem('locale') || 'zh-CN',
   dateFormat: 'YYYY-MM-DD'
 })
