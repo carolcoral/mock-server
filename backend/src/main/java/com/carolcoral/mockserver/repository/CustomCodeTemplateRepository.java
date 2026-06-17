@@ -10,6 +10,7 @@ import com.carolcoral.mockserver.entity.CustomCodeTemplate;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -23,7 +24,7 @@ import java.util.List;
  */
 @Tag(name = "自定义代码模板管理", description = "自定义代码模板数据访问接口")
 @Repository
-public interface CustomCodeTemplateRepository extends JpaRepository<CustomCodeTemplate, Long> {
+public interface CustomCodeTemplateRepository extends JpaRepository<CustomCodeTemplate, Long>, JpaSpecificationExecutor<CustomCodeTemplate> {
 
     /**
      * 根据项目ID查询模板列表

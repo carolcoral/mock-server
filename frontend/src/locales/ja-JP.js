@@ -36,6 +36,8 @@ export default {
   // ナビゲーション
   nav: {
     home: 'ホーム',
+    businessManagement: '業務管理',
+    systemManagement: 'システム管理',
     projects: 'プロジェクト管理',
     apis: 'API管理',
     codeTemplates: 'コードテンプレート',

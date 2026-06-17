@@ -36,6 +36,8 @@ export default {
   // Navigation
   nav: {
     home: 'Home',
+    businessManagement: 'Business',
+    systemManagement: 'System',
     projects: 'Project Management',
     apis: 'API Management',
     codeTemplates: 'Code Templates',

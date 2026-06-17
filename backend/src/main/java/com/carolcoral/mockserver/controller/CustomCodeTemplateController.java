@@ -137,20 +137,23 @@ public class CustomCodeTemplateController {
     }
 
     /**
-     * 查询用户可访问的模板列表
+     * 查询用户可访问的模板列表（支持过滤）
      * 系统管理员：查看所有模板
      * 普通用户：只查看所属项目的模板
      */
-    @Operation(summary = "查询用户可访问的模板列表")
+    @Operation(summary = "查询用户可访问的模板列表（支持按名称、项目、状态过滤）")
     @GetMapping
     public ApiResponse<List<CustomCodeTemplate>> getAccessibleTemplates(
+            @Parameter(description = "模板名称（模糊搜索）") @RequestParam(required = false) String name,
+            @Parameter(description = "项目ID") @RequestParam(required = false) Long projectId,
+            @Parameter(description = "启用状态") @RequestParam(required = false) Boolean enabled,
             HttpServletRequest request) {
         Long userId = getCurrentUserId(request);
         User.UserRole userRole = getCurrentUserRole(request);
         if (userId == null) {
             return ApiResponse.error("用户未登录");
         }
-        return templateService.getAccessibleTemplates(userId, userRole);
+        return templateService.getAccessibleTemplates(userId, userRole, name, projectId, enabled);
     }
 
     /**

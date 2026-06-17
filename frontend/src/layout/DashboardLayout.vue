@@ -14,6 +14,7 @@
       </div>
       <el-menu
         :default-active="activeMenu"
+        :default-openeds="defaultOpeneds"
         :collapse="collapsed"
         class="el-menu-vertical"
         background-color="#304156"
@@ -21,38 +22,55 @@
         active-text-color="#409EFF"
         router
       >
+        <!-- 仪表盘 - 一级菜单 -->
         <el-menu-item index="/dashboard">
           <el-icon><HomeFilled /></el-icon>
           <span>{{ $t('nav.home') }}</span>
         </el-menu-item>
-        <el-menu-item index="/projects">
-          <el-icon><Folder /></el-icon>
-          <span>{{ $t('nav.projects') }}</span>
-        </el-menu-item>
-        <el-menu-item index="/apis">
-          <el-icon><Connection /></el-icon>
-          <span>{{ $t('nav.apis') }}</span>
-        </el-menu-item>
-        <el-menu-item index="/code-templates">
-          <el-icon><Document /></el-icon>
-          <span>{{ $t('nav.codeTemplates') }}</span>
-        </el-menu-item>
-        <el-menu-item index="/email-templates" v-if="userStore.isAdmin">
-          <el-icon><Message /></el-icon>
-          <span>{{ $t('nav.emailTemplates') }}</span>
-        </el-menu-item>
-        <el-menu-item index="/users" v-if="userStore.isAdmin">
-          <el-icon><User /></el-icon>
-          <span>{{ $t('nav.userManagement') }}</span>
-        </el-menu-item>
-        <el-menu-item index="/statistics" v-if="userStore.isAdmin">
-          <el-icon><DataAnalysis /></el-icon>
-          <span>{{ $t('nav.statistics') }}</span>
-        </el-menu-item>
-        <el-menu-item index="/settings" v-if="userStore.isAdmin">
-          <el-icon><Setting /></el-icon>
-          <span>{{ $t('nav.settings') }}</span>
-        </el-menu-item>
+
+        <!-- 业务管理 - 可折叠分组 -->
+        <el-sub-menu index="sub-business">
+          <template #title>
+            <el-icon><Monitor /></el-icon>
+            <span>{{ $t('nav.businessManagement') }}</span>
+          </template>
+          <el-menu-item index="/projects">
+            <el-icon><Folder /></el-icon>
+            <span>{{ $t('nav.projects') }}</span>
+          </el-menu-item>
+          <el-menu-item index="/apis">
+            <el-icon><Connection /></el-icon>
+            <span>{{ $t('nav.apis') }}</span>
+          </el-menu-item>
+          <el-menu-item index="/code-templates">
+            <el-icon><Document /></el-icon>
+            <span>{{ $t('nav.codeTemplates') }}</span>
+          </el-menu-item>
+        </el-sub-menu>
+
+        <!-- 系统管理 - 仅管理员可见的可折叠分组 -->
+        <el-sub-menu index="sub-system" v-if="userStore.isAdmin">
+          <template #title>
+            <el-icon><Tools /></el-icon>
+            <span>{{ $t('nav.systemManagement') }}</span>
+          </template>
+          <el-menu-item index="/email-templates">
+            <el-icon><Message /></el-icon>
+            <span>{{ $t('nav.emailTemplates') }}</span>
+          </el-menu-item>
+          <el-menu-item index="/users">
+            <el-icon><User /></el-icon>
+            <span>{{ $t('nav.userManagement') }}</span>
+          </el-menu-item>
+          <el-menu-item index="/statistics">
+            <el-icon><DataAnalysis /></el-icon>
+            <span>{{ $t('nav.statistics') }}</span>
+          </el-menu-item>
+          <el-menu-item index="/settings">
+            <el-icon><Setting /></el-icon>
+            <span>{{ $t('nav.settings') }}</span>
+          </el-menu-item>
+        </el-sub-menu>
       </el-menu>
       <!-- 展开/收缩切换按钮 -->
       <div class="sidebar-toggle" @click="collapsed = !collapsed">
@@ -212,7 +230,9 @@ import {
   Document,
   Fold,
   Expand,
-  Message
+  Message,
+  Monitor,
+  Tools
 } from '@element-plus/icons-vue'
 
 const { t } = useI18n()
@@ -225,6 +245,19 @@ const collapsed = ref(false)
 
 // 当前激活的菜单
 const activeMenu = computed(() => route.path)
+
+// 根据当前路由自动展开对应的子菜单分组
+const defaultOpeneds = computed(() => {
+  const path = route.path
+  const opened = []
+  if (['/projects', '/apis', '/code-templates'].some(p => path === p || path.startsWith(p + '/'))) {
+    opened.push('sub-business')
+  }
+  if (['/email-templates', '/users', '/statistics', '/settings'].some(p => path === p || path.startsWith(p + '/'))) {
+    opened.push('sub-system')
+  }
+  return opened
+})
 
 // 版本号
 const appVersion = ref('')
@@ -736,6 +769,106 @@ onBeforeUnmount(() => {
 .sidebar :deep(.el-menu) {
   background-color: transparent !important;
   border-right: none !important;
+}
+
+/* 子菜单标题样式 */
+.sidebar :deep(.el-sub-menu__title) {
+  height: 50px;
+  line-height: 50px;
+  margin: 2px 10px;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.55) !important;
+  background-color: transparent !important;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+.sidebar :deep(.el-sub-menu__title):hover {
+  color: rgba(255, 255, 255, 0.8) !important;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.05) 100%) !important;
+}
+
+/* 子菜单标题前的小竖线指示器 */
+.sidebar :deep(.el-sub-menu__title)::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 0;
+  background: linear-gradient(180deg, #667eea, #764ba2);
+  border-radius: 0 3px 3px 0;
+  transform: translateY(-50%);
+  transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar :deep(.el-sub-menu.is-opened .el-sub-menu__title) {
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+.sidebar :deep(.el-sub-menu.is-opened .el-sub-menu__title)::before {
+  height: 40%;
+}
+
+/* 子菜单内菜单项缩进 */
+.sidebar :deep(.el-sub-menu .el-menu-item) {
+  padding-left: 52px !important;
+  height: 44px;
+  line-height: 44px;
+  margin: 1px 10px 1px 10px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.sidebar :deep(.el-sub-menu .el-menu-item):hover {
+  color: rgba(255, 255, 255, 0.8) !important;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.06) 100%) !important;
+}
+
+.sidebar :deep(.el-sub-menu .el-menu-item.is-active) {
+  color: #fff !important;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.18) 0%, rgba(118, 75, 162, 0.12) 100%) !important;
+  box-shadow: 0 1px 8px rgba(102, 126, 234, 0.12), inset 0 0 0 1px rgba(102, 126, 234, 0.2);
+  font-weight: 600;
+}
+
+/* 折叠态子菜单弹出面板样式 */
+.sidebar.collapsed :deep(.el-sub-menu .el-menu-item) {
+  padding-left: 20px !important;
+}
+
+/* 折叠态：子菜单标题图标居中 */
+.sidebar.collapsed :deep(.el-sub-menu__title) {
+  justify-content: center;
+  padding: 0 !important;
+  margin: 2px 8px;
+}
+
+.sidebar.collapsed :deep(.el-sub-menu__title) span {
+  display: none;
+}
+
+.sidebar.collapsed :deep(.el-sub-menu__title) .el-sub-menu__icon-arrow {
+  display: none;
+}
+
+.sidebar.collapsed :deep(.el-sub-menu__title)::before {
+  display: none;
+}
+
+/* 子菜单箭头颜色 */
+.sidebar :deep(.el-sub-menu__icon-arrow) {
+  color: rgba(255, 255, 255, 0.35);
+  transition: color 0.3s ease;
+}
+
+.sidebar :deep(.el-sub-menu__title):hover .el-sub-menu__icon-arrow {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.sidebar :deep(.el-sub-menu.is-opened .el-sub-menu__icon-arrow) {
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .sidebar :deep(.el-menu-item) {

@@ -39,7 +39,7 @@
     <el-card class="table-card">
       <el-table
         v-loading="loading"
-        :data="filteredList"
+        :data="pagedList"
         border
         style="width: 100%"
         :header-cell-style="{ background: '#f5f7fa' }"
@@ -218,23 +218,10 @@ const pagination = reactive({
   total: 0
 })
 
-// 过滤后的列表
-const filteredList = computed(() => {
-  let data = templateList.value || []
-
-  if (searchForm.name) {
-    const keyword = searchForm.name.toLowerCase()
-    data = data.filter(t => t.name?.toLowerCase().includes(keyword))
-  }
-  if (searchForm.projectId) {
-    data = data.filter(t => t.project?.id === searchForm.projectId)
-  }
-  if (searchForm.enabled !== null && searchForm.enabled !== '') {
-    data = data.filter(t => t.enabled === searchForm.enabled)
-  }
-
+// 分页后的列表（过滤已在服务端完成，此处仅做分页切片）
+const pagedList = computed(() => {
+  const data = templateList.value || []
   pagination.total = data.length
-
   const start = (pagination.current - 1) * pagination.pageSize
   const end = start + pagination.pageSize
   return data.slice(start, end)
@@ -300,11 +287,16 @@ const fetchProjects = async () => {
   }
 }
 
-// 获取模板列表
+// 获取模板列表（支持服务端过滤）
 const fetchTemplates = async () => {
   loading.value = true
   try {
-    const response = await getAccessibleTemplates()
+    const params = {}
+    if (searchForm.name) params.name = searchForm.name
+    if (searchForm.projectId) params.projectId = searchForm.projectId
+    if (searchForm.enabled !== null && searchForm.enabled !== '') params.enabled = searchForm.enabled
+
+    const response = await getAccessibleTemplates(params)
     if (response.code === 200) {
       templateList.value = response.data || []
     } else {
@@ -321,6 +313,7 @@ const fetchTemplates = async () => {
 // 搜索
 const handleSearch = () => {
   pagination.current = 1
+  fetchTemplates()
 }
 
 // 重置
@@ -329,6 +322,7 @@ const handleReset = () => {
   searchForm.projectId = null
   searchForm.enabled = null
   pagination.current = 1
+  fetchTemplates()
 }
 
 // 分页

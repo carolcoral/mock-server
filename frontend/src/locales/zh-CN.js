@@ -36,6 +36,8 @@ export default {
   // 导航菜单
   nav: {
     home: '首页',
+    businessManagement: '业务管理',
+    systemManagement: '系统管理',
     projects: '项目管理',
     apis: '接口管理',
     codeTemplates: '代码模板',

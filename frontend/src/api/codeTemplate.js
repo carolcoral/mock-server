@@ -1,14 +1,16 @@
 import request from '@/utils/request'
 
 /**
- * 获取用户可访问的自定义代码模板列表
+ * 获取用户可访问的自定义代码模板列表（支持服务器端过滤）
  * 系统管理员：所有项目的模板
  * 普通用户：所属项目的模板
+ * @param {Object} params - 可选过滤参数 { name, projectId, enabled }
  */
-export function getAccessibleTemplates() {
+export function getAccessibleTemplates(params = {}) {
   return request({
     url: '/code-templates',
-    method: 'get'
+    method: 'get',
+    params
   })
 }
 

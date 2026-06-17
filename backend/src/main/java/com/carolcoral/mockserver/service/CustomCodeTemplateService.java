@@ -17,13 +17,17 @@ import com.carolcoral.mockserver.repository.ProjectRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.persistence.criteria.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * 自定义代码模板服务类
@@ -188,23 +192,77 @@ public class CustomCodeTemplateService {
 
     /**
      * 查询所有模板（系统管理员）或用户有权限访问的项目下的模板（普通用户）
+     * 支持按名称、项目ID、启用状态过滤
      */
-    @Operation(summary = "查询用户可访问的模板列表")
-    public ApiResponse<List<CustomCodeTemplate>> getAccessibleTemplates(Long userId, User.UserRole userRole) {
+    @Operation(summary = "查询用户可访问的模板列表（支持过滤）")
+    public ApiResponse<List<CustomCodeTemplate>> getAccessibleTemplates(
+            Long userId, User.UserRole userRole, String name, Long projectId, Boolean enabled) {
         try {
-            List<CustomCodeTemplate> templates;
-            if (userRole == User.UserRole.ADMIN) {
-                // 系统管理员查看所有模板
-                templates = templateRepository.findAll();
-            } else {
-                // 普通用户只展示当前用户所属项目的模板
-                templates = templateRepository.findAccessibleTemplatesByUserId(userId);
-            }
+            Specification<CustomCodeTemplate> spec = buildAccessSpec(userId, userRole, name, projectId, enabled);
+            List<CustomCodeTemplate> templates = templateRepository.findAll(spec);
             return ApiResponse.success(templates);
         } catch (Exception e) {
             log.error("查询模板列表失败: {}", e.getMessage(), e);
             return ApiResponse.error("查询模板列表失败，请稍后重试");
         }
+    }
+
+    /**
+     * 构建查询条件
+     */
+    private Specification<CustomCodeTemplate> buildAccessSpec(
+            Long userId, User.UserRole userRole, String name, Long projectId, Boolean enabled) {
+
+        Specification<CustomCodeTemplate> spec = Specification.where(null);
+
+        // 普通用户：限制只能看所属项目的模板
+        if (userRole != User.UserRole.ADMIN) {
+            List<Long> projectIds = getAccessibleProjectIds(userId);
+            if (projectIds.isEmpty()) {
+                // 没有权限访问任何项目，使用不可能的条件返回空
+                spec = spec.and((root, query, cb) -> cb.disjunction());
+            } else {
+                spec = spec.and((root, query, cb) ->
+                        root.get("project").get("id").in(projectIds));
+            }
+        }
+
+        // 按名称模糊搜索
+        if (name != null && !name.isEmpty()) {
+            spec = spec.and((root, query, cb) ->
+                    cb.like(cb.lower(root.get("name")), "%" + name.toLowerCase() + "%"));
+        }
+
+        // 按项目ID精确过滤
+        if (projectId != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("project").get("id"), projectId));
+        }
+
+        // 按启用状态过滤
+        if (enabled != null) {
+            spec = spec.and((root, query, cb) ->
+                    cb.equal(root.get("enabled"), enabled));
+        }
+
+        return spec;
+    }
+
+    /**
+     * 获取用户有权限访问的项目ID列表
+     */
+    private List<Long> getAccessibleProjectIds(Long userId) {
+        List<Long> projectIds = new ArrayList<>();
+
+        // 用户创建的项目
+        List<Project> ownedProjects = projectRepository.findByCreateUserId(userId);
+        projectIds.addAll(ownedProjects.stream().map(Project::getId).collect(Collectors.toList()));
+
+        // 用户作为成员的项目
+        List<ProjectMember> memberships = projectMemberRepository.findByUserId(userId);
+        projectIds.addAll(memberships.stream().map(ProjectMember::getProjectId).collect(Collectors.toList()));
+
+        return projectIds.stream().distinct().collect(Collectors.toList());
     }
 
     /**
