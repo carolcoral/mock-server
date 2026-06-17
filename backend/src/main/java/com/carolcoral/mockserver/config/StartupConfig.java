@@ -410,6 +410,11 @@ public class StartupConfig implements CommandLineRunner {
             initDefaultConfigIfAbsent("axiosTimeout", "30000", "前端Axios请求超时时间（毫秒）");
             initDefaultConfigIfAbsent("customResponseCacheSeconds", "600", "自定义接口响应缓存时间（秒），0表示不缓存");
 
+            // 注册配置默认值
+            initDefaultConfigIfAbsent("enableRegistration", "false", "是否开启用户注册");
+            initDefaultConfigIfAbsent("allowedEmailDomains", "", "允许注册的邮箱域名（逗号分隔）");
+            initDefaultConfigIfAbsent("enableEmailVerification", "false", "是否开启邮箱验证");
+
             // 页脚默认配置
             initDefaultConfigIfAbsent("footerCopyright", "© 2026 carolcoral", "页脚版权信息");
             initDefaultConfigIfAbsent("footerFriendLinkUrl", "https://xindu.site", "友情链接URL");

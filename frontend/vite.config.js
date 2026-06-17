@@ -40,6 +40,17 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
+        // README.md 和 CHANGELOG.md 代理到后端静态资源（开发模式）
+        '/README.md': {
+          target: `http://localhost:${serverPort}`,
+          changeOrigin: true,
+          secure: false,
+        },
+        '/CHANGELOG.md': {
+          target: `http://localhost:${serverPort}`,
+          changeOrigin: true,
+          secure: false,
+        },
       },
     },
     build: {

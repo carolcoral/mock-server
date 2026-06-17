@@ -10,7 +10,7 @@ LABEL description="Mock Server v2.1.0"
 # ---- 基础依赖 + Eclipse Temurin JDK 21 ----
 # Debian 12 默认源无 openjdk-21，通过 Adoptium 官方源安装
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates gnupg sudo bash procps tzdata wget \
+    curl ca-certificates gnupg sudo bash procps tzdata wget gosu \
     && mkdir -p /etc/apt/keyrings \
     && wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public \
     | gpg --dearmor -o /etc/apt/keyrings/adoptium.gpg \
@@ -46,13 +46,14 @@ RUN mkdir -p /app/data /app/logs /app/frontend/dist \
 RUN groupadd -r appgroup && useradd -r -g appgroup -d /app -s /bin/sh appuser
 
 # ---- 启动脚本 ----
-# 以 root 启动时先修复 volume 目录权限，再切换到 appuser 运行 Java
+# 以 root 启动时先修复 volume 目录权限，再用 gosu 切换到 appuser 运行 Java
+# gosu 比 su 更适合容器环境，避免 seccomp 阻止 setgroups/setuid 系统调用
 RUN printf '#!/bin/sh\n\
 # 确保数据目录存在且权限正确（支持以 root 启动时自动修复）\n\
 mkdir -p /app/data /app/logs\n\
 if [ "$(id -u)" = "0" ]; then\n\
     chown -R appuser:appgroup /app/data /app/logs 2>/dev/null || true\n\
-    exec su -s /bin/sh appuser -c "exec java ${JAVA_OPTS} -jar /app/mock-server.jar --server.port=8080"\n\
+    exec gosu appuser java ${JAVA_OPTS} -jar /app/mock-server.jar --server.port=8080\n\
 else\n\
     exec java ${JAVA_OPTS} -jar /app/mock-server.jar --server.port=8080\n\
 fi\n' > /app/start.sh \

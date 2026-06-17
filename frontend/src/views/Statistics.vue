@@ -136,11 +136,51 @@ const fetchIops = async () => {
   }
 }
 
+// 将时间序列数据补全缺失时间段，填充 0
+const padTimeSeries = (rawLabels, rawValues, generateAllSlotsFn) => {
+  const map = {}
+  rawLabels.forEach((l, i) => {
+    if (l != null && l !== '' && l !== 'null') {
+      map[l] = rawValues[i] || 0
+    }
+  })
+  const allSlots = generateAllSlotsFn(rawLabels.filter(l => l != null && l !== '' && l !== 'null'))
+  const labels = allSlots.map(s => s.label)
+  const values = allSlots.map(s => (map[s.label] !== undefined ? map[s.label] : 0))
+  return { labels, values }
+}
+
 const renderIopsChart = (data) => {
   if (!iopsChart.value) return
   if (!iopsChartInstance) {
     iopsChartInstance = echarts.init(iopsChart.value)
   }
+
+  const rawLabels = data.labels || []
+  const rawValues = data.values || []
+  const isPerSec = iopsUnit.value === 'req/s'
+
+  // 生成完整时间段并补 0
+  const generateSlots = (existingLabels) => {
+    if (existingLabels.length === 0) return []
+    const fmt = isPerSec ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD HH:mm'
+    const sorted = [...existingLabels].sort()
+    const first = sorted[0], last = sorted[sorted.length - 1]
+    const slots = []
+    const step = isPerSec ? 1000 : 60000
+    let current = new Date(first.replace(' ', 'T') + (isPerSec ? '' : ':00'))
+    const end = new Date(last.replace(' ', 'T') + (isPerSec ? '' : ':00'))
+    while (current <= end) {
+      const pad = (n) => String(n).padStart(2, '0')
+      const label = isPerSec
+        ? `${current.getFullYear()}-${pad(current.getMonth()+1)}-${pad(current.getDate())} ${pad(current.getHours())}:${pad(current.getMinutes())}:${pad(current.getSeconds())}`
+        : `${current.getFullYear()}-${pad(current.getMonth()+1)}-${pad(current.getDate())} ${pad(current.getHours())}:${pad(current.getMinutes())}`
+      slots.push({ label, time: new Date(current) })
+      current = new Date(current.getTime() + step)
+    }
+    return slots
+  }
+  const { labels, values: chartValues } = padTimeSeries(rawLabels, rawValues, generateSlots)
 
   const option = {
     tooltip: {
@@ -153,7 +193,7 @@ const renderIopsChart = (data) => {
     grid: { left: '3%', right: '8%', bottom: '15%', top: '10px', containLabel: true },
     xAxis: {
       type: 'category',
-      data: data.labels || [],
+      data: labels,
       axisLabel: {
         rotate: 45,
         fontSize: 10,
@@ -165,14 +205,14 @@ const renderIopsChart = (data) => {
       name: iopsUnit.value,
       minInterval: iopsUnit.value === 'req/s' ? 0.01 : 1
     },
-    dataZoom: [
+    dataZoom: labels.length > 10 ? [
       { type: 'slider', start: 0, end: 100, height: 20, bottom: 0 },
       { type: 'inside', start: 0, end: 100 }
-    ],
+    ] : [],
     series: [{
       name: 'IOPS',
       type: 'line',
-      data: data.values || [],
+      data: chartValues,
       smooth: true,
       symbol: 'none',
       lineStyle: { color: '#30cfd0', width: 2 },
@@ -184,13 +224,19 @@ const renderIopsChart = (data) => {
       },
       markLine: {
         silent: true,
-        data: data.values && data.values.length > 0 ? [{
+        data: chartValues.length > 0 ? [{
           type: 'average',
           name: 'Avg',
           lineStyle: { color: '#f5576c', type: 'dashed' }
         }] : []
       }
-    }]
+    }],
+    title: labels.length === 0 ? {
+      text: t('statistics.noData') || '暂无数据',
+      left: 'center',
+      top: 'center',
+      textStyle: { color: '#999', fontSize: 14, fontWeight: 'normal' }
+    } : undefined
   }
   iopsChartInstance.setOption(option, true)
 }
@@ -217,7 +263,35 @@ const renderRequestFreqChart = (data) => {
     freqChartInstance = echarts.init(requestFreqChart.value)
   }
 
-  const labels = (data.labels || []).filter(l => l != null && l !== '')
+  const rawLabels = data.labels || []
+  const rawValues = data.values || []
+  const isHourly = freqGranularity.value === 'hourly'
+
+  // 生成完整时间段并补 0
+  const generateSlots = () => {
+    const pad = (n) => String(n).padStart(2, '0')
+    const now = new Date()
+    const slots = []
+    if (isHourly) {
+      for (let i = 23; i >= 0; i--) {
+        const d = new Date(now)
+        d.setHours(now.getHours() - i, 0, 0, 0)
+        slots.push({
+          label: `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:00`
+        })
+      }
+    } else {
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now)
+        d.setDate(now.getDate() - i)
+        slots.push({
+          label: `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`
+        })
+      }
+    }
+    return slots
+  }
+  const { labels, values: chartValues } = padTimeSeries(rawLabels, rawValues, generateSlots)
   const option = {
     tooltip: {
       trigger: 'axis',
@@ -237,7 +311,7 @@ const renderRequestFreqChart = (data) => {
     series: [{
       name: t('statistics.requestCount'),
       type: 'bar',
-      data: data.values || [],
+      data: chartValues,
       itemStyle: {
         borderRadius: [4, 4, 0, 0],
         color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
@@ -251,7 +325,13 @@ const renderRequestFreqChart = (data) => {
           ])
         }
       }
-    }]
+    }],
+    title: labels.length === 0 ? {
+      text: t('statistics.noData') || '暂无数据',
+      left: 'center',
+      top: 'center',
+      textStyle: { color: '#999', fontSize: 14, fontWeight: 'normal' }
+    } : undefined
   }
   freqChartInstance.setOption(option, true)
 }
@@ -326,7 +406,14 @@ const renderCreationTrendChart = (data) => {
     trendChartInstance = echarts.init(creationTrendChart.value)
   }
 
-  const labels = (data.labels || []).filter(l => l != null && l !== '')
+  const rawLabels = data.labels || []
+  const rawValues = data.values || []
+  const validIndices = rawLabels.reduce((acc, l, i) => {
+    if (l != null && l !== '' && l !== 'null') acc.push(i)
+    return acc
+  }, [])
+  const labels = validIndices.map(i => rawLabels[i])
+  const chartValues = validIndices.map(i => rawValues[i])
   const option = {
     tooltip: { trigger: 'axis' },
     legend: { data: [t('statistics.newProjects'), t('statistics.newApis')], top: 0 },

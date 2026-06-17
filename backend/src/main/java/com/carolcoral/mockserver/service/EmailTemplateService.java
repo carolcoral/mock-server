@@ -1,0 +1,160 @@
+/**
+* Copyright (c) 2026, XINDU.SITE
+* All Rights Reserved.
+* XINDU.SITE CONFIDENTIAL
+*/
+
+package com.carolcoral.mockserver.service;
+
+import com.carolcoral.mockserver.dto.ApiResponse;
+import com.carolcoral.mockserver.entity.EmailTemplate;
+import com.carolcoral.mockserver.repository.EmailTemplateRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * 邮件模板服务
+ * 负责邮件模板的 CRUD 操作
+ *
+ * @author carolcoral
+ * @version 1.0
+ * @since 2026-06-16
+ */
+@Tag(name = "邮件模板服务", description = "邮件模板业务逻辑处理")
+@Service
+public class EmailTemplateService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(EmailTemplateService.class);
+
+    private final EmailTemplateRepository emailTemplateRepository;
+
+    public EmailTemplateService(EmailTemplateRepository emailTemplateRepository) {
+        this.emailTemplateRepository = emailTemplateRepository;
+    }
+
+    /**
+     * 获取所有邮件模板
+     *
+     * @return 模板列表
+     */
+    @Operation(summary = "获取所有邮件模板")
+    public ApiResponse<List<EmailTemplate>> getAllTemplates() {
+        try {
+            List<EmailTemplate> templates = emailTemplateRepository.findAll();
+            return ApiResponse.success(templates);
+        } catch (Exception e) {
+            log.error("获取邮件模板列表失败: {}", e.getMessage(), e);
+            return ApiResponse.error("获取模板列表失败");
+        }
+    }
+
+    /**
+     * 根据ID获取邮件模板
+     *
+     * @param id 模板ID
+     * @return 邮件模板
+     */
+    @Operation(summary = "根据ID获取邮件模板")
+    public ApiResponse<EmailTemplate> getTemplateById(Long id) {
+        try {
+            Optional<EmailTemplate> template = emailTemplateRepository.findById(id);
+            if (template.isPresent()) {
+                return ApiResponse.success(template.get());
+            }
+            return ApiResponse.error("模板不存在");
+        } catch (Exception e) {
+            log.error("获取邮件模板失败: {}", e.getMessage(), e);
+            return ApiResponse.error("获取模板失败");
+        }
+    }
+
+    /**
+     * 创建邮件模板
+     *
+     * @param template 邮件模板
+     * @return 创建的模板
+     */
+    @Operation(summary = "创建邮件模板")
+    @Transactional
+    public ApiResponse<EmailTemplate> createTemplate(EmailTemplate template) {
+        try {
+            EmailTemplate saved = emailTemplateRepository.save(template);
+            log.info("邮件模板创建成功: id={}, name={}", saved.getId(), saved.getName());
+            return ApiResponse.success(saved);
+        } catch (Exception e) {
+            log.error("创建邮件模板失败: {}", e.getMessage(), e);
+            return ApiResponse.error("创建模板失败");
+        }
+    }
+
+    /**
+     * 更新邮件模板
+     *
+     * @param id       模板ID
+     * @param template 更新的模板信息
+     * @return 更新后的模板
+     */
+    @Operation(summary = "更新邮件模板")
+    @Transactional
+    public ApiResponse<EmailTemplate> updateTemplate(Long id, EmailTemplate template) {
+        try {
+            Optional<EmailTemplate> existingOpt = emailTemplateRepository.findById(id);
+            if (existingOpt.isEmpty()) {
+                return ApiResponse.error("模板不存在");
+            }
+
+            EmailTemplate existing = existingOpt.get();
+            if (template.getName() != null) {
+                existing.setName(template.getName());
+            }
+            if (template.getType() != null) {
+                existing.setType(template.getType());
+            }
+            if (template.getSubject() != null) {
+                existing.setSubject(template.getSubject());
+            }
+            if (template.getContent() != null) {
+                existing.setContent(template.getContent());
+            }
+            if (template.getEnabled() != null) {
+                existing.setEnabled(template.getEnabled());
+            }
+            existing.setUpdateTime(LocalDateTime.now());
+
+            EmailTemplate updated = emailTemplateRepository.save(existing);
+            log.info("邮件模板更新成功: id={}, name={}", updated.getId(), updated.getName());
+            return ApiResponse.success(updated);
+        } catch (Exception e) {
+            log.error("更新邮件模板失败: {}", e.getMessage(), e);
+            return ApiResponse.error("更新模板失败");
+        }
+    }
+
+    /**
+     * 删除邮件模板
+     *
+     * @param id 模板ID
+     * @return 删除结果
+     */
+    @Operation(summary = "删除邮件模板")
+    @Transactional
+    public ApiResponse<Void> deleteTemplate(Long id) {
+        try {
+            if (!emailTemplateRepository.existsById(id)) {
+                return ApiResponse.error("模板不存在");
+            }
+            emailTemplateRepository.deleteById(id);
+            log.info("邮件模板删除成功: id={}", id);
+            return ApiResponse.success();
+        } catch (Exception e) {
+            log.error("删除邮件模板失败: {}", e.getMessage(), e);
+            return ApiResponse.error("删除模板失败");
+        }
+    }
+}

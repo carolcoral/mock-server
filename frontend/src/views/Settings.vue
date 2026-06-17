@@ -465,6 +465,92 @@
                   :placeholder="$t('settings.allowedEmailDomainsPlaceholder')"
                 />
               </el-form-item>
+
+              <!-- 邮箱验证设置 -->
+              <el-divider content-position="left">
+                <span>{{ $t('settings.emailVerification') }}</span>
+              </el-divider>
+              <el-form-item>
+                <template #label>
+                  <span>{{ $t('settings.enableEmailVerification') }}</span>
+                  <el-tooltip :content="$t('settings.enableEmailVerificationTip')" placement="top">
+                    <el-icon class="tip-icon"><InfoFilled /></el-icon>
+                  </el-tooltip>
+                </template>
+                <el-switch v-model="registrationSettings.enableEmailVerification" @change="handleEmailVerificationToggle" />
+              </el-form-item>
+
+              <template v-if="registrationSettings.enableEmailVerification">
+                <!-- SMTP 配置 -->
+                <el-divider content-position="left">
+                  <el-tag size="small" type="info">SMTP</el-tag>
+                </el-divider>
+                <el-form-item :label="$t('settings.smtpHost')" prop="smtpHost">
+                  <el-input v-model="emailConfig.smtpHost" :placeholder="$t('settings.smtpHostPlaceholder')" />
+                </el-form-item>
+                <el-form-item :label="$t('settings.smtpPort')">
+                  <el-input-number v-model="emailConfig.smtpPort" :min="1" :max="65535" />
+                </el-form-item>
+                <el-form-item :label="$t('settings.useSsl')">
+                  <el-switch v-model="emailConfig.useSsl" />
+                </el-form-item>
+                <el-form-item :label="$t('settings.smtpUsername')" prop="username">
+                  <el-input v-model="emailConfig.username" :placeholder="$t('settings.smtpUsernamePlaceholder')" />
+                </el-form-item>
+                <el-form-item :label="$t('settings.displayName')">
+                  <el-input v-model="emailConfig.displayName" :placeholder="$t('settings.displayNamePlaceholder')" />
+                </el-form-item>
+                <el-form-item :label="$t('settings.smtpPassword')" prop="password">
+                  <el-input v-model="emailConfig.password" type="password" show-password :placeholder="$t('settings.smtpPasswordPlaceholder')" />
+                </el-form-item>
+
+                <!-- 测试邮件发送 -->
+                <el-divider content-position="left">
+                  <el-tag size="small" type="success">{{ $t('settings.testEmail') }}</el-tag>
+                </el-divider>
+                <el-form-item :label="$t('settings.testEmailAddress')">
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <el-input v-model="testEmailAddress" :placeholder="$t('settings.testEmailPlaceholder')" style="width: 300px;" />
+                    <el-button type="primary" @click="sendTestEmail" :loading="testEmailLoading">
+                      {{ testEmailLoading ? $t('settings.testEmailSending') : $t('settings.testEmail') }}
+                    </el-button>
+                  </div>
+                </el-form-item>
+
+                <!-- 验证码邮件模板选择 -->
+                <el-divider content-position="left">
+                  <el-tag size="small" type="warning">{{ $t('settings.verificationEmailTemplate') }}</el-tag>
+                </el-divider>
+                <el-form-item :label="$t('settings.selectVerificationTemplate')">
+                  <el-select
+                    v-model="emailConfig.verificationTemplateId"
+                    :placeholder="$t('settings.selectTemplatePlaceholder')"
+                    style="width: 100%;"
+                    clearable
+                    filterable
+                  >
+                    <el-option
+                      v-for="tpl in emailTemplates"
+                      :key="tpl.id"
+                      :label="tpl.name + ' (' + (tpl.type === 'GENERAL' ? $t('emailTemplate.typeGeneral') : tpl.type === 'VERIFICATION_CODE' ? $t('emailTemplate.typeVerification') : tpl.type === 'ALERT' ? $t('emailTemplate.typeAlert') : tpl.type) + ')'"
+                      :value="tpl.id"
+                    />
+                  </el-select>
+                  <div style="margin-top: 6px; color: #909399; font-size: 12px;">
+                    {{ $t('settings.verificationTemplateHint') }}
+                  </div>
+                </el-form-item>
+
+                <!-- 邮件模板管理链接 -->
+                <el-divider />
+                <el-form-item>
+                  <el-button type="success" @click="goToEmailTemplates">
+                    <Edit :width="'1em'" :height="'1em'" style="margin-right: 6px;" />
+                    {{ $t('settings.emailTemplatesLink') }}
+                  </el-button>
+                </el-form-item>
+              </template>
+
               <el-form-item>
                 <el-button type="primary" @click="saveRegistrationSettings" :loading="saving">{{ $t('settings.saveSettings') }}</el-button>
                 <el-button @click="resetRegistrationSettings">{{ $t('settings.resetSettings') }}</el-button>
@@ -517,11 +603,15 @@ import { ref, reactive, onMounted, onBeforeUnmount, watch, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Setting, Lock, Key, Connection, InfoFilled, Bell, Edit, Delete, Refresh, Timer, UserFilled } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
 import request from '@/utils/request'
 import { setDateFormat } from '@/utils/dateFormat'
 import axios from 'axios'
 
 const { t, locale } = useI18n()
+const router = useRouter()
+const userStore = useUserStore()
 
 // 监听语言变化，保存到 localStorage
 // 注意：不在此处调用后端 API，避免与 saveBasicSettings 重复请求
@@ -622,8 +712,29 @@ const footerSettings = reactive({
 // 注册设置
 const registrationSettings = reactive({
   enableRegistration: false,
-  allowedEmailDomains: ''
+  allowedEmailDomains: '',
+  enableEmailVerification: false
 })
+
+// 邮箱配置
+const emailConfig = reactive({
+  smtpHost: '',
+  smtpPort: 465,
+  useSsl: true,
+  fromAddress: '',
+  username: '',
+  password: '',
+  displayName: '',
+  enabled: false,
+  verificationTemplateId: null
+})
+
+// 邮件模板列表
+const emailTemplates = ref([])
+
+// 测试邮件
+const testEmailAddress = ref('')
+const testEmailLoading = ref(false)
 
 // 系统信息
 const systemInfo = reactive({
@@ -1170,6 +1281,13 @@ const loadRegistrationConfig = async () => {
       const data = response.data
       if (data.enableRegistration !== undefined) registrationSettings.enableRegistration = data.enableRegistration
       if (data.allowedEmailDomains !== undefined) registrationSettings.allowedEmailDomains = data.allowedEmailDomains || ''
+      if (data.enableEmailVerification !== undefined) registrationSettings.enableEmailVerification = data.enableEmailVerification
+
+      // 如果开启了邮箱验证，加载邮箱配置
+      if (data.enableEmailVerification) {
+        loadEmailConfig()
+        fetchEmailTemplates()
+      }
     }
   } catch (error) {
     console.error('加载注册配置失败:', error)
@@ -1178,12 +1296,51 @@ const loadRegistrationConfig = async () => {
 
 // 保存注册设置
 const saveRegistrationSettings = async () => {
+  // 开启邮箱验证时校验SMTP必填字段（手动校验，因为字段在emailConfig对象上）
+  if (registrationSettings.enableEmailVerification) {
+    if (!emailConfig.smtpHost || !emailConfig.smtpHost.trim()) {
+      ElMessage.warning(t('settings.smtpHostRequired'))
+      return
+    }
+    if (!emailConfig.username || !emailConfig.username.trim()) {
+      ElMessage.warning(t('settings.smtpUsernameRequired'))
+      return
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(emailConfig.username)) {
+      ElMessage.warning(t('settings.fromAddressInvalid'))
+      return
+    }
+    if (!emailConfig.password || !emailConfig.password.trim()) {
+      ElMessage.warning(t('settings.smtpPasswordRequired'))
+      return
+    }
+  }
+
   saving.value = true
   try {
+    // 保存注册配置
     await request.post('/system-config/registration', {
       enableRegistration: registrationSettings.enableRegistration,
-      allowedEmailDomains: registrationSettings.allowedEmailDomains
+      allowedEmailDomains: registrationSettings.allowedEmailDomains,
+      enableEmailVerification: registrationSettings.enableEmailVerification
     })
+
+    // 如果开启了邮箱验证，保存邮箱配置
+    if (registrationSettings.enableEmailVerification) {
+      await request.post('/email-config', {
+        smtpHost: emailConfig.smtpHost,
+        smtpPort: emailConfig.smtpPort,
+        useSsl: emailConfig.useSsl,
+        fromAddress: emailConfig.username,
+        username: emailConfig.username,
+        password: emailConfig.password || undefined,
+        displayName: emailConfig.displayName || undefined,
+        enabled: emailConfig.enabled,
+        verificationTemplateId: emailConfig.verificationTemplateId || null
+      })
+    }
+
     ElMessage.success(t('settings.settingsSaved'))
   } catch (error) {
     console.error('保存注册设置失败:', error)
@@ -1197,7 +1354,91 @@ const saveRegistrationSettings = async () => {
 const resetRegistrationSettings = () => {
   registrationSettings.enableRegistration = false
   registrationSettings.allowedEmailDomains = ''
+  registrationSettings.enableEmailVerification = false
+  emailConfig.smtpHost = ''
+  emailConfig.smtpPort = 465
+  emailConfig.useSsl = true
+  emailConfig.fromAddress = ''
+  emailConfig.username = ''
+  emailConfig.password = ''
+  emailConfig.displayName = ''
+  emailConfig.enabled = false
+  emailConfig.verificationTemplateId = null
   ElMessage.info(t('settings.settingsReset'))
+}
+
+// 邮箱验证开关切换
+const handleEmailVerificationToggle = (val) => {
+  if (val) {
+    emailConfig.enabled = true
+    loadEmailConfig()
+    fetchEmailTemplates()
+  }
+}
+
+// 加载邮箱配置
+const loadEmailConfig = async () => {
+  try {
+    const response = await request.get('/email-config')
+    if (response.code === 200 && response.data) {
+      const data = response.data
+      if (data.smtpHost) emailConfig.smtpHost = data.smtpHost
+      if (data.smtpPort) emailConfig.smtpPort = data.smtpPort
+      if (data.useSsl !== undefined) emailConfig.useSsl = data.useSsl
+      if (data.fromAddress) emailConfig.fromAddress = data.fromAddress
+      if (data.username) {
+        emailConfig.username = data.username
+        emailConfig.fromAddress = data.username
+      }
+      if (data.hasPassword) emailConfig.password = '••••••'
+      if (data.displayName) emailConfig.displayName = data.displayName
+      if (data.enabled !== undefined) emailConfig.enabled = data.enabled
+      if (data.verificationTemplateId !== undefined) emailConfig.verificationTemplateId = data.verificationTemplateId
+    }
+  } catch (error) {
+    console.error('加载邮箱配置失败:', error)
+  }
+}
+
+// 加载邮件模板列表
+const fetchEmailTemplates = async () => {
+  try {
+    const response = await request.get('/email-templates')
+    if (response.code === 200 && response.data) {
+      emailTemplates.value = response.data
+    }
+  } catch (error) {
+    console.error('加载邮件模板列表失败:', error)
+  }
+}
+
+// 发送测试邮件
+const sendTestEmail = async () => {
+  if (!testEmailAddress.value) {
+    ElMessage.warning(t('settings.testEmailPlaceholder'))
+    return
+  }
+  if (!userStore.isAdmin) {
+    ElMessage.error('权限不足，需要管理员权限才能发送测试邮件')
+    return
+  }
+  testEmailLoading.value = true
+  try {
+    const response = await request.post('/email-config/test', { toAddress: testEmailAddress.value })
+    if (response.code === 200) {
+      ElMessage.success(t('settings.testEmailSuccess'))
+    }
+  } catch (error) {
+    // 详细错误信息已在请求拦截器中显示（包含后端返回的SMTP具体错误）
+    console.error('测试邮件发送失败:', error)
+  } finally {
+    testEmailLoading.value = false
+  }
+}
+
+// 跳转到邮件模板管理
+const goToEmailTemplates = () => {
+  router.push('/email-templates')
 }
 
 // 加载页脚配置
@@ -1282,6 +1523,14 @@ onBeforeUnmount(() => {
 <style scoped>
 .settings {
   padding: 20px;
+}
+
+.tip-icon {
+  margin-left: 4px;
+  vertical-align: middle;
+  color: #909399;
+  cursor: pointer;
+  font-size: 14px;
 }
 
 .page-header {

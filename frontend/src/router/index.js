@@ -10,6 +10,12 @@ const routes = [
     meta: { requiresAuth: false }
   },
   {
+    path: '/changelog',
+    name: 'Changelog',
+    component: () => import('@/views/Changelog.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
     path: '/login',
     name: 'Login',
     component: () => import('@/views/Login.vue'),
@@ -86,6 +92,12 @@ const routes = [
         name: 'Guide',
         component: () => import('@/views/Guide.vue'),
         meta: { requiresAuth: false }
+      },
+      {
+        path: '/email-templates',
+        name: 'EmailTemplates',
+        component: () => import('@/views/EmailTemplates.vue'),
+        meta: { requiresAuth: true, requiresAdmin: true }
       }
     ]
   }

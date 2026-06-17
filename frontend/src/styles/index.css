@@ -39,3 +39,29 @@ body {
     padding: 4px;
   }
 }
+
+/* 暗色主题语言选择器下拉弹窗 */
+.dark-locale-popper.el-select-dropdown {
+  background: #1a1a2e !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(102, 126, 234, 0.15) !important;
+}
+
+.dark-locale-popper .el-select-dropdown__item {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+}
+
+.dark-locale-popper .el-select-dropdown__item:hover,
+.dark-locale-popper .el-select-dropdown__item.is-hovering {
+  background: rgba(102, 126, 234, 0.18);
+  color: #fff;
+}
+
+.dark-locale-popper .el-select-dropdown__item.is-selected {
+  color: #667eea;
+}
+
+.dark-locale-popper .el-scrollbar__bar.is-vertical .el-scrollbar__thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+}

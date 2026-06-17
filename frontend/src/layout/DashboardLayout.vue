@@ -37,6 +37,10 @@
           <el-icon><Document /></el-icon>
           <span>{{ $t('nav.codeTemplates') }}</span>
         </el-menu-item>
+        <el-menu-item index="/email-templates" v-if="userStore.isAdmin">
+          <el-icon><Message /></el-icon>
+          <span>{{ $t('nav.emailTemplates') }}</span>
+        </el-menu-item>
         <el-menu-item index="/users" v-if="userStore.isAdmin">
           <el-icon><User /></el-icon>
           <span>{{ $t('nav.userManagement') }}</span>
@@ -207,7 +211,8 @@ import {
   DataAnalysis,
   Document,
   Fold,
-  Expand
+  Expand,
+  Message
 } from '@element-plus/icons-vue'
 
 const { t } = useI18n()
@@ -244,17 +249,75 @@ const footerConfig = reactive({
   customLinks: []
 })
 
-// 获取版本号
+// 获取版本号并检测版本变更
 const fetchVersion = async () => {
   try {
     const response = await request.get('/system/info')
     if (response.code === 200 && response.data) {
-      appVersion.value = 'v' + (response.data.appVersion || '')
+      const serverVersion = response.data.appVersion || ''
+      appVersion.value = 'v' + serverVersion
+
+      // 检测版本缓存，如果浏览器缓存的版本与后台不一致则弹窗
+      const cachedVersion = localStorage.getItem('app_version')
+      if (cachedVersion && cachedVersion !== serverVersion) {
+        showVersionMismatchDialog(serverVersion)
+      }
+      // 更新本地缓存的版本号
+      localStorage.setItem('app_version', serverVersion)
     }
   } catch (error) {
     console.warn('获取版本号失败:', error)
     appVersion.value = ''
   }
+}
+
+// 版本不一致弹窗
+const showVersionMismatchDialog = (newVersion) => {
+  ElMessageBox.alert(
+    '检测到系统版本已更新，建议清理浏览器缓存以确保页面正常显示。',
+    '版本更新提示',
+    {
+      confirmButtonText: '一键清理缓存并刷新',
+      cancelButtonText: '稍后处理',
+      showCancelButton: true,
+      type: 'warning',
+      center: true,
+      distinguishCancelAndClose: true,
+      closeOnClickModal: false,
+      closeOnPressEscape: false
+    }
+  ).then(() => {
+    // 用户点击了确认 - 清理缓存并刷新
+    clearCacheAndReload()
+  }).catch(() => {
+    // 用户点击了取消或关闭 - 不做处理
+  })
+}
+
+// 清理浏览器缓存并刷新页面
+const clearCacheAndReload = () => {
+  try {
+    // 清除所有 localStorage
+    localStorage.clear()
+    // 清除所有 sessionStorage
+    sessionStorage.clear()
+    // 清除所有 cookies
+    document.cookie.split(';').forEach(cookie => {
+      const eqPos = cookie.indexOf('=')
+      const name = eqPos > -1 ? cookie.substring(0, eqPos).trim() : cookie.trim()
+      document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/'
+    })
+    // 通过 Service Worker 清除缓存（如果可用）
+    if ('caches' in window) {
+      caches.keys().then(names => {
+        names.forEach(name => caches.delete(name))
+      })
+    }
+  } catch (e) {
+    console.warn('清理缓存时出错:', e)
+  }
+  // 刷新页面
+  window.location.reload(true)
 }
 
 // 判断是否有页脚内容需要展示

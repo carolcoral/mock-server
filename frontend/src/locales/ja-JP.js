@@ -39,6 +39,7 @@ export default {
     projects: 'プロジェクト管理',
     apis: 'API管理',
     codeTemplates: 'コードテンプレート',
+    emailTemplates: 'メールテンプレート',
     userManagement: 'ユーザー管理',
     settings: 'システム設定',
     statistics: '統計データ'
@@ -144,7 +145,18 @@ export default {
     registerSuccess: '登録が完了しました。ログインしてください',
     registerFailed: '登録に失敗しました',
     registrationDisabled: '登録機能は無効になっています',
-    emailDomainNotAllowed: 'このメールドメインは登録許可リストに含まれていません'
+    emailDomainNotAllowed: 'このメールドメインは登録許可リストに含まれていません',
+    verificationCode: '検証コード',
+    verificationCodePlaceholder: '検証コードを入力してください',
+    verificationCodeRequired: '検証コードを入力してください',
+    sendVerificationCode: 'コード送信',
+    sendVerificationCodeRetry: '再送信',
+    verificationCodeSent: '検証コードを送信しました。メールをご確認ください',
+    verificationCodeSendFailed: '検証コードの送信に失敗しました',
+    verifyingEmail: 'メール検証中...',
+    emailTemplate: 'メールテンプレート',
+    selectTemplatePlaceholder: 'デフォルトテンプレートを使用（任意選択）',
+    defaultTemplate: 'デフォルト'
   },
 
   // ホーム / ダッシュボード
@@ -161,6 +173,8 @@ export default {
     systemAnnouncement: 'システム通知',
     noAnnouncement: 'お知らせはありません',
     statsFailed: '統計データの取得に失敗しました',
+    usageGuide: 'システムガイド',
+    viewChangelog: '変更履歴',
     swaggerLoginRequired: 'Swaggerドキュメントにアクセスするにはログインしてください',
     swaggerRedirecting: 'Swaggerドキュメントに移動中...',
     swaggerLoginFailed: 'Swagger自動ログイン失敗：',
@@ -293,7 +307,41 @@ export default {
     registration: '登録設定',
     enableRegistration: 'ユーザー登録を有効にする',
     allowedEmailDomains: '登録許可メールドメイン',
-    allowedEmailDomainsPlaceholder: 'ドメインを入力してください。複数はカンマで区切ります。空白の場合は制限なし。例：example.com,qq.com'
+    allowedEmailDomainsPlaceholder: 'ドメインを入力してください。複数はカンマで区切ります。空白の場合は制限なし。例：example.com,qq.com',
+    // メール検証
+    emailVerification: 'メール検証',
+    enableEmailVerification: 'メール検証を有効にする',
+    enableEmailVerificationTip: '登録時にメール検証が必要',
+    smtpHost: 'SMTPサーバーアドレス',
+    smtpHostPlaceholder: '例：smtp.qq.com',
+    smtpHostRequired: 'SMTPサーバーアドレスを入力してください',
+    smtpPort: 'SMTPポート',
+    useSsl: 'SSL暗号化を有効にする',
+    fromAddress: '送信者メールアドレス',
+    fromAddressPlaceholder: '例：noreply@example.com',
+    fromAddressRequired: '送信者メールアドレスを入力してください',
+    fromAddressInvalid: '正しいメール形式を入力してください',
+    smtpUsername: 'SMTPユーザー名',
+    smtpUsernamePlaceholder: '通常は送信者メールアドレスと同じ',
+    smtpUsernameRequired: 'SMTPユーザー名を入力してください',
+    displayName: '送信者表示名',
+    displayNamePlaceholder: 'メールに表示される名称、例：Mock Server',
+    smtpPassword: 'SMTPパスワード（認証コード）',
+    smtpPasswordPlaceholder: 'SMTP認証コードを入力してください',
+    smtpPasswordRequired: 'SMTP認証コードを入力してください',
+    emailServiceEnabled: 'メールサービスを有効にする',
+    testEmail: 'テストメール送信',
+    testEmailAddress: 'テスト受信者メールアドレス',
+    testEmailPlaceholder: 'テスト受信者メールアドレスを入力してください',
+    testEmailSending: '送信中...',
+    testEmailSuccess: 'テストメールが送信されました',
+    testEmailFailed: 'テストメールの送信に失敗しました',
+    emailTemplatesLink: 'メールテンプレート管理',
+    emailVerificationSaved: 'メール設定が保存されました',
+    verificationEmailTemplate: '検証コード用メールテンプレート',
+    selectVerificationTemplate: 'メールテンプレート選択',
+    selectTemplatePlaceholder: '検証コード用のメールテンプレートを選択してください',
+    verificationTemplateHint: '空白の場合はシステムデフォルトテンプレート（タイプ"REGISTER"に一致する最初の有効なテンプレート）を使用します'
   },
 
   // プロジェクト管理
@@ -578,7 +626,8 @@ export default {
     iopsTrend: 'システムIOPS傾向（リクエスト/秒）',
     currentIops: '現在のIOPS',
     avgIops: '平均IOPS',
-    peakIops: 'ピークIOPS'
+    peakIops: 'ピークIOPS',
+    noData: 'データなし'
   },
 
   // コードテンプレート
@@ -648,6 +697,7 @@ export default {
     subtitle: 'バックエンドコード不要',
     description: 'Mock Server は、カスタムレスポンス、動的コード実行、ランダム応答などをサポートする強力な API モックツールです。フロントエンド開発者や QA チームのモックサービス構築を支援します。',
     cta: '今すぐ始める',
+    changelog: '変更履歴',
     featuresTitle: '主な機能',
     feature1Title: '柔軟なモック',
     feature1Desc: 'RESTful パスパラメータ、クエリパラメータマッチング、カスタム HTTP メソッド、ステータスコード、レスポンス内容をサポート。',
@@ -666,5 +716,54 @@ export default {
     blog: 'ブログ',
     github: 'GitHub',
     email: 'メール送信'
+  },
+
+  // 変更履歴
+  changelog: {
+    title: '変更履歴',
+    subtitle: 'Mock Server の進化の記録',
+    backHome: 'ホームに戻る',
+    loadFailed: '変更履歴の読み込みに失敗しました'
+  },
+
+  // メールテンプレート
+  emailTemplate: {
+    title: 'メールテンプレート管理',
+    createTemplate: 'テンプレート作成',
+    editTemplate: 'テンプレート編集',
+    name: 'テンプレート名',
+    templateName: 'テンプレート名',
+    templateNamePlaceholder: 'テンプレート名を入力してください',
+    templateType: 'テンプレートタイプ',
+    templateEnabled: '有効状態',
+    typeGeneral: '一般',
+    typeVerification: '検証コード',
+    typeAlert: 'アラート',
+    namePlaceholder: 'テンプレート名を入力してください',
+    nameRequired: 'テンプレート名を入力してください',
+    type: 'テンプレートタイプ',
+    typeRegister: '登録検証',
+    subject: 'メール件名',
+    subjectPlaceholder: 'メール件名を入力してください',
+    subjectRequired: 'メール件名を入力してください',
+    content: 'メール内容（HTML形式）',
+    emailBody: 'メール内容（HTML形式）',
+    contentPlaceholder: 'HTMLメール内容を入力してください',
+    contentRequired: 'メール本文を入力してください',
+    enabled: '有効状態',
+    placeholderHint: '対応プレースホルダー：{{username}}、{{email}}、{{time}}、{{code}}',
+    placeholdersBtn: 'プレースホルダー情報',
+    placeholdersTitle: '利用可能なプレースホルダー変数',
+    placeholderUsername: '登録ユーザー名',
+    placeholderEmail: '登録メールアドレス',
+    placeholderTime: '送信時刻（形式：yyyy-MM-dd HH:mm:ss）',
+    placeholderCode: '6桁の認証コード',
+    deleteConfirm: 'このテンプレートを削除してもよろしいですか？',
+    createSuccess: '作成成功',
+    updateSuccess: '更新成功',
+    deleteSuccess: '削除成功',
+    preview: 'プレビュー',
+    editContent: '編集',
+    previewHtml: 'HTMLプレビュー'
   }
 }

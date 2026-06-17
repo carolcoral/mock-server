@@ -48,6 +48,7 @@ public class PublicConfigController {
     public ApiResponse<Map<String, Object>> getPublicConfig() {
         Map<String, Object> config = new LinkedHashMap<>();
         config.put("enableRegistration", parseBooleanConfig("enableRegistration", false));
+        config.put("enableEmailVerification", parseBooleanConfig("enableEmailVerification", false));
         return ApiResponse.success(config);
     }
 

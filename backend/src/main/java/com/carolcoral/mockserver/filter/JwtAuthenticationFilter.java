@@ -57,6 +57,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String MOCK_SERVER_PATH_PREFIX = "/mock-server/";
     private static final String AUTH_LOGIN_PATH = "/auth/login";
     private static final String AUTH_REGISTER_PATH = "/auth/register";
+    private static final String AUTH_SEND_VERIFICATION_CODE_PATH = "/auth/send-verification-code";
     private static final String ACTUATOR_PATH_PREFIX = "/actuator/";
 
     private final JwtTokenUtil jwtTokenUtil;
@@ -160,7 +161,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         // 设置用户ID和角色到请求属性，方便后续使用
                         request.setAttribute("userId", userId);
                         request.setAttribute("userRole", User.UserRole.valueOf(role));
-                        log.debug("JWT认证成功: username={}, role={}", username, role);
+                        log.info("JWT认证成功: username={}, role={}, authorities={}",
+                                username, role, userDetails.getAuthorities());
                     } else {
                         log.warn("JWT token验证失败或用户不存在");
                         writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
@@ -210,6 +212,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (requestUri.equals("/") || requestUri.equals("/index.html") ||
             requestUri.equals("/favicon.ico") || requestUri.equals("/robots.txt") ||
             requestUri.equals("/USER_GUIDE.md") ||
+            requestUri.equals("/CHANGELOG.md") ||
+            requestUri.equals("/README.md") ||
             requestUri.startsWith("/assets/")) {
             return true;
         }
@@ -232,7 +236,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             requestUri.startsWith("/projects/") || requestUri.equals("/apis") ||
             requestUri.equals("/users") || requestUri.equals("/settings") ||
             requestUri.equals("/statistics") || requestUri.equals("/guide") ||
-            requestUri.equals("/profile") || requestUri.equals("/code-templates")) {
+            requestUri.equals("/profile") || requestUri.equals("/code-templates") ||
+            requestUri.equals("/changelog") ||
+            requestUri.equals("/email-templates")) {
             return true;
         }
 
@@ -241,6 +247,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                ("/api" + AUTH_LOGIN_PATH).equals(requestUri) ||
                AUTH_REGISTER_PATH.equals(requestUri) ||
                ("/api" + AUTH_REGISTER_PATH).equals(requestUri) ||
+               AUTH_SEND_VERIFICATION_CODE_PATH.equals(requestUri) ||
+               ("/api" + AUTH_SEND_VERIFICATION_CODE_PATH).equals(requestUri) ||
                requestUri.startsWith(MOCK_SERVER_PATH_PREFIX) ||
                requestUri.startsWith("/api" + MOCK_SERVER_PATH_PREFIX) ||
                requestUri.startsWith(ACTUATOR_PATH_PREFIX) ||

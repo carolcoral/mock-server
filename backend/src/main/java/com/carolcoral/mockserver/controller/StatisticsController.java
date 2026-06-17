@@ -77,7 +77,7 @@ public class StatisticsController {
 
             String sql = "SELECT " + groupBy + " as timeKey, COUNT(*) as cnt " +
                     "FROM t_request_log r " +
-                    "WHERE r.request_time >= :startTime " +
+                    "WHERE r.request_time >= :startTime AND r.request_time IS NOT NULL " +
                     "GROUP BY timeKey " +
                     "ORDER BY timeKey ASC";
 
@@ -89,8 +89,10 @@ public class StatisticsController {
             List<Long> values = new ArrayList<>();
 
             for (Object[] row : rows) {
-                labels.add(String.valueOf(row[0]));
-                values.add(((Number) row[1]).longValue());
+                if (row[0] != null) {
+                    labels.add(String.valueOf(row[0]));
+                    values.add(((Number) row[1]).longValue());
+                }
             }
 
             Map<String, Object> result = new HashMap<>();
@@ -134,8 +136,10 @@ public class StatisticsController {
             List<Long> values = new ArrayList<>();
 
             for (Object[] row : rows) {
-                labels.add(String.valueOf(row[0]));
-                values.add(((Number) row[1]).longValue());
+                if (row[0] != null) {
+                    labels.add(String.valueOf(row[0]));
+                    values.add(((Number) row[1]).longValue());
+                }
             }
 
             Map<String, Object> result = new HashMap<>();
@@ -243,7 +247,7 @@ public class StatisticsController {
 
             String sql = "SELECT strftime('" + timeFormat + "', r.request_time) as timeKey, COUNT(*) as cnt " +
                     "FROM t_request_log r " +
-                    "WHERE r.request_time >= :startTime " +
+                    "WHERE r.request_time >= :startTime AND r.request_time IS NOT NULL " +
                     "GROUP BY timeKey " +
                     "ORDER BY timeKey ASC";
 
@@ -255,9 +259,11 @@ public class StatisticsController {
             List<Double> values = new ArrayList<>();
 
             for (Object[] row : rows) {
-                labels.add(String.valueOf(row[0]));
-                long count = ((Number) row[1]).longValue();
-                values.add(Math.round(count / divisor * 100.0) / 100.0);
+                if (row[0] != null) {
+                    labels.add(String.valueOf(row[0]));
+                    long count = ((Number) row[1]).longValue();
+                    values.add(Math.round(count / divisor * 100.0) / 100.0);
+                }
             }
 
             Map<String, Object> result = new HashMap<>();
@@ -282,5 +288,57 @@ public class StatisticsController {
             }
         }
         return 0;
+    }
+
+    @Operation(summary = "诊断：请求日志数据状态", description = "检查 t_request_log 表中 request_time 字段的分布情况")
+    @GetMapping("/diagnose-logs")
+    public ApiResponse<Map<String, Object>> diagnoseRequestLogs() {
+        try {
+            Map<String, Object> result = new HashMap<>();
+
+            // 总记录数、非 NULL 数、NULL 数
+            String countSql = "SELECT COUNT(*) as total, SUM(CASE WHEN request_time IS NOT NULL THEN 1 ELSE 0 END) as not_null_cnt, SUM(CASE WHEN request_time IS NULL THEN 1 ELSE 0 END) as null_cnt FROM t_request_log";
+            List<Object[]> countRows = entityManager.createNativeQuery(countSql).getResultList();
+            Object[] counts = (Object[]) countRows.get(0);
+            result.put("totalCount", ((Number) counts[0]).longValue());
+            result.put("notNullCount", ((Number) counts[1]).longValue());
+            result.put("nullCount", ((Number) counts[2]).longValue());
+
+            // 最近 5 条有时间的记录
+            String recentSql = "SELECT id, mock_api_id, method, path, request_time, status_code FROM t_request_log WHERE request_time IS NOT NULL ORDER BY id DESC LIMIT 5";
+            List<Object[]> recentRows = entityManager.createNativeQuery(recentSql).getResultList();
+            List<Map<String, Object>> recentLogs = new ArrayList<>();
+            for (Object[] row : recentRows) {
+                Map<String, Object> log = new HashMap<>();
+                log.put("id", row[0]);
+                log.put("mockApiId", row[1]);
+                log.put("method", row[2]);
+                log.put("path", row[3]);
+                log.put("requestTime", row[4] != null ? String.valueOf(row[4]) : null);
+                log.put("statusCode", row[5]);
+                recentLogs.add(log);
+            }
+            result.put("recentValidLogs", recentLogs);
+
+            // 最近 5 条无时间的记录
+            String nullSql = "SELECT id, mock_api_id, method, path, status_code FROM t_request_log WHERE request_time IS NULL ORDER BY id DESC LIMIT 5";
+            List<Object[]> nullRows = entityManager.createNativeQuery(nullSql).getResultList();
+            List<Map<String, Object>> nullLogs = new ArrayList<>();
+            for (Object[] row : nullRows) {
+                Map<String, Object> log = new HashMap<>();
+                log.put("id", row[0]);
+                log.put("mockApiId", row[1]);
+                log.put("method", row[2]);
+                log.put("path", row[3]);
+                log.put("statusCode", row[4]);
+                nullLogs.add(log);
+            }
+            result.put("recentNullLogs", nullLogs);
+
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            log.error("诊断请求日志失败: {}", e.getMessage(), e);
+            return ApiResponse.error("诊断失败: " + e.getMessage());
+        }
     }
 }

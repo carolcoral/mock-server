@@ -269,6 +269,33 @@ print_success "前端构建成功"
 cd ..
 
 print_success "构建完成！"
+
+# ==========================================
+# 同步 README.md 和 CHANGELOG.md 到前后端
+# ==========================================
+print_info ""
+print_info "=========================================="
+print_info "同步 README 和 CHANGELOG 文档..."
+print_info "=========================================="
+
+# 后端静态资源目录
+BACKEND_STATIC_DIR="$PROJECT_ROOT/backend/src/main/resources/static"
+mkdir -p "$BACKEND_STATIC_DIR"
+
+if [ -f "$PROJECT_ROOT/README.md" ]; then
+    cp "$PROJECT_ROOT/README.md" "$BACKEND_STATIC_DIR/README.md"
+    print_success "README.md 已同步到后端静态资源目录"
+else
+    print_warning "项目根目录未找到 README.md"
+fi
+
+if [ -f "$PROJECT_ROOT/CHANGELOG.md" ]; then
+    cp "$PROJECT_ROOT/CHANGELOG.md" "$BACKEND_STATIC_DIR/CHANGELOG.md"
+    print_success "CHANGELOG.md 已同步到后端静态资源目录"
+else
+    print_warning "项目根目录未找到 CHANGELOG.md"
+fi
+
 print_info "后端jar包: backend/target/mock-server-2.1.0.jar"
 print_info "前端dist目录: frontend/dist/"
 print_info ""

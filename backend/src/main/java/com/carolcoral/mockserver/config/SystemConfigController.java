@@ -67,6 +67,7 @@ public class SystemConfigController {
         config.setCustomResponseCacheSeconds(parseIntConfig("customResponseCacheSeconds", 600));
         config.setEnableRegistration(parseBooleanConfig("enableRegistration", false));
         config.setAllowedEmailDomains(systemConfigService.getConfig("allowedEmailDomains"));
+        config.setEnableEmailVerification(parseBooleanConfig("enableEmailVerification", false));
         return ApiResponse.success(config);
     }
 
@@ -188,8 +189,11 @@ public class SystemConfigController {
         if (dto.getAllowedEmailDomains() != null) {
             systemConfigService.saveConfig("allowedEmailDomains", dto.getAllowedEmailDomains(), "允许注册的邮箱域名（逗号分隔）");
         }
-        log.info("管理员更新注册配置: enableRegistration={}, allowedEmailDomains={}",
-                dto.getEnableRegistration(), dto.getAllowedEmailDomains());
+        if (dto.getEnableEmailVerification() != null) {
+            systemConfigService.saveConfig("enableEmailVerification", String.valueOf(dto.getEnableEmailVerification()), "是否开启邮箱验证");
+        }
+        log.info("管理员更新注册配置: enableRegistration={}, allowedEmailDomains={}, enableEmailVerification={}",
+                dto.getEnableRegistration(), dto.getAllowedEmailDomains(), dto.getEnableEmailVerification());
         return ApiResponse.success();
     }
 
@@ -354,6 +358,8 @@ class SystemConfigDTO {
     private Boolean enableRegistration;
     /** 允许注册的邮箱域名（逗号分隔，空表示不限制） */
     private String allowedEmailDomains;
+    /** 是否开启邮箱验证 */
+    private Boolean enableEmailVerification;
 
     public String getDefaultLanguage() {
         return defaultLanguage;
@@ -397,6 +403,9 @@ class SystemConfigDTO {
 
     public String getAllowedEmailDomains() { return allowedEmailDomains; }
     public void setAllowedEmailDomains(String allowedEmailDomains) { this.allowedEmailDomains = allowedEmailDomains; }
+
+    public Boolean getEnableEmailVerification() { return enableEmailVerification; }
+    public void setEnableEmailVerification(Boolean enableEmailVerification) { this.enableEmailVerification = enableEmailVerification; }
 }
 
 /**
@@ -405,12 +414,16 @@ class SystemConfigDTO {
 class RegistrationConfigDTO {
     private Boolean enableRegistration;
     private String allowedEmailDomains;
+    private Boolean enableEmailVerification;
 
     public Boolean getEnableRegistration() { return enableRegistration; }
     public void setEnableRegistration(Boolean enableRegistration) { this.enableRegistration = enableRegistration; }
 
     public String getAllowedEmailDomains() { return allowedEmailDomains; }
     public void setAllowedEmailDomains(String allowedEmailDomains) { this.allowedEmailDomains = allowedEmailDomains; }
+
+    public Boolean getEnableEmailVerification() { return enableEmailVerification; }
+    public void setEnableEmailVerification(Boolean enableEmailVerification) { this.enableEmailVerification = enableEmailVerification; }
 }
 
 /**

@@ -77,22 +77,21 @@
       <el-col :span="12">
         <el-card>
           <template #header>
-            <span>{{ $t('home.quickStart') }}</span>
+            <div class="card-header-row">
+              <span>{{ $t('home.usageGuide') }}</span>
+              <el-button type="primary" link @click="$router.push('/changelog')">
+                <el-icon><Clock /></el-icon>
+                {{ $t('home.viewChangelog') }}
+              </el-button>
+            </div>
           </template>
-          <div class="quick-start">
-            <el-button type="primary" @click="$router.push('/projects')" style="margin: 5px;">
-              <Folder :width="'1.5em'" :height="'1.5em'" />
-              {{ $t('home.createProject') }}
-            </el-button>
-            <el-button type="success" @click="$router.push('/apis')" style="margin: 5px;">
-              <Connection :width="'1.5em'" :height="'1.5em'" />
-              {{ $t('home.createApi') }}
-            </el-button>
-            <el-button @click="$router.push('/guide')" style="margin: 5px;">
-              <Document :width="'1.5em'" :height="'1.5em'" />
-              {{ $t('home.userGuide') }}
-            </el-button>
+          <div class="readme-content" v-if="readmeLoading">
+            <el-skeleton :rows="8" animated />
           </div>
+          <div class="readme-content" v-else-if="readmeError">
+            <el-empty :description="$t('home.statsFailed')" :image-size="60" />
+          </div>
+          <div class="readme-content" v-else v-html="readmeRendered"></div>
         </el-card>
       </el-col>
       <el-col :span="12">
@@ -124,7 +123,8 @@ import {
   User,
   Position,
   Document,
-  DataLine
+  DataLine,
+  Clock
 } from '@element-plus/icons-vue'
 import { marked } from 'marked'
 
@@ -245,10 +245,33 @@ const formatCount = (count) => {
     }
   }
 
+// README 使用说明
+const readmeLoading = ref(true)
+const readmeError = ref(false)
+const readmeRendered = ref('')
+
+// 获取 README.md 内容
+const fetchReadme = async () => {
+  readmeLoading.value = true
+  readmeError.value = false
+  try {
+    const response = await fetch('/README.md', { cache: 'no-cache' })
+    if (!response.ok) throw new Error('Failed to fetch README.md')
+    const content = await response.text()
+    readmeRendered.value = marked(content)
+    readmeLoading.value = false
+  } catch (err) {
+    console.error('获取使用说明失败:', err)
+    readmeError.value = true
+    readmeLoading.value = false
+  }
+}
+
 // 页面加载时获取统计数据
 onMounted(() => {
   fetchRealStats()
   fetchAnnouncement()
+  fetchReadme()
 })
 
 // 获取真实统计数据
@@ -379,6 +402,148 @@ const fetchAnnouncement = async () => {
 
 .quick-start {
   padding: 10px;
+}
+
+.card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.readme-content {
+  color: #606266;
+  line-height: 1.8;
+  max-height: 45vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+/* README Markdown 样式 */
+.readme-content :deep(h1) {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 16px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e4e7ed;
+  color: #303133;
+}
+
+.readme-content :deep(h2) {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 14px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e4e7ed;
+  color: #303133;
+}
+
+.readme-content :deep(h3) {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 12px 0 8px;
+  color: #303133;
+}
+
+.readme-content :deep(p) {
+  margin: 8px 0;
+  line-height: 1.8;
+}
+
+.readme-content :deep(ul),
+.readme-content :deep(ol) {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.readme-content :deep(li) {
+  margin: 4px 0;
+  line-height: 1.7;
+}
+
+.readme-content :deep(code) {
+  background-color: #f5f5f5;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  color: #e83e8c;
+}
+
+.readme-content :deep(pre) {
+  background-color: #282c34;
+  color: #abb2bf;
+  padding: 12px;
+  border-radius: 5px;
+  overflow-x: auto;
+  margin: 10px 0;
+  line-height: 1.5;
+}
+
+.readme-content :deep(pre code) {
+  background-color: transparent;
+  padding: 0;
+  color: #abb2bf;
+  font-size: 13px;
+}
+
+.readme-content :deep(blockquote) {
+  border-left: 4px solid #409eff;
+  padding: 8px 15px;
+  margin: 10px 0;
+  color: #606266;
+  background-color: #f4f4f5;
+  border-radius: 3px;
+}
+
+.readme-content :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+  font-size: 13px;
+}
+
+.readme-content :deep(table th),
+.readme-content :deep(table td) {
+  border: 1px solid #e4e7ed;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.readme-content :deep(table th) {
+  background-color: #f5f7fa;
+  font-weight: 600;
+}
+
+.readme-content :deep(a) {
+  color: #409eff;
+  text-decoration: none;
+}
+
+.readme-content :deep(a:hover) {
+  text-decoration: underline;
+}
+
+.readme-content :deep(strong) {
+  font-weight: 600;
+  color: #303133;
+}
+
+.readme-content :deep(hr) {
+  border: none;
+  border-top: 1px solid #e4e7ed;
+  margin: 16px 0;
+}
+
+.readme-content :deep(img) {
+  max-width: 100%;
+}
+
+/* 第一个 h1 不需要上边距 */
+.readme-content :deep(h1:first-child) {
+  margin-top: 0;
 }
 
 .system-info {

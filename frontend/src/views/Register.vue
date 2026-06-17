@@ -65,6 +65,44 @@
           />
         </el-form-item>
 
+        <!-- 邮箱验证码 -->
+        <template v-if="enableEmailVerification">
+          <!-- 模板选择 -->
+          <el-form-item v-if="emailTemplates.length > 0" :label="$t('register.emailTemplate')">
+            <el-select v-model="selectedTemplateId" :placeholder="$t('register.selectTemplatePlaceholder')" size="large" style="width: 100%;">
+              <el-option
+                :label="$t('register.defaultTemplate')"
+                :value="0"
+              />
+              <el-option
+                v-for="tpl in emailTemplates"
+                :key="tpl.id"
+                :label="tpl.name || tpl.subject"
+                :value="tpl.id"
+              />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item prop="verificationCode">
+            <el-input
+              v-model="registerForm.verificationCode"
+              :placeholder="$t('register.verificationCodePlaceholder')"
+              prefix-icon="Key"
+              size="large"
+            >
+              <template #append>
+                <el-button
+                  :loading="codeSending"
+                  :disabled="codeCountdown > 0"
+                  @click="sendVerificationCode"
+                >
+                  {{ codeCountdown > 0 ? formatCountdown(codeCountdown) : (codeSent ? $t('register.sendVerificationCodeRetry') : $t('register.sendVerificationCode')) }}
+                </el-button>
+              </template>
+            </el-input>
+          </el-form-item>
+        </template>
+
         <el-form-item>
           <el-button
             type="primary"
@@ -98,14 +136,29 @@ const { t } = useI18n()
 const router = useRouter()
 const registerFormRef = ref()
 const loading = ref(false)
+const enableEmailVerification = ref(false)
+const codeSending = ref(false)
+const codeSent = ref(false)
+const codeCountdown = ref(0)
+const selectedTemplateId = ref(0)
+const emailTemplates = ref([])
+let countdownTimer = null
 
 const { bgImage, fetchBingBg } = useBingBackground()
+
+// 格式化倒计时为 mm:ss 格式
+const formatCountdown = (seconds) => {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return m + ':' + String(s).padStart(2, '0')
+}
 
 const registerForm = reactive({
   username: '',
   email: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  verificationCode: ''
 })
 
 const validateConfirmPassword = (_rule, value, callback) => {
@@ -133,6 +186,9 @@ const rules = computed(() => ({
   ],
   confirmPassword: [
     { validator: validateConfirmPassword, trigger: 'blur' }
+  ],
+  verificationCode: [
+    { required: true, message: t('register.verificationCodeRequired'), trigger: 'blur' }
   ]
 }))
 
@@ -150,7 +206,8 @@ const handleRegister = async () => {
     const response = await axios.post('/api/auth/register', {
       username: registerForm.username,
       email: registerForm.email,
-      password: registerForm.password
+      password: registerForm.password,
+      verificationCode: registerForm.verificationCode || undefined
     })
 
     if (response.data && response.data.code === 200) {
@@ -167,8 +224,71 @@ const handleRegister = async () => {
   }
 }
 
+// 发送验证码
+const sendVerificationCode = async () => {
+  if (!registerForm.email) {
+    ElMessage.warning(t('register.emailRequired'))
+    return
+  }
+  codeSending.value = true
+  try {
+    const response = await axios.post('/api/auth/send-verification-code', {
+      email: registerForm.email,
+      templateId: selectedTemplateId.value || undefined
+    })
+    if (response.data && response.data.code === 200) {
+      ElMessage.success(t('register.verificationCodeSent'))
+      codeSent.value = true
+      codeCountdown.value = 300
+      if (countdownTimer) clearInterval(countdownTimer)
+      countdownTimer = setInterval(() => {
+        codeCountdown.value--
+        if (codeCountdown.value <= 0) {
+          clearInterval(countdownTimer)
+          countdownTimer = null
+        }
+      }, 1000)
+    } else {
+      ElMessage.error(response.data?.message || t('register.verificationCodeSendFailed'))
+    }
+  } catch (error) {
+    const msg = error.response?.data?.message || error.message || t('register.verificationCodeSendFailed')
+    ElMessage.error(msg)
+  } finally {
+    codeSending.value = false
+  }
+}
+
+// 加载邮箱验证配置
+const checkEmailVerificationConfig = async () => {
+  try {
+    const response = await axios.get('/api/public/system-config')
+    if (response.data && response.data.code === 200) {
+      enableEmailVerification.value = response.data.data?.enableEmailVerification || false
+      if (enableEmailVerification.value) {
+        await fetchEmailTemplates()
+      }
+    }
+  } catch (error) {
+    console.error('检查邮箱验证配置失败:', error)
+  }
+}
+
+// 获取邮件模板列表
+const fetchEmailTemplates = async () => {
+  try {
+    const response = await axios.get('/api/email-templates')
+    if (response.data && response.data.code === 200 && response.data.data) {
+      emailTemplates.value = response.data.data.filter(t => t.enabled && t.type === 'REGISTER')
+    }
+  } catch (error) {
+    console.error('获取邮件模板失败:', error)
+  }
+}
+
 onMounted(() => {
   fetchBingBg()
+  checkEmailVerificationConfig()
 })
 </script>
 

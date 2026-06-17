@@ -648,6 +648,31 @@ else
 fi
 
 # ==========================================
+# 第3.5步：同步 README.md 和 CHANGELOG.md 到静态资源
+# ==========================================
+print_info ""
+print_info "=========================================="
+print_info "第3.5步：同步 README 和 CHANGELOG 文档..."
+print_info "=========================================="
+
+PROJECT_README="$PROJECT_ROOT/README.md"
+PROJECT_CHANGELOG="$PROJECT_ROOT/CHANGELOG.md"
+
+if [ -f "$PROJECT_README" ]; then
+    cp "$PROJECT_README" "$BACKEND_STATIC/README.md"
+    print_success "README.md 已同步到静态资源目录"
+else
+    print_warning "项目根目录未找到 README.md"
+fi
+
+if [ -f "$PROJECT_CHANGELOG" ]; then
+    cp "$PROJECT_CHANGELOG" "$BACKEND_STATIC/CHANGELOG.md"
+    print_success "CHANGELOG.md 已同步到静态资源目录"
+else
+    print_warning "项目根目录未找到 CHANGELOG.md"
+fi
+
+# ==========================================
 # 第四步：Maven 打包
 # ==========================================
 print_info ""

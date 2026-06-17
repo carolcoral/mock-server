@@ -28,6 +28,9 @@ public class RegisterRequest {
     @Email(message = "邮箱格式不正确")
     private String email;
 
+    @Schema(description = "邮箱验证码（开启邮箱验证时必填）", example = "123456")
+    private String verificationCode;
+
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
 
@@ -36,4 +39,7 @@ public class RegisterRequest {
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+
+    public String getVerificationCode() { return verificationCode; }
+    public void setVerificationCode(String verificationCode) { this.verificationCode = verificationCode; }
 }

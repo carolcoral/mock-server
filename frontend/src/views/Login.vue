@@ -124,7 +124,7 @@ const handleLogin = async () => {
     
     if (result.success) {
       ElMessage.success(t('login.loginSuccess'))
-      router.push('/dashboard')
+      router.push({ name: 'Home' })
     } else {
       ElMessage.error(result.message || t('login.loginFailed'))
     }

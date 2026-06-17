@@ -11,8 +11,15 @@
           </svg>
           <span class="brand-name">Mock Server</span>
         </div>
-        <div class="header-locale">
-          <el-select v-model="currentLocale" size="small" @change="switchLocale" class="locale-select">
+        <div class="header-actions">
+          <a class="header-nav-link" @click="goChangelog">
+            <svg class="nav-link-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <span>{{ $t('welcome.changelog') }}</span>
+          </a>
+          <el-select v-model="currentLocale" size="small" @change="switchLocale" class="locale-select" popper-class="dark-locale-popper">
             <el-option label="中文" value="zh-CN" />
             <el-option label="English" value="en-US" />
             <el-option label="日本語" value="ja-JP" />
@@ -85,6 +92,10 @@ const switchLocale = (val) => {
 
 const goLogin = () => {
   router.push('/login')
+}
+
+const goChangelog = () => {
+  router.push('/changelog')
 }
 
 const features = computed(() => [
@@ -195,6 +206,41 @@ const features = computed(() => [
   50% { background-position: 100% 50%; }
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.header-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.3s;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+}
+
+.header-nav-link:hover {
+  color: rgba(255, 255, 255, 0.9);
+  border-bottom-color: rgba(102, 126, 234, 0.5);
+}
+
+.nav-link-icon {
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.header-nav-link:hover .nav-link-icon {
+  opacity: 1;
+}
+
+/* 语言选择器 - 暗色主题 */
 .locale-select {
   width: 110px;
 }
@@ -203,10 +249,28 @@ const features = computed(() => [
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.12);
   box-shadow: none;
+  transition: background 0.25s, border-color 0.25s;
+}
+
+.locale-select :deep(.el-input__wrapper:hover),
+.locale-select :deep(.el-input__wrapper.is-focus) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(102, 126, 234, 0.4);
 }
 
 .locale-select :deep(.el-input__inner) {
   color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.locale-select :deep(.el-input__suffix) {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.locale-select :deep(.el-input .el-input__icon) {
+  color: rgba(255, 255, 255, 0.55);
 }
 
 /* 主体 */

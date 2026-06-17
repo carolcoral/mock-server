@@ -39,6 +39,7 @@ export default {
     projects: 'Project Management',
     apis: 'API Management',
     codeTemplates: 'Code Templates',
+    emailTemplates: 'Email Templates',
     userManagement: 'User Management',
     settings: 'System Settings',
     statistics: 'Statistics'
@@ -144,7 +145,18 @@ export default {
     registerSuccess: 'Registration successful, please login',
     registerFailed: 'Registration failed',
     registrationDisabled: 'Registration is disabled',
-    emailDomainNotAllowed: 'The email domain is not in the allowed registration list'
+    emailDomainNotAllowed: 'The email domain is not in the allowed registration list',
+    verificationCode: 'Verification Code',
+    verificationCodePlaceholder: 'Enter verification code',
+    verificationCodeRequired: 'Please enter verification code',
+    sendVerificationCode: 'Send Code',
+    sendVerificationCodeRetry: 'Resend',
+    verificationCodeSent: 'Verification code sent, please check your email',
+    verificationCodeSendFailed: 'Failed to send verification code',
+    verifyingEmail: 'Verifying email...',
+    emailTemplate: 'Email Template',
+    selectTemplatePlaceholder: 'Use default template (optional)',
+    defaultTemplate: 'Default Template'
   },
 
   // Home / Dashboard
@@ -161,6 +173,8 @@ export default {
     systemAnnouncement: 'System Announcement',
     noAnnouncement: 'No announcements',
     statsFailed: 'Failed to fetch statistics',
+    usageGuide: 'System Guide',
+    viewChangelog: 'Changelog',
     swaggerLoginRequired: 'Please login first to access Swagger documentation',
     swaggerRedirecting: 'Redirecting to Swagger documentation...',
     swaggerLoginFailed: 'Swagger auto-login failed: ',
@@ -293,7 +307,41 @@ export default {
     registration: 'Registration Settings',
     enableRegistration: 'Enable User Registration',
     allowedEmailDomains: 'Allowed Email Domains',
-    allowedEmailDomainsPlaceholder: 'Enter domains, separate multiple with commas, leave empty for no restriction. Example: example.com,qq.com'
+    allowedEmailDomainsPlaceholder: 'Enter domains, separate multiple with commas, leave empty for no restriction. Example: example.com,qq.com',
+    // Email Verification
+    emailVerification: 'Email Verification',
+    enableEmailVerification: 'Enable Email Verification',
+    enableEmailVerificationTip: 'Require email verification during registration',
+    smtpHost: 'SMTP Server Host',
+    smtpHostPlaceholder: 'e.g., smtp.qq.com',
+    smtpHostRequired: 'Please enter SMTP server host',
+    smtpPort: 'SMTP Port',
+    useSsl: 'Enable SSL Encryption',
+    fromAddress: 'Sender Email',
+    fromAddressPlaceholder: 'e.g., noreply@example.com',
+    fromAddressRequired: 'Please enter sender email address',
+    fromAddressInvalid: 'Please enter a valid email format',
+    smtpUsername: 'SMTP Username',
+    smtpUsernamePlaceholder: 'Usually same as sender email',
+    smtpUsernameRequired: 'Please enter SMTP username',
+    displayName: 'Sender Display Name',
+    displayNamePlaceholder: 'Display name in emails, e.g.: Mock Server',
+    smtpPassword: 'SMTP Password (Authorization Code)',
+    smtpPasswordPlaceholder: 'Enter SMTP authorization code',
+    smtpPasswordRequired: 'Please enter SMTP authorization code',
+    emailServiceEnabled: 'Enable Email Service',
+    testEmail: 'Test Email Sending',
+    testEmailAddress: 'Test Recipient Email',
+    testEmailPlaceholder: 'Enter test recipient email address',
+    testEmailSending: 'Sending...',
+    testEmailSuccess: 'Test email sent successfully',
+    testEmailFailed: 'Test email sending failed',
+    emailTemplatesLink: 'Manage Email Templates',
+    emailVerificationSaved: 'Email configuration saved',
+    verificationEmailTemplate: 'Verification Email Template',
+    selectVerificationTemplate: 'Select Email Template',
+    selectTemplatePlaceholder: 'Please select an email template for verification code',
+    verificationTemplateHint: 'Leave empty to use the system default template (first enabled template matching type "REGISTER")'
   },
 
   // Project Management
@@ -578,7 +626,8 @@ export default {
     iopsTrend: 'System IOPS Trend (Requests/sec)',
     currentIops: 'Current IOPS',
     avgIops: 'Average IOPS',
-    peakIops: 'Peak IOPS'
+    peakIops: 'Peak IOPS',
+    noData: 'No Data'
   },
 
   // Code Templates
@@ -648,6 +697,7 @@ export default {
     subtitle: 'No Backend Code Required',
     description: 'Mock Server is a powerful API mocking tool supporting custom responses, dynamic code execution, random responses, and more. Help frontend developers and QA teams quickly set up mock services.',
     cta: 'Get Started',
+    changelog: 'Changelog',
     featuresTitle: 'Core Features',
     feature1Title: 'Flexible Mocking',
     feature1Desc: 'Supports RESTful path parameters, query parameter matching, custom HTTP methods, status codes, and response content.',
@@ -666,5 +716,54 @@ export default {
     blog: 'Blog',
     github: 'GitHub',
     email: 'Send Email'
+  },
+
+  // Changelog
+  changelog: {
+    title: 'Changelog',
+    subtitle: 'Tracking every iteration of Mock Server',
+    backHome: 'Back to Home',
+    loadFailed: 'Failed to load changelog'
+  },
+
+  // Email Templates
+  emailTemplate: {
+    title: 'Email Template Management',
+    createTemplate: 'Create Template',
+    editTemplate: 'Edit Template',
+    name: 'Template Name',
+    templateName: 'Template Name',
+    templateNamePlaceholder: 'Enter template name',
+    templateType: 'Template Type',
+    templateEnabled: 'Enabled',
+    typeGeneral: 'General',
+    typeVerification: 'Verification',
+    typeAlert: 'Alert',
+    namePlaceholder: 'Enter template name',
+    nameRequired: 'Please enter template name',
+    type: 'Template Type',
+    typeRegister: 'Registration Verification',
+    subject: 'Email Subject',
+    subjectPlaceholder: 'Enter email subject',
+    subjectRequired: 'Please enter email subject',
+    content: 'Email Content (HTML format)',
+    emailBody: 'Email Content (HTML format)',
+    contentPlaceholder: 'Enter HTML email content',
+    contentRequired: 'Please enter email content',
+    enabled: 'Enabled',
+    placeholderHint: 'Supported placeholders: {{username}}, {{email}}, {{time}}, {{code}}',
+    placeholdersBtn: 'Placeholders Info',
+    placeholdersTitle: 'Available Placeholder Variables',
+    placeholderUsername: 'Registration username',
+    placeholderEmail: 'Registration email address',
+    placeholderTime: 'Send time (format: yyyy-MM-dd HH:mm:ss)',
+    placeholderCode: '6-digit verification code',
+    deleteConfirm: 'Are you sure you want to delete this template?',
+    createSuccess: 'Created successfully',
+    updateSuccess: 'Updated successfully',
+    deleteSuccess: 'Deleted successfully',
+    preview: 'Preview',
+    editContent: 'Edit',
+    previewHtml: 'HTML Preview'
   }
 }

@@ -39,6 +39,7 @@ export default {
     projects: '项目管理',
     apis: '接口管理',
     codeTemplates: '代码模板',
+    emailTemplates: '邮件模板',
     userManagement: '用户管理',
     settings: '系统设置',
     statistics: '数据统计'
@@ -144,7 +145,18 @@ export default {
     registerSuccess: '注册成功，请登录',
     registerFailed: '注册失败',
     registrationDisabled: '注册功能未开启',
-    emailDomainNotAllowed: '该邮箱域名不在允许的注册范围内'
+    emailDomainNotAllowed: '该邮箱域名不在允许的注册范围内',
+    verificationCode: '验证码',
+    verificationCodePlaceholder: '请输入邮箱验证码',
+    verificationCodeRequired: '请输入验证码',
+    sendVerificationCode: '发送验证码',
+    sendVerificationCodeRetry: '重新发送',
+    verificationCodeSent: '验证码已发送，请查收邮件',
+    verificationCodeSendFailed: '验证码发送失败',
+    verifyingEmail: '邮箱验证中...',
+    emailTemplate: '邮件模板',
+    selectTemplatePlaceholder: '使用默认邮件模板（可选选择）',
+    defaultTemplate: '默认模板'
   },
 
   // 首页/仪表盘
@@ -161,6 +173,8 @@ export default {
     systemAnnouncement: '系统公告',
     noAnnouncement: '暂无公告',
     statsFailed: '获取统计数据失败',
+    usageGuide: '系统说明',
+    viewChangelog: '变更历史',
     swaggerLoginRequired: '请先登录后再访问Swagger文档',
     swaggerRedirecting: '正在跳转到Swagger文档...',
     swaggerLoginFailed: 'Swagger自动登录失败：',
@@ -293,7 +307,41 @@ export default {
     registration: '注册设置',
     enableRegistration: '开启用户注册',
     allowedEmailDomains: '允许注册的邮箱域名',
-    allowedEmailDomainsPlaceholder: '请输入域名，多个用逗号分隔，留空表示不限制。如：example.com,qq.com'
+    allowedEmailDomainsPlaceholder: '请输入域名，多个用逗号分隔，留空表示不限制。如：example.com,qq.com',
+    // 邮箱验证
+    emailVerification: '邮箱验证',
+    enableEmailVerification: '开启邮箱验证',
+    enableEmailVerificationTip: '注册时需验证邮箱',
+    smtpHost: 'SMTP服务器地址',
+    smtpHostPlaceholder: '例如：smtp.qq.com',
+    smtpHostRequired: '请输入SMTP服务器地址',
+    smtpPort: 'SMTP端口',
+    useSsl: '启用SSL加密',
+    fromAddress: '发件人邮箱',
+    fromAddressPlaceholder: '例如：noreply@example.com',
+    fromAddressRequired: '请输入发件人邮箱',
+    fromAddressInvalid: '请输入正确的邮箱格式',
+    smtpUsername: 'SMTP用户名',
+    smtpUsernamePlaceholder: '通常与发件人邮箱相同',
+    smtpUsernameRequired: '请输入SMTP用户名',
+    displayName: '发送者昵称',
+    displayNamePlaceholder: '邮件中显示的名称，如：Mock Server',
+    smtpPassword: 'SMTP密码（授权码）',
+    smtpPasswordPlaceholder: '请输入SMTP授权码',
+    smtpPasswordRequired: '请输入SMTP授权码',
+    emailServiceEnabled: '启用邮件服务',
+    testEmail: '测试邮件发送',
+    testEmailAddress: '测试收件人邮箱',
+    testEmailPlaceholder: '请输入测试收件人邮箱地址',
+    testEmailSending: '正在发送...',
+    testEmailSuccess: '测试邮件发送成功',
+    testEmailFailed: '测试邮件发送失败',
+    emailTemplatesLink: '管理邮件模板',
+    emailVerificationSaved: '邮箱配置已保存',
+    verificationEmailTemplate: '验证码邮件模板',
+    selectVerificationTemplate: '选择邮件模板',
+    selectTemplatePlaceholder: '请选择发送验证码的邮件模板',
+    verificationTemplateHint: '留空则使用系统默认模板（按类型"REGISTER"匹配的第一个启用模板）'
   },
 
   // 项目管理
@@ -578,7 +626,8 @@ export default {
     iopsTrend: '系统IOPS趋势（每秒请求数）',
     currentIops: '当前IOPS',
     avgIops: '平均IOPS',
-    peakIops: '峰值IOPS'
+    peakIops: '峰值IOPS',
+    noData: '暂无数据'
   },
 
   // 代码模板
@@ -648,6 +697,7 @@ export default {
     subtitle: '无需编写后端代码',
     description: 'Mock Server 是一款强大的 API 接口模拟工具，支持自定义响应、动态代码执行、随机返回等功能，帮助前端开发者和测试团队快速搭建模拟服务。',
     cta: '立即开始使用',
+    changelog: '变更历史',
     featuresTitle: '核心特性',
     feature1Title: '灵活 Mock',
     feature1Desc: '支持 RESTful 路径参数、查询参数匹配，自定义 HTTP 方法、状态码和响应内容。',
@@ -666,5 +716,54 @@ export default {
     blog: '博客',
     github: 'GitHub',
     email: '发送邮件'
+  },
+
+  // 变更历史
+  changelog: {
+    title: '变更历史',
+    subtitle: '记录 Mock Server 的每一次成长与演进',
+    backHome: '返回首页',
+    loadFailed: '加载变更历史失败'
+  },
+
+  // 邮件模板
+  emailTemplate: {
+    title: '邮件模板管理',
+    createTemplate: '创建模板',
+    editTemplate: '编辑模板',
+    name: '模板名称',
+    templateName: '模板名称',
+    templateNamePlaceholder: '请输入模板名称',
+    templateType: '模板类型',
+    templateEnabled: '启用状态',
+    typeGeneral: '通用',
+    typeVerification: '验证码',
+    typeAlert: '告警',
+    namePlaceholder: '请输入模板名称',
+    nameRequired: '请输入模板名称',
+    type: '模板类型',
+    typeRegister: '注册验证',
+    subject: '邮件主题',
+    subjectPlaceholder: '请输入邮件主题',
+    subjectRequired: '请输入邮件主题',
+    content: '邮件内容（HTML格式）',
+    emailBody: '邮件内容（HTML格式）',
+    contentPlaceholder: '请输入HTML邮件内容',
+    contentRequired: '请输入邮件内容',
+    enabled: '启用状态',
+    placeholderHint: '支持的占位符：{{username}}、{{email}}、{{time}}、{{code}}',
+    placeholdersBtn: '占位符说明',
+    placeholdersTitle: '支持的占位符变量',
+    placeholderUsername: '注册用户名',
+    placeholderEmail: '注册邮箱地址',
+    placeholderTime: '发送时间（格式：yyyy-MM-dd HH:mm:ss）',
+    placeholderCode: '6位数验证码',
+    deleteConfirm: '确定要删除此模板吗？',
+    createSuccess: '创建成功',
+    updateSuccess: '更新成功',
+    deleteSuccess: '删除成功',
+    preview: '预览',
+    editContent: '编辑',
+    previewHtml: 'HTML 预览效果'
   }
 }

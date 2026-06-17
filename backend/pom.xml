@@ -135,6 +135,12 @@
             <version>2.0.53</version>
         </dependency>
 
+        <!-- Spring Boot Mail for email sending -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- Dotenv for .env file support -->
         <dependency>
             <groupId>io.github.cdimascio</groupId>
