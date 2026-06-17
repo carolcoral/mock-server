@@ -5,7 +5,7 @@
 FROM debian:12-slim
 
 LABEL maintainer="carolcoral"
-LABEL description="Mock Server v2.1.0"
+LABEL description="Mock Server v2.1.1"
 
 # ---- 基础依赖 + Eclipse Temurin JDK 21 ----
 # Debian 12 默认源无 openjdk-21，通过 Adoptium 官方源安装
