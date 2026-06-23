@@ -803,6 +803,8 @@ export default {
     generateDescription: 'AI Generate Description',
     generatingDescription: 'Generating description...',
     descriptionGenerated: 'Description generated',
+    generateDescriptionFailed: 'Failed to generate description, please check AI configuration',
+    fillNamePathFirst: 'Please fill in API name and path first',
     testConnectivity: 'Test Connectivity',
     testing: 'Testing...',
     testPassed: 'Test Passed',

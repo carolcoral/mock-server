@@ -803,6 +803,8 @@ export default {
     generateDescription: 'AI 生成描述',
     generatingDescription: '正在生成描述...',
     descriptionGenerated: '描述已生成',
+    generateDescriptionFailed: '生成描述失败，请检查 AI 配置',
+    fillNamePathFirst: '请先填写接口名称和路径',
     testConnectivity: '连通性验证',
     testing: '验证中...',
     testPassed: '验证通过',

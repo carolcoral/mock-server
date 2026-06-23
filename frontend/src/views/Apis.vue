@@ -184,7 +184,13 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="$t('api.apiDescription')" prop="description">
-          <el-input v-model="form.description" type="textarea" :rows="3" :placeholder="$t('api.apiDescription')" />
+          <div style="display: flex; gap: 8px; width: 100%;">
+            <el-input v-model="form.description" type="textarea" :rows="3" :placeholder="$t('api.apiDescription')" style="flex: 1;" />
+            <el-button type="warning" @click="handleAiGenerateDescription" :loading="aiDescLoading" :disabled="!form.name || !form.path" style="flex-shrink: 0; align-self: flex-start;">
+              <MagicStick :width="'1em'" :height="'1em'" style="margin-right: 4px;" />
+              {{ aiDescLoading ? $t('ai.generatingDescription') : $t('ai.generateDescription') }}
+            </el-button>
+          </div>
         </el-form-item>
         <el-row :gutter="20">
           <el-col :span="12">
@@ -643,7 +649,7 @@ import request from '@/utils/request'
 import { useRoute } from 'vue-router'
 import { getAccessibleProjects } from '@/api/project'
 import { getEnabledTemplatesByProjectId } from '@/api/codeTemplate'
-import { generateMockResponse } from '@/api/ai'
+import { generateMockResponse, generateApiDescription } from '@/api/ai'
 import { defineAsyncComponent } from 'vue'
 
 const MonacoEditor = defineAsyncComponent(() => import('@/components/MonacoEditor.vue'))
@@ -738,6 +744,10 @@ const aiGenLoading = ref(false)
 const aiGenCount = ref(3)
 const aiGenStyle = ref('')
 const aiGenResults = ref([])
+
+// AI 生成描述相关
+const aiDescLoading = ref(false)
+
 const currentApi = ref(null)
 const activeResponseId = ref(null)
 const responseFormTitle = ref('')
@@ -1150,6 +1160,36 @@ const handleAddResponse = () => {
   responseForm.weight = 50
   responseForm.enabled = true
   responseFormDialogVisible.value = true
+}
+
+// AI 生成接口描述
+const handleAiGenerateDescription = async () => {
+  if (!form.name || !form.path) {
+    ElMessage.warning(t('ai.fillNamePathFirst'))
+    return
+  }
+
+  aiDescLoading.value = true
+  try {
+    const response = await generateApiDescription({
+      apiMethod: form.method,
+      apiPath: form.path,
+      apiName: form.name
+    })
+
+    if (response.code === 200 && response.data) {
+      form.description = response.data
+      ElMessage.success(t('ai.descriptionGenerated'))
+    } else {
+      ElMessage.error(response.message || t('ai.generateDescriptionFailed'))
+    }
+  } catch (error) {
+    console.error('AI 生成描述失败:', error)
+    const msg = error?.response?.data?.message || error?.message || t('ai.generateDescriptionFailed')
+    ElMessage.error(msg)
+  } finally {
+    aiDescLoading.value = false
+  }
 }
 
 // 打开 AI 生成响应对话框

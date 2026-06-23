@@ -803,6 +803,8 @@ export default {
     generateDescription: 'AI説明生成',
     generatingDescription: '説明を生成中...',
     descriptionGenerated: '説明が生成されました',
+    generateDescriptionFailed: '説明の生成に失敗しました。AI設定を確認してください',
+    fillNamePathFirst: 'API名とパスを先に入力してください',
     testConnectivity: '接続テスト',
     testing: 'テスト中...',
     testPassed: 'テスト成功',
