@@ -72,4 +72,22 @@ public class AiConfigController {
         }
         return ApiResponse.success(config);
     }
+
+    @Operation(summary = "连通性验证 - 测试 AI 服务商配置是否可用")
+    @PostMapping("/test-connectivity")
+    public ApiResponse<Map<String, Object>> testConnectivity(@RequestBody Map<String, String> params) {
+        String apiUrl = params.get("apiUrl");
+        String apiKey = params.get("apiKey");
+        String model = params.get("defaultModel");
+
+        if (apiUrl == null || apiUrl.isBlank()) {
+            return ApiResponse.error("API 地址不能为空");
+        }
+        if (apiKey == null || apiKey.isBlank()) {
+            return ApiResponse.error("API Key 不能为空");
+        }
+
+        Map<String, Object> result = aiConfigService.testConnectivity(apiUrl, apiKey, model);
+        return ApiResponse.success(result);
+    }
 }

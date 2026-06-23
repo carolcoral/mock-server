@@ -164,6 +164,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/email-templates/**").hasRole("ADMIN")
                         // AI配置接口 - 需要管理员权限
                         .requestMatchers("/api/ai-config/**").hasRole("ADMIN")
+                        // AI功能接口 - 需要认证（所有登录用户均可使用）
+                        .requestMatchers("/api/ai/**").authenticated()
                         // 用户信息接口 - 需要认证
                         .requestMatchers(
                                 "/api/users/profile",

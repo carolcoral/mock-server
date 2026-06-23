@@ -9,12 +9,17 @@ package com.carolcoral.mockserver.service;
 import com.carolcoral.mockserver.entity.AiConfig;
 import com.carolcoral.mockserver.repository.AiConfigRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.*;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
+import java.time.Duration;
+import java.util.*;
 
 /**
  * AI 配置服务
@@ -133,5 +138,97 @@ public class AiConfigService {
         info.put("defaultModel", model);
         info.put("website", website);
         map.put(key, info);
+    }
+
+    /**
+     * 连通性验证 - 向 AI API 发送一个轻量请求验证配置是否正确
+     *
+     * @param apiUrl  API 地址
+     * @param apiKey  API 密钥
+     * @param model   模型名称
+     * @return 验证结果：success 为 true 表示通过，否则附带错误信息
+     */
+    public Map<String, Object> testConnectivity(String apiUrl, String apiKey, String model) {
+        Map<String, Object> result = new LinkedHashMap<>();
+
+        if (apiUrl == null || apiUrl.isBlank()) {
+            result.put("success", false);
+            result.put("error", "API 地址不能为空");
+            return result;
+        }
+        if (apiKey == null || apiKey.isBlank()) {
+            result.put("success", false);
+            result.put("error", "API Key 不能为空");
+            return result;
+        }
+
+        // 构建 chat completions URL
+        String chatUrl = apiUrl;
+        if (!apiUrl.endsWith("/chat/completions")) {
+            chatUrl = apiUrl.endsWith("/") ? apiUrl + "chat/completions" : apiUrl + "/chat/completions";
+        }
+
+        String testModel = (model != null && !model.isBlank()) ? model : "gpt-4o";
+
+        // 构建最小化请求体（只请求1个 token 的回复，降低消耗）
+        Map<String, Object> requestBody = new LinkedHashMap<>();
+        requestBody.put("model", testModel);
+        requestBody.put("max_tokens", 1);
+        requestBody.put("temperature", 0);
+
+        List<Map<String, String>> messages = new ArrayList<>();
+        Map<String, String> msg = new LinkedHashMap<>();
+        msg.put("role", "user");
+        msg.put("content", "hi");
+        messages.add(msg);
+        requestBody.put("messages", messages);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Authorization", "Bearer " + apiKey);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+        // 配置超时（连接5s，读取15s）
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout((int) Duration.ofSeconds(5).toMillis());
+        factory.setReadTimeout((int) Duration.ofSeconds(15).toMillis());
+        RestTemplate restTemplate = new RestTemplate(factory);
+
+        long startTime = System.currentTimeMillis();
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(chatUrl, HttpMethod.POST, entity, String.class);
+            long elapsed = System.currentTimeMillis() - startTime;
+
+            if (response.getStatusCode().is2xxSuccessful()) {
+                result.put("success", true);
+                result.put("message", "连通性验证通过");
+                result.put("latency", elapsed);
+                result.put("model", testModel);
+            } else {
+                result.put("success", false);
+                result.put("error", "服务返回错误状态码: " + response.getStatusCode().value());
+                result.put("detail", response.getBody());
+            }
+        } catch (RestClientException e) {
+            long elapsed = System.currentTimeMillis() - startTime;
+            result.put("success", false);
+            result.put("latency", elapsed);
+
+            Throwable cause = e.getCause();
+            if (cause instanceof SocketTimeoutException) {
+                result.put("error", "连接超时，请检查 API 地址是否正确、网络是否可达");
+            } else if (cause instanceof ConnectException) {
+                result.put("error", "无法连接到服务商，请检查 API 地址和网络连接");
+            } else if (e.getMessage() != null && e.getMessage().contains("401")) {
+                result.put("error", "认证失败（401），请检查 API Key 是否正确");
+            } else if (e.getMessage() != null && e.getMessage().contains("403")) {
+                result.put("error", "访问被拒绝（403），API Key 可能没有权限");
+            } else {
+                result.put("error", "请求失败: " + (e.getMessage() != null ? e.getMessage() : "未知错误"));
+            }
+        }
+
+        return result;
     }
 }

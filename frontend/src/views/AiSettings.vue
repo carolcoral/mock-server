@@ -123,6 +123,13 @@
               {{ $t('common.save') }}
             </el-button>
             <el-button
+              @click="testConnectivity"
+              :loading="testing"
+              :type="testResult ? (testResult.success ? 'success' : 'danger') : 'default'"
+            >
+              {{ testResult ? (testResult.success ? $t('ai.testPassed') : $t('ai.testFailed')) : $t('ai.testConnectivity') }}
+            </el-button>
+            <el-button
               v-if="savedConfigId && !form.enabled"
               type="success"
               @click="toggleEnabled"
@@ -138,6 +145,18 @@
             >
               {{ $t('ai.disable') }}
             </el-button>
+          </el-form-item>
+          <!-- 验证结果详情 -->
+          <el-form-item v-if="testResult" label=" ">
+            <el-alert
+              :title="testResult.success ? $t('ai.testPassed') : $t('ai.testFailed')"
+              :description="testResult.success
+                ? $t('ai.testLatency', { latency: testResult.latency, model: testResult.model })
+                : testResult.error"
+              :type="testResult.success ? 'success' : 'error'"
+              :closable="false"
+              show-icon
+            />
           </el-form-item>
         </el-form>
       </div>
@@ -160,6 +179,8 @@ const { t } = useI18n()
 const loading = ref(false)
 const saving = ref(false)
 const toggling = ref(false)
+const testing = ref(false)
+const testResult = ref(null)
 const activeProvider = ref('')
 const savedConfigId = ref(null)
 
@@ -229,6 +250,7 @@ async function loadConfigs() {
 // 选择服务商
 function selectProvider(key) {
   activeProvider.value = key
+  testResult.value = null
   const preset = providerList.value.find(p => p.key === key)
   const saved = savedConfigs.value.find(c => c.provider === key)
 
@@ -296,6 +318,37 @@ async function toggleEnabled() {
     ElMessage.error(t('common.error'))
   } finally {
     toggling.value = false
+  }
+}
+
+// 连通性验证
+async function testConnectivity() {
+  if (!form.value.apiUrl || !form.value.apiKey) {
+    ElMessage.warning(t('ai.validation'))
+    return
+  }
+
+  testing.value = true
+  testResult.value = null
+  try {
+    const res = await request.post('/ai-config/test-connectivity', {
+      apiUrl: form.value.apiUrl,
+      apiKey: form.value.apiKey,
+      defaultModel: form.value.defaultModel
+    })
+    if (res.code === 200 && res.data) {
+      testResult.value = res.data
+      if (res.data.success) {
+        ElMessage.success(t('ai.testPassed'))
+      } else {
+        ElMessage.error(res.data.error || t('ai.testFailed'))
+      }
+    }
+  } catch (e) {
+    testResult.value = { success: false, error: e?.response?.data?.message || e?.message || t('ai.testFailed') }
+    ElMessage.error(testResult.value.error)
+  } finally {
+    testing.value = false
   }
 }
 

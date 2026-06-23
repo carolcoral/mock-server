@@ -307,6 +307,10 @@
             </span>
           </el-col>
           <el-col :span="6" style="text-align: right;">
+            <el-button type="warning" @click="handleAiGenerateDialog">
+              <MagicStick :width="'1em'" :height="'1em'" />
+              {{ $t('ai.generateResponse') }}
+            </el-button>
             <el-button type="primary" @click="handleAddResponse">
               <Plus :width="'1em'" :height="'1em'" />
               {{ $t('api.addResponse') }}
@@ -443,6 +447,83 @@
       </template>
     </el-dialog>
 
+    <!-- AI 生成响应对话框 -->
+    <el-dialog v-model="aiGenerateDialogVisible" :title="$t('ai.generateResponseTitle')" width="70%" top="3vh" @close="handleAiGenerateDialogClose">
+      <!-- 生成配置 -->
+      <el-form label-width="90px" class="ai-generate-form" size="default">
+        <el-row :gutter="20" align="middle">
+          <el-col :span="24">
+            <el-form-item :label="$t('ai.generateCount')" label-width="90px">
+              <div style="display: flex; align-items: center; gap: 16px;">
+                <el-input-number v-model="aiGenCount" :min="1" :max="5" :disabled="aiGenLoading" size="default" style="width: 120px" />
+                <el-button type="primary" @click="handleAiGenerate" :loading="aiGenLoading">
+                  <MagicStick :width="'1em'" :height="'1em'" style="margin-right: 4px;" />
+                  {{ aiGenLoading ? $t('ai.generating') : $t('ai.startGenerate') }}
+                </el-button>
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="24">
+            <el-form-item :label="$t('ai.styleDesc')" label-width="90px">
+              <el-input v-model="aiGenStyle" type="textarea" :rows="1" :placeholder="$t('ai.styleDescPlaceholder')" :disabled="aiGenLoading" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+
+      <!-- 生成结果表格 -->
+      <div v-if="aiGenResults.length > 0" class="ai-result-table">
+        <el-table :data="aiGenResults" border style="width: 100%" :header-cell-style="{ background: '#f5f7fa', color: '#303133', fontWeight: 600 }" row-key="id">
+          <el-table-column type="index" :label="$t('ai.no')" width="55" align="center" />
+          <el-table-column :label="$t('api.statusCode')" width="120" align="center">
+            <template #default="{ row }">
+              <el-input-number v-model="row.statusCode" :min="100" :max="599" size="small" controls-position="right" style="width: 110px" />
+            </template>
+          </el-table-column>
+          <el-table-column :label="$t('api.responseBody')" min-width="200" show-overflow-tooltip>
+            <template #default="{ row }">
+              <div class="response-body-cell">{{ row.responseBody }}</div>
+            </template>
+          </el-table-column>
+          <el-table-column :label="$t('api.contentType')" width="185" align="center">
+            <template #default="{ row }">
+              <el-select v-model="row.contentType" size="small" style="width: 175px">
+                <el-option label="application/json" value="application/json" />
+                <el-option label="text/html" value="text/html" />
+                <el-option label="text/plain" value="text/plain" />
+                <el-option label="application/xml" value="application/xml" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column :label="$t('api.responseDelay')" width="150" align="center">
+            <template #default="{ row }">
+              <el-input-number v-model="row.responseDelay" :min="0" :max="60000" size="small" controls-position="right" style="width: 140px">
+                <template #suffix>ms</template>
+              </el-input-number>
+            </template>
+          </el-table-column>
+          <el-table-column :label="$t('api.weight')" width="110" align="center">
+            <template #default="{ row }">
+              <el-input-number v-model="row.weight" :min="0" :max="100" size="small" controls-position="right" style="width: 100px" />
+            </template>
+          </el-table-column>
+          <el-table-column :label="$t('api.actions')" width="100" align="center" fixed="right">
+            <template #default="{ row, $index }">
+              <el-button type="primary" size="small" :loading="row._applying" @click="handleApplyAiResponse(row, $index)">
+                {{ $t('ai.apply') }}
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+
+      <template #footer>
+        <el-button @click="aiGenerateDialogVisible = false">{{ $t('common.close') }}</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 请求参数管理对话框 -->
     <el-dialog v-model="requestParamDialogVisible" :title="$t('api.paramTitle', { statusCode: currentResponse?.statusCode || '' })" width="80%" @close="handleRequestParamDialogClose">
       <div style="margin-bottom: 16px;">
@@ -557,11 +638,12 @@
 import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Refresh, Edit, Delete, InfoFilled, WarningFilled, ArrowDown, CopyDocument } from '@element-plus/icons-vue'
+import { Plus, Refresh, Edit, Delete, InfoFilled, WarningFilled, ArrowDown, CopyDocument, MagicStick } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { useRoute } from 'vue-router'
 import { getAccessibleProjects } from '@/api/project'
 import { getEnabledTemplatesByProjectId } from '@/api/codeTemplate'
+import { generateMockResponse } from '@/api/ai'
 import { defineAsyncComponent } from 'vue'
 
 const MonacoEditor = defineAsyncComponent(() => import('@/components/MonacoEditor.vue'))
@@ -649,6 +731,13 @@ const responseFormDialogVisible = ref(false)
 const responseSubmitLoading = ref(false)
 const responseFormRef = ref()
 const responseList = ref([])
+
+// AI 生成响应相关
+const aiGenerateDialogVisible = ref(false)
+const aiGenLoading = ref(false)
+const aiGenCount = ref(3)
+const aiGenStyle = ref('')
+const aiGenResults = ref([])
 const currentApi = ref(null)
 const activeResponseId = ref(null)
 const responseFormTitle = ref('')
@@ -1061,6 +1150,99 @@ const handleAddResponse = () => {
   responseForm.weight = 50
   responseForm.enabled = true
   responseFormDialogVisible.value = true
+}
+
+// 打开 AI 生成响应对话框
+const handleAiGenerateDialog = () => {
+  aiGenCount.value = 3
+  aiGenStyle.value = ''
+  aiGenResults.value = []
+  aiGenerateDialogVisible.value = true
+}
+
+// 关闭 AI 生成对话框
+const handleAiGenerateDialogClose = () => {
+  aiGenResults.value = []
+}
+
+// AI 生成响应
+const handleAiGenerate = async () => {
+  if (!currentApi.value) {
+    ElMessage.warning(t('ai.noAiConfig'))
+    return
+  }
+
+  aiGenLoading.value = true
+  aiGenResults.value = []
+
+  try {
+    const response = await generateMockResponse({
+      apiMethod: currentApi.value.method,
+      apiPath: currentApi.value.path,
+      apiName: currentApi.value.name,
+      description: currentApi.value.description + (aiGenStyle.value ? '。响应样式要求：' + aiGenStyle.value : ''),
+      count: aiGenCount.value
+    })
+
+    if (response.code === 200 && response.data && response.data.length > 0) {
+      aiGenResults.value = response.data.map(item => ({
+        statusCode: item.statusCode || 200,
+        contentType: item.contentType || 'application/json',
+        responseBody: item.responseBody || '',
+        responseDelay: 0,
+        weight: 50,
+        _applying: false
+      }))
+      ElMessage.success(t('ai.generateSuccess'))
+    } else {
+      ElMessage.error(response.message || t('ai.generateFailed'))
+    }
+  } catch (error) {
+    console.error('AI 生成失败:', error)
+    const msg = error?.response?.data?.message || error?.message || t('ai.generateFailed')
+    ElMessage.error(msg)
+  } finally {
+    aiGenLoading.value = false
+  }
+}
+
+// 应用 AI 生成的响应到接口
+const handleApplyAiResponse = async (row, index) => {
+  if (!currentApi.value) return
+
+  row._applying = true
+  try {
+    const res = await request({
+      url: `/mock-apis/${currentApi.value.id}/responses`,
+      method: 'post',
+      data: {
+        statusCode: row.statusCode,
+        contentType: row.contentType,
+        headers: '',
+        responseBody: row.responseBody,
+        weight: row.weight,
+        responseDelay: row.responseDelay,
+        enabled: true,
+        isDefault: false,
+        active: false
+      }
+    })
+
+    if (res.code === 200) {
+      ElMessage.success(t('ai.applySuccess', { index: index + 1 }))
+      // 从列表中移除已应用的项
+      aiGenResults.value.splice(index, 1)
+      // 刷新响应列表
+      fetchResponses()
+    } else {
+      ElMessage.error(res.message || t('ai.applyFailed'))
+    }
+  } catch (error) {
+    console.error('应用失败:', error)
+    ElMessage.error(t('ai.applyFailed'))
+  } finally {
+    row._applying = false
+  }
 }
 
 // 编辑响应
@@ -1699,6 +1881,50 @@ onMounted(() => {
 
 .api-fullscreen-toolbar + .monaco-editor-wrapper {
   flex: 1;
+}
+
+/* AI 生成响应弹窗样式 */
+.ai-generate-form {
+  background: #fafafa;
+  padding: 16px 20px 4px;
+  border-radius: 8px;
+  border: 1px solid #ebeef5;
+  margin-bottom: 4px;
+}
+
+.ai-generate-form .el-form-item {
+  margin-bottom: 12px;
+}
+
+.ai-result-table {
+  margin-top: 16px;
+}
+
+.ai-result-table .el-table {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.ai-result-table .el-table th {
+  font-size: 13px;
+}
+
+.response-body-cell {
+  font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #303133;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  padding: 2px 0;
+}
+
+/* AI 弹窗调整宽度 */
+.ai-result-table .el-table__body-wrapper {
+  max-height: 55vh;
+  overflow-y: auto;
 }
 </style>
 
