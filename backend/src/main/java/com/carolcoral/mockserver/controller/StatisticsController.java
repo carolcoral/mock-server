@@ -68,11 +68,14 @@ public class StatisticsController {
                 startTime = LocalDateTime.now().minusDays(days).with(LocalTime.MIN);
             }
 
+            // SQLite 中 LocalDateTime 存储为毫秒时间戳，需除以 1000 并用 'unixepoch' 修饰符
+            long startTimeMillis = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+
             String groupBy;
             if ("hourly".equals(granularity)) {
-                groupBy = "strftime('%Y-%m-%d %H:00', r.request_time)";
+                groupBy = "strftime('%Y-%m-%d %H:00', r.request_time / 1000, 'unixepoch')";
             } else {
-                groupBy = "strftime('%Y-%m-%d', r.request_time)";
+                groupBy = "strftime('%Y-%m-%d', r.request_time / 1000, 'unixepoch')";
             }
 
             String sql = "SELECT " + groupBy + " as timeKey, COUNT(*) as cnt " +
@@ -82,7 +85,7 @@ public class StatisticsController {
                     "ORDER BY timeKey ASC";
 
             Query query = entityManager.createNativeQuery(sql);
-            query.setParameter("startTime", startTime);
+            query.setParameter("startTime", startTimeMillis);
 
             List<Object[]> rows = query.getResultList();
             List<String> labels = new ArrayList<>();
@@ -120,6 +123,7 @@ public class StatisticsController {
 
         try {
             LocalDateTime startTime = LocalDateTime.now().minusDays(days).with(LocalTime.MIN);
+            long startTimeMillis = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
 
             String sql = "SELECT r.request_ip as ip, COUNT(*) as cnt " +
                     "FROM t_request_log r " +
@@ -129,7 +133,7 @@ public class StatisticsController {
                     "LIMIT 20";
 
             Query query = entityManager.createNativeQuery(sql);
-            query.setParameter("startTime", startTime);
+            query.setParameter("startTime", startTimeMillis);
 
             List<Object[]> rows = query.getResultList();
             List<String> labels = new ArrayList<>();
@@ -228,8 +232,11 @@ public class StatisticsController {
             if (minutes > 1440) minutes = 1440; // 最多24小时
 
             LocalDateTime startTime = LocalDateTime.now().minusMinutes(minutes);
+            // SQLite 中 LocalDateTime 存储为毫秒时间戳
+            long startTimeMillis = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
 
             // 短时间窗口（≤60分钟）按秒分组，长窗口按分钟分组
+            // SQLite strftime 需要秒级 Unix 时间戳 + 'unixepoch' 修饰符
             String timeFormat;
             String unit;
             double divisor;
@@ -245,14 +252,14 @@ public class StatisticsController {
                 divisor = 1.0;
             }
 
-            String sql = "SELECT strftime('" + timeFormat + "', r.request_time) as timeKey, COUNT(*) as cnt " +
+            String sql = "SELECT strftime('" + timeFormat + "', r.request_time / 1000, 'unixepoch') as timeKey, COUNT(*) as cnt " +
                     "FROM t_request_log r " +
                     "WHERE r.request_time >= :startTime AND r.request_time IS NOT NULL " +
                     "GROUP BY timeKey " +
                     "ORDER BY timeKey ASC";
 
             Query query = entityManager.createNativeQuery(sql);
-            query.setParameter("startTime", startTime);
+            query.setParameter("startTime", startTimeMillis);
 
             List<Object[]> rows = query.getResultList();
             List<String> labels = new ArrayList<>();

@@ -1,9 +1,5 @@
 <template>
   <div class="statistics-page">
-    <div class="page-header">
-      <h1>{{ $t('statistics.title') }}</h1>
-    </div>
-
     <!-- IOPS 实时概览卡片 -->
     <el-row :gutter="20" style="margin-bottom: 20px;">
       <el-col :span="8">
@@ -130,9 +126,18 @@ const fetchIops = async () => {
         peakIops.value = '0.00'
       }
       renderIopsChart(response.data)
+    } else {
+      // API 返回异常时也显示 0.00
+      currentIops.value = '0.00'
+      avgIops.value = '0.00'
+      peakIops.value = '0.00'
+      renderIopsChart({ labels: [], values: [], unit: 'req/s' })
     }
   } catch (error) {
     console.error('获取IOPS统计失败:', error)
+    currentIops.value = '0.00'
+    avgIops.value = '0.00'
+    peakIops.value = '0.00'
   }
 }
 
@@ -465,14 +470,34 @@ const loadAllStats = async () => {
   await Promise.all([fetchIops(), fetchRequestFrequency(), fetchSourceIps(), fetchCreationTrend()])
 }
 
+// IOPS 自动刷新定时器
+let iopsAutoRefreshTimer = null
+const IOPS_AUTO_REFRESH_INTERVAL = 5000 // 5秒
+
+const startIopsAutoRefresh = () => {
+  stopIopsAutoRefresh()
+  iopsAutoRefreshTimer = setInterval(() => {
+    fetchIops()
+  }, IOPS_AUTO_REFRESH_INTERVAL)
+}
+
+const stopIopsAutoRefresh = () => {
+  if (iopsAutoRefreshTimer) {
+    clearInterval(iopsAutoRefreshTimer)
+    iopsAutoRefreshTimer = null
+  }
+}
+
 onMounted(async () => {
   await nextTick()
   loadAllStats()
+  startIopsAutoRefresh()
   window.addEventListener('resize', handleResize)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
+  stopIopsAutoRefresh()
   iopsChartInstance?.dispose()
   freqChartInstance?.dispose()
   ipChartInstance?.dispose()
@@ -483,17 +508,6 @@ onBeforeUnmount(() => {
 <style scoped>
 .statistics-page {
   padding: 20px;
-}
-
-.page-header {
-  margin-bottom: 20px;
-}
-
-.page-header h1 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 600;
-  color: #303133;
 }
 
 .chart-card {
