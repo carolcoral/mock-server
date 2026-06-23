@@ -32,6 +32,20 @@ import java.util.Objects;
 @Table(name = "t_email_template")
 public class EmailTemplate {
 
+    /**
+     * 模板类型常量
+     */
+    public static final String TYPE_REGISTER = "REGISTER";
+    public static final String TYPE_RESET_PASSWORD = "RESET_PASSWORD";
+    public static final String TYPE_PASSWORD_CHANGED = "PASSWORD_CHANGED";
+
+    /**
+     * 所有支持的模板类型列表
+     */
+    public static final java.util.List<String> ALL_TYPES = java.util.List.of(
+            TYPE_REGISTER, TYPE_RESET_PASSWORD, TYPE_PASSWORD_CHANGED
+    );
+
     @Schema(description = "模板ID", example = "1")
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -41,9 +55,9 @@ public class EmailTemplate {
     @Column(nullable = false, length = 200)
     private String name;
 
-    @Schema(description = "模板类型", example = "REGISTER")
+    @Schema(description = "模板类型", example = "REGISTER", allowableValues = {"REGISTER", "RESET_PASSWORD", "PASSWORD_CHANGED"})
     @Column(nullable = false, length = 50)
-    private String type = "REGISTER";
+    private String type = TYPE_REGISTER;
 
     @Schema(description = "邮件主题", example = "【Mock Server】注册验证码")
     @Column(nullable = false, length = 500)

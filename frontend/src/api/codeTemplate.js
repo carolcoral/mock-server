@@ -83,6 +83,18 @@ export function deleteTemplate(id) {
 }
 
 /**
+ * 批量删除自定义代码模板（仅管理员）
+ * @param {Number[]} ids 模板ID列表
+ */
+export function batchDeleteTemplates(ids) {
+  return request({
+    url: '/code-templates/batch-delete',
+    method: 'delete',
+    data: ids
+  })
+}
+
+/**
  * 编译验证模板源码
  * @param {Object} data { sourceCode, templateId }
  */

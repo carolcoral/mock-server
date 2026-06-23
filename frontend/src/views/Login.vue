@@ -28,7 +28,7 @@
         <el-form-item prop="username">
           <el-input
             v-model="loginForm.username"
-            :placeholder="$t('login.usernamePlaceholder')"
+            :placeholder="$t('login.accountPlaceholder')"
             prefix-icon="User"
             size="large"
           />
@@ -58,8 +58,9 @@
         </el-form-item>
       </el-form>
 
-      <div v-if="registrationEnabled" class="register-link-wrapper">
-        <router-link to="/register" class="register-link">{{ $t('login.registerLink') }}</router-link>
+      <div class="login-footer-links">
+        <router-link to="/forgot-password" class="footer-link">{{ $t('login.forgotPassword') }}</router-link>
+        <router-link v-if="registrationEnabled" to="/register" class="footer-link">{{ $t('login.registerLink') }}</router-link>
       </div>
     </div>
   </div>
@@ -93,8 +94,8 @@ const loginForm = reactive({
 // 表单验证规则（使用 computed 确保响应语言切换）
 const rules = computed(() => ({
   username: [
-    { required: true, message: t('login.usernameRequired'), trigger: 'blur' },
-    { min: 3, max: 50, message: t('login.usernameLength'), trigger: 'blur' }
+    { required: true, message: t('login.accountRequired'), trigger: 'blur' },
+    { min: 3, max: 100, message: t('login.accountLength'), trigger: 'blur' }
   ],
   password: [
     { required: true, message: t('login.passwordRequired'), trigger: 'blur' },
@@ -280,18 +281,20 @@ onMounted(() => {
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
-.register-link-wrapper {
-  text-align: center;
+.login-footer-links {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.register-link {
+.footer-link {
   color: #667eea;
   text-decoration: none;
   font-size: 14px;
   transition: color 0.3s ease;
 }
 
-.register-link:hover {
+.footer-link:hover {
   color: #764ba2;
   text-decoration: underline;
 }

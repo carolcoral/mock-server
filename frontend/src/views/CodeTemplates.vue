@@ -2,10 +2,15 @@
   <div class="code-templates">
     <div class="page-header">
       <h1>{{ $t('codeTemplate.title') }}</h1>
-      <el-button type="primary" @click="handleCreate">
-        <Plus :width="'1em'" :height="'1em'" />
-        {{ $t('codeTemplate.createTemplate') }}
-      </el-button>
+      <div style="display: flex; gap: 8px;">
+        <el-button v-if="isAdmin && selectedRows.length > 0" type="danger" @click="handleBatchDelete">
+          {{ $t('codeTemplate.batchDelete') }} ({{ selectedRows.length }})
+        </el-button>
+        <el-button type="primary" @click="handleCreate">
+          <Plus :width="'1em'" :height="'1em'" />
+          {{ $t('codeTemplate.createTemplate') }}
+        </el-button>
+      </div>
     </div>
 
     <el-card class="search-card">
@@ -43,12 +48,22 @@
         border
         style="width: 100%"
         :header-cell-style="{ background: '#f5f7fa' }"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column v-if="isAdmin" type="selection" width="50" />
         <el-table-column prop="id" :label="$t('codeTemplate.id')" width="80" />
-        <el-table-column prop="name" :label="$t('codeTemplate.name')" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="name" :label="$t('codeTemplate.name')" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span>
+              <el-tag v-if="row.isSystem" type="danger" size="small" effect="dark" style="margin-right: 6px;">{{ $t('codeTemplate.systemDefault') }}</el-tag>
+              {{ row.name }}
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column :label="$t('codeTemplate.project')" min-width="150" show-overflow-tooltip>
           <template #default="{ row }">
-            <el-tag type="primary" size="small">{{ row.project?.name || '-' }}</el-tag>
+            <el-tag v-if="row.isSystem" type="danger" size="small">{{ $t('codeTemplate.systemDefault') }}</el-tag>
+            <el-tag v-else type="primary" size="small">{{ row.project?.name || '-' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="description" :label="$t('codeTemplate.description')" min-width="220" show-overflow-tooltip />
@@ -98,7 +113,10 @@
     <!-- 创建/编辑对话框 -->
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="800px" @close="handleDialogClose">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
-        <el-form-item :label="$t('codeTemplate.project')" prop="projectId" v-if="!isEdit">
+        <el-form-item v-if="!isEdit && isAdmin" :label="$t('codeTemplate.systemDefault')">
+          <el-switch v-model="form.isSystem" :active-text="$t('codeTemplate.isSystemTemplate')" :inactive-text="$t('codeTemplate.isProjectTemplate')" />
+        </el-form-item>
+        <el-form-item :label="$t('codeTemplate.project')" prop="projectId" v-if="!isEdit && !form.isSystem">
           <el-select v-model="form.projectId" :placeholder="$t('codeTemplate.selectProject')" clearable style="width: 100%" filterable>
             <el-option
               v-for="project in accessibleProjects"
@@ -109,19 +127,20 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="$t('codeTemplate.name')" prop="name">
-          <el-input v-model="form.name" :placeholder="$t('codeTemplate.namePlaceholder')" />
+          <el-input v-model="form.name" :placeholder="$t('codeTemplate.namePlaceholder')" :disabled="form.isSystem && !isAdmin" />
         </el-form-item>
         <el-form-item :label="$t('codeTemplate.description')" prop="description">
-          <el-input v-model="form.description" type="textarea" :rows="2" :placeholder="$t('codeTemplate.descriptionPlaceholder')" />
+          <el-input v-model="form.description" type="textarea" :rows="2" :placeholder="$t('codeTemplate.descriptionPlaceholder')" :disabled="form.isSystem && !isAdmin" />
         </el-form-item>
         <el-form-item :label="$t('codeTemplate.status')" prop="enabled">
-          <el-switch v-model="form.enabled" :active-text="$t('codeTemplate.enabled')" :inactive-text="$t('codeTemplate.disabled')" />
+          <el-switch v-model="form.enabled" :active-text="$t('codeTemplate.enabled')" :inactive-text="$t('codeTemplate.disabled')" :disabled="form.isSystem && !isAdmin" />
         </el-form-item>
         <el-divider content-position="left">
           <span style="font-size: 14px; font-weight: 600; color: #303133;">{{ $t('codeTemplate.javaSourceCode') }}</span>
+          <el-tag v-if="form.isSystem && !isAdmin" type="danger" size="small" style="margin-left: 8px;">{{ $t('codeTemplate.systemReadonly') }}</el-tag>
         </el-divider>
         <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-          <el-button size="small" @click="loadDefaultTemplateCode">{{ $t('codeTemplate.useDefaultTemplate') }}</el-button>
+          <el-button v-if="!form.isSystem || isAdmin" size="small" @click="loadDefaultTemplateCode">{{ $t('codeTemplate.useDefaultTemplate') }}</el-button>
           <el-button size="small" type="success" @click="validateTemplateCode" :loading="validatingCode">{{ $t('codeTemplate.compileValidate') }}</el-button>
           <span v-if="validationResult" :style="{ color: validationResult.success ? '#67C23A' : '#F56C6C', fontSize: '13px', marginLeft: '8px' }">
             {{ validationResult.success ? $t('codeTemplate.validatePassed') : $t('codeTemplate.validateFailed') + validationResult.message }}
@@ -132,12 +151,13 @@
         </div>
         <el-form-item prop="sourceCode" label-width="0" :class="{ 'code-fullscreen': codeFullscreen }">
           <div v-if="codeFullscreen" class="fullscreen-toolbar">
-            <el-button size="small" @click="loadDefaultTemplateCode">{{ $t('codeTemplate.useDefaultTemplate') }}</el-button>
+            <el-button v-if="!form.isSystem || isAdmin" size="small" @click="loadDefaultTemplateCode">{{ $t('codeTemplate.useDefaultTemplate') }}</el-button>
             <el-button size="small" type="success" @click="validateTemplateCode" :loading="validatingCode">{{ $t('codeTemplate.compileValidate') }}</el-button>
             <el-button size="small" style="margin-left: auto;" @click="codeFullscreen = false">{{ $t('common.exitFullscreen') }}</el-button>
           </div>
           <MonacoEditor
             v-model="form.sourceCode"
+            :read-only="form.isSystem && !isAdmin"
             :height="codeFullscreen ? 'calc(100vh - 60px)' : '420px'"
           />
         </el-form-item>
@@ -154,7 +174,8 @@
         <span style="font-weight: 600;">{{ $t('codeTemplate.templateNameLabel') }}</span>
         <span>{{ viewingTemplate?.name }}</span>
         <span style="margin-left: 20px; font-weight: 600;">{{ $t('codeTemplate.projectLabel') }}</span>
-        <el-tag type="primary" size="small">{{ viewingTemplate?.project?.name }}</el-tag>
+        <el-tag v-if="viewingTemplate?.isSystem" type="danger" size="small">{{ $t('codeTemplate.systemDefault') }}</el-tag>
+        <el-tag v-else type="primary" size="small">{{ viewingTemplate?.project?.name }}</el-tag>
         <span style="margin-left: 20px; font-weight: 600;">{{ $t('codeTemplate.descriptionLabel') }}</span>
         <span>{{ viewingTemplate?.description }}</span>
       </div>
@@ -184,6 +205,7 @@ import {
   createTemplate,
   updateTemplate,
   deleteTemplate,
+  batchDeleteTemplates,
   validateTemplateSourceCode
 } from '@/api/codeTemplate'
 import { defineAsyncComponent } from 'vue'
@@ -210,6 +232,12 @@ const projectRoleMap = ref({})
 // 表格数据
 const loading = ref(false)
 const templateList = ref([])
+
+// 多选
+const selectedRows = ref([])
+const handleSelectionChange = (rows) => {
+  selectedRows.value = rows
+}
 
 // 分页
 const pagination = reactive({
@@ -247,11 +275,12 @@ const form = reactive({
   description: '',
   sourceCode: '',
   enabled: true,
-  projectId: null
+  projectId: null,
+  isSystem: false
 })
 
 const rules = computed(() => ({
-  projectId: [
+  projectId: form.isSystem ? [] : [
     { required: true, message: t('codeTemplate.projectRequired'), trigger: 'change' }
   ],
   name: [
@@ -343,6 +372,7 @@ const handleCreate = () => {
   form.description = ''
   form.sourceCode = ''
   form.enabled = true
+  form.isSystem = false
   form.projectId = accessibleProjects.value.length > 0 ? accessibleProjects.value[0].id : null
   validationResult.value = null
   dialogVisible.value = true
@@ -357,6 +387,7 @@ const handleEdit = (row) => {
   form.description = row.description || ''
   form.sourceCode = row.sourceCode || ''
   form.enabled = row.enabled
+  form.isSystem = row.isSystem || false
   form.projectId = row.project?.id
   validationResult.value = null
   dialogVisible.value = true
@@ -555,6 +586,38 @@ const handleDelete = async (row) => {
   }
 }
 
+// 批量删除模板（仅管理员）
+const handleBatchDelete = async () => {
+  if (selectedRows.value.length === 0) return
+  try {
+    await ElMessageBox.confirm(
+      t('codeTemplate.batchDeleteConfirm', { count: selectedRows.value.length }),
+      t('codeTemplate.deleteWarning'),
+      {
+        confirmButtonText: t('codeTemplate.confirmDelete'),
+        cancelButtonText: t('codeTemplate.cancelDelete'),
+        type: 'error',
+        confirmButtonClass: 'el-button--danger'
+      }
+    )
+
+    const ids = selectedRows.value.map(row => row.id)
+    const response = await batchDeleteTemplates(ids)
+    if (response.code === 200) {
+      ElMessage.success(t('codeTemplate.batchDeleteSuccess'))
+      selectedRows.value = []
+      fetchTemplates()
+    } else {
+      ElMessage.error(response.message || t('codeTemplate.batchDeleteFailed'))
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('批量删除失败:', error)
+      ElMessage.error(t('codeTemplate.batchDeleteFailed'))
+    }
+  }
+}
+
 // 操作分发
 const handleActionCommand = (command, row) => {
   switch (command) {
@@ -596,15 +659,24 @@ const handleSubmit = async () => {
           name: form.name,
           description: form.description,
           sourceCode: form.sourceCode,
-          enabled: form.enabled
-        }
-      : {
-          name: form.name,
-          description: form.description,
-          sourceCode: form.sourceCode,
           enabled: form.enabled,
-          project: { id: form.projectId }
+          isSystem: form.isSystem
         }
+      : (form.isSystem
+        ? {
+            name: form.name,
+            description: form.description,
+            sourceCode: form.sourceCode,
+            enabled: form.enabled,
+            isSystem: true
+          }
+        : {
+            name: form.name,
+            description: form.description,
+            sourceCode: form.sourceCode,
+            enabled: form.enabled,
+            project: { id: form.projectId }
+          })
 
     const response = isEdit.value
       ? await updateTemplate(submitData)

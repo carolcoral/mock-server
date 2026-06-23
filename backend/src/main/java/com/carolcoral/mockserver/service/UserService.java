@@ -35,15 +35,18 @@ public class UserService {
     /**
      * 构造器
      */
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenUtil jwtTokenUtil) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, 
+                       JwtTokenUtil jwtTokenUtil, EmailService emailService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenUtil = jwtTokenUtil;
+        this.emailService = emailService;
     }
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenUtil jwtTokenUtil;
+    private final EmailService emailService;
 
     /**
      * 用户登录
@@ -54,8 +57,16 @@ public class UserService {
     @Operation(summary = "用户登录")
     public ApiResponse<LoginResponse> login(@Parameter(description = "登录请求") LoginRequest loginRequest) {
         try {
-            Optional<User> userOpt = userRepository.findByUsername(loginRequest.getUsername());
-            
+            String account = loginRequest.getUsername();
+            Optional<User> userOpt;
+
+            // 判断输入是邮箱还是用户名（含@则为邮箱）
+            if (account.contains("@")) {
+                userOpt = userRepository.findByEmail(account);
+            } else {
+                userOpt = userRepository.findByUsername(account);
+            }
+
             if (!userOpt.isPresent()) {
                 return ApiResponse.error(401, "用户名或密码错误");
             }
@@ -80,6 +91,7 @@ public class UserService {
                     .username(user.getUsername())
                     .email(user.getEmail())
                     .role(user.getRole().name())
+                    .language(user.getLanguage())
                     .expiresIn(jwtTokenUtil.getExpiration())
                     .build();
 
@@ -162,7 +174,7 @@ public class UserService {
     }
 
     /**
-     * 更新用户
+     * 更新用户（管理员操作）
      *
      * @param user 用户信息
      * @return 更新的用户
@@ -178,6 +190,7 @@ public class UserService {
             }
 
             User existingUser = existingUserOpt.get();
+            String newPlainPassword = null;
             
             // 更新用户信息
             if (user.getEmail() != null) {
@@ -190,18 +203,41 @@ public class UserService {
                 existingUser.setEnabled(user.getEnabled());
             }
 
-            // 如果更新了密码，需要加密
+            // 如果更新了密码，需要加密并记录明文以发送邮件
             if (user.getPassword() != null && !user.getPassword().isEmpty()) {
+                newPlainPassword = user.getPassword();
                 existingUser.setPassword(passwordEncoder.encode(user.getPassword()));
             }
 
             User updatedUser = userRepository.save(existingUser);
             log.info("更新用户成功: {}", updatedUser.getUsername());
+
+            // 如果密码被修改且用户有邮箱，尝试发送通知邮件
+            if (newPlainPassword != null && updatedUser.getEmail() != null && !updatedUser.getEmail().isEmpty()) {
+                try {
+                    sendPasswordChangedNotification(updatedUser, newPlainPassword);
+                } catch (Exception mailEx) {
+                    log.warn("发送密码修改通知邮件失败（不影响更新操作）: {}", mailEx.getMessage());
+                }
+            }
+
             return ApiResponse.success(updatedUser);
 
         } catch (Exception e) {
             log.error("更新用户失败: {}", e.getMessage(), e);
             return ApiResponse.error("更新用户失败，请稍后重试");
+        }
+    }
+
+    /**
+     * 发送密码修改通知邮件（优先使用 PASSWORD_CHANGED 类型模板，无则用默认内容）
+     */
+    private void sendPasswordChangedNotification(User user, String newPlainPassword) {
+        boolean sent = emailService.sendPasswordChangedEmail(user.getEmail(), user.getUsername(), newPlainPassword);
+        if (sent) {
+            log.info("密码修改通知邮件已发送: username={}, email={}", user.getUsername(), user.getEmail());
+        } else {
+            log.warn("密码修改通知邮件发送失败（邮件服务未配置或不可用）: username={}", user.getUsername());
         }
     }
 
@@ -431,6 +467,17 @@ public class UserService {
             userRepository.save(currentUser);
 
             log.info("用户 {} 修改密码成功", currentUser.getUsername());
+
+            // 发送安全通知邮件（异步发送，不影响主流程）
+            try {
+                if (currentUser.getEmail() != null && !currentUser.getEmail().isEmpty()) {
+                    emailService.sendPasswordChangedBySelfEmail(
+                            currentUser.getEmail(), currentUser.getUsername());
+                }
+            } catch (Exception e) {
+                log.warn("发送密码修改通知邮件失败（不影响密码修改）: {}", e.getMessage());
+            }
+
             return ApiResponse.success();
         } catch (Exception e) {
             log.error("修改密码失败: {}", e.getMessage());
@@ -468,6 +515,37 @@ public class UserService {
 
         public void setConfirmPassword(String confirmPassword) {
             this.confirmPassword = confirmPassword;
+        }
+    }
+
+    /**
+     * 通过邮箱重置密码（忘记密码流程）
+     *
+     * @param email       邮箱
+     * @param newPassword 新密码
+     * @return 操作结果
+     */
+    @Transactional
+    public ApiResponse<Void> resetPasswordByEmail(String email, String newPassword) {
+        try {
+            Optional<User> userOpt = userRepository.findByEmail(email);
+            if (!userOpt.isPresent()) {
+                return ApiResponse.error("用户不存在");
+            }
+
+            User user = userOpt.get();
+            if (!user.getEnabled()) {
+                return ApiResponse.error("用户已被禁用");
+            }
+
+            user.setPassword(passwordEncoder.encode(newPassword));
+            userRepository.save(user);
+
+            log.info("用户 {} 通过邮箱重置密码成功", user.getUsername());
+            return ApiResponse.success();
+        } catch (Exception e) {
+            log.error("重置密码失败: {}", e.getMessage());
+            return ApiResponse.error("重置密码失败");
         }
     }
 }

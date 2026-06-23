@@ -79,4 +79,20 @@ public interface CustomCodeTemplateRepository extends JpaRepository<CustomCodeTe
      */
     @Operation(summary = "根据项目ID删除模板")
     void deleteByProjectId(Long projectId);
+
+    /**
+     * 查询所有系统默认模板（isSystem=true, project=null）
+     *
+     * @return 系统模板列表
+     */
+    @Operation(summary = "查询所有系统默认模板")
+    List<CustomCodeTemplate> findByIsSystemTrue();
+
+    /**
+     * 查询所有已启用的系统默认模板
+     *
+     * @return 已启用的系统模板列表
+     */
+    @Operation(summary = "查询所有已启用的系统默认模板")
+    List<CustomCodeTemplate> findByIsSystemTrueAndEnabledTrue();
 }

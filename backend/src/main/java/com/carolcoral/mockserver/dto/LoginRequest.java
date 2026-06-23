@@ -18,10 +18,9 @@ import jakarta.validation.constraints.Size;
 @Schema(description = "登录请求")
 public class LoginRequest {
 
-    @Schema(description = "用户名", example = "admin", required = true)
-    @NotBlank(message = "用户名不能为空")
-    @Size(min = 3, max = 50, message = "用户名长度必须在3-50个字符之间")
-    @Pattern(regexp = "^[a-zA-Z0-9_]+$", message = "用户名只能包含字母、数字和下划线")
+    @Schema(description = "用户名或邮箱", example = "admin", required = true)
+    @NotBlank(message = "用户名或邮箱不能为空")
+    @Size(min = 3, max = 100, message = "账号长度必须在3-100个字符之间")
     private String username;
 
     @Schema(description = "密码", example = "Admin@123", required = true)

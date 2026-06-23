@@ -68,6 +68,8 @@ public class SystemConfigController {
         config.setEnableRegistration(parseBooleanConfig("enableRegistration", false));
         config.setAllowedEmailDomains(systemConfigService.getConfig("allowedEmailDomains"));
         config.setEnableEmailVerification(parseBooleanConfig("enableEmailVerification", false));
+        config.setSiteBaseUrl(systemConfigService.getConfig("siteBaseUrl"));
+        log.info("获取系统配置 - siteBaseUrl={}", config.getSiteBaseUrl());
         return ApiResponse.success(config);
     }
 
@@ -192,8 +194,11 @@ public class SystemConfigController {
         if (dto.getEnableEmailVerification() != null) {
             systemConfigService.saveConfig("enableEmailVerification", String.valueOf(dto.getEnableEmailVerification()), "是否开启邮箱验证");
         }
-        log.info("管理员更新注册配置: enableRegistration={}, allowedEmailDomains={}, enableEmailVerification={}",
-                dto.getEnableRegistration(), dto.getAllowedEmailDomains(), dto.getEnableEmailVerification());
+        if (dto.getSiteBaseUrl() != null) {
+            systemConfigService.saveConfig("siteBaseUrl", dto.getSiteBaseUrl(), "系统访问地址（用于邮件模板占位符）");
+        }
+        log.info("管理员更新注册配置: enableRegistration={}, allowedEmailDomains={}, enableEmailVerification={}, siteBaseUrl={}",
+                dto.getEnableRegistration(), dto.getAllowedEmailDomains(), dto.getEnableEmailVerification(), dto.getSiteBaseUrl());
         return ApiResponse.success();
     }
 
@@ -360,6 +365,8 @@ class SystemConfigDTO {
     private String allowedEmailDomains;
     /** 是否开启邮箱验证 */
     private Boolean enableEmailVerification;
+    /** 系统访问地址（用于邮件模板 {{siteUrl}} 占位符） */
+    private String siteBaseUrl;
 
     public String getDefaultLanguage() {
         return defaultLanguage;
@@ -406,6 +413,9 @@ class SystemConfigDTO {
 
     public Boolean getEnableEmailVerification() { return enableEmailVerification; }
     public void setEnableEmailVerification(Boolean enableEmailVerification) { this.enableEmailVerification = enableEmailVerification; }
+
+    public String getSiteBaseUrl() { return siteBaseUrl; }
+    public void setSiteBaseUrl(String siteBaseUrl) { this.siteBaseUrl = siteBaseUrl; }
 }
 
 /**
@@ -415,6 +425,7 @@ class RegistrationConfigDTO {
     private Boolean enableRegistration;
     private String allowedEmailDomains;
     private Boolean enableEmailVerification;
+    private String siteBaseUrl;
 
     public Boolean getEnableRegistration() { return enableRegistration; }
     public void setEnableRegistration(Boolean enableRegistration) { this.enableRegistration = enableRegistration; }
@@ -424,6 +435,9 @@ class RegistrationConfigDTO {
 
     public Boolean getEnableEmailVerification() { return enableEmailVerification; }
     public void setEnableEmailVerification(Boolean enableEmailVerification) { this.enableEmailVerification = enableEmailVerification; }
+
+    public String getSiteBaseUrl() { return siteBaseUrl; }
+    public void setSiteBaseUrl(String siteBaseUrl) { this.siteBaseUrl = siteBaseUrl; }
 }
 
 /**

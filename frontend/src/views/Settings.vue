@@ -532,7 +532,7 @@
                     <el-option
                       v-for="tpl in emailTemplates"
                       :key="tpl.id"
-                      :label="tpl.name + ' (' + (tpl.type === 'GENERAL' ? $t('emailTemplate.typeGeneral') : tpl.type === 'VERIFICATION_CODE' ? $t('emailTemplate.typeVerification') : tpl.type === 'ALERT' ? $t('emailTemplate.typeAlert') : tpl.type) + ')'"
+                      :label="tpl.name + ' (' + (tpl.type === 'REGISTER' ? $t('emailTemplate.typeRegister') : tpl.type === 'RESET_PASSWORD' ? $t('emailTemplate.typeResetPassword') : tpl.type === 'PASSWORD_CHANGED' ? $t('emailTemplate.typePasswordChanged') : tpl.type) + ')'"
                       :value="tpl.id"
                     />
                   </el-select>
@@ -653,6 +653,23 @@ const saveDateFormatToServer = async (dateFormat) => {
   } catch (error) {
     console.error('Failed to save date format to server:', error)
     throw error
+  }
+}
+
+// 加载基础配置（从服务器获取语言等）
+const loadBasicConfig = async () => {
+  console.log('[DEBUG] loadBasicConfig called')
+  try {
+    const response = await request.get('/system-config')
+    console.log('[DEBUG] /system-config response:', response)
+    if (response.code === 200 && response.data) {
+      const data = response.data
+      if (data.defaultLanguage) {
+        basicSettings.language = data.defaultLanguage
+      }
+    }
+  } catch (error) {
+    console.error('加载基础配置失败:', error)
   }
 }
 
@@ -807,12 +824,15 @@ const pagination = reactive({
 
 // 菜单切换
 const handleMenuSelect = (index) => {
+  console.log('[DEBUG] handleMenuSelect:', index)
   // 离开 system tab 时停止自动刷新
   if (activeMenu.value === 'system' && index !== 'system') {
     stopAutoRefresh()
   }
   activeMenu.value = index
-  if (index === 'system') {
+  if (index === 'basic') {
+    loadBasicConfig()
+  } else if (index === 'system') {
     fetchSystemInfo()
     startAutoRefresh()
   } else if (index === 'announcement') {

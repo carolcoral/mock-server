@@ -97,6 +97,9 @@
         <el-form-item :label="$t('userManagement.password')" prop="password" v-if="!isEdit">
           <el-input v-model="form.password" type="password" :placeholder="$t('userManagement.passwordPlaceholder')" show-password />
         </el-form-item>
+        <el-form-item :label="$t('userManagement.password')" prop="password" v-if="isEdit">
+          <el-input v-model="form.password" type="password" :placeholder="$t('userManagement.newPasswordOptional')" show-password />
+        </el-form-item>
         <el-form-item :label="$t('userManagement.role')" prop="role">
           <el-select v-model="form.role" :placeholder="$t('userManagement.rolePlaceholder')" style="width: 100%">
             <el-option :label="$t('userManagement.admin')" value="ADMIN" />
@@ -172,8 +175,28 @@ const rules = computed(() => ({
   ],
   password: [
     { required: !isEdit.value, message: t('userManagement.passwordRequired'), trigger: 'blur' },
-    { min: 8, message: t('userManagement.passwordMinLength'), trigger: 'blur' },
-    { pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/, message: t('userManagement.passwordStrength'), trigger: 'blur' }
+    { 
+      validator: (rule, value, callback) => {
+        // 编辑模式下如果密码为空则跳过验证
+        if (isEdit.value && (!value || value.length === 0)) {
+          callback()
+          return
+        }
+        // 检查长度
+        if (value && value.length < 8) {
+          callback(new Error(t('userManagement.passwordMinLength')))
+          return
+        }
+        // 检查强度
+        const pattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/
+        if (value && !pattern.test(value)) {
+          callback(new Error(t('userManagement.passwordStrength')))
+          return
+        }
+        callback()
+      },
+      trigger: 'blur'
+    }
   ],
   role: [
     { required: true, message: t('userManagement.roleRequired'), trigger: 'change' }
@@ -308,7 +331,8 @@ const handleSubmit = async () => {
     submitLoading.value = true
 
     const submitData = { ...form }
-    if (isEdit.value) {
+    // 编辑模式下如果密码为空则移除该字段，后端不更新密码
+    if (isEdit.value && !submitData.password) {
       delete submitData.password
     }
 

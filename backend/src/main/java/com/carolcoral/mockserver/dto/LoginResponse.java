@@ -33,6 +33,9 @@ public class LoginResponse {
     @Schema(description = "用户角色", example = "ADMIN")
     private String role;
 
+    @Schema(description = "用户语言", example = "zh-CN")
+    private String language;
+
     @Schema(description = "过期时间（毫秒）", example = "86400000")
     private Long expiresIn;
 
@@ -45,13 +48,14 @@ public class LoginResponse {
     /**
      * 全参构造器
      */
-    public LoginResponse(String token, String tokenType, Long userId, String username, String email, String role, Long expiresIn) {
+    public LoginResponse(String token, String tokenType, Long userId, String username, String email, String role, String language, Long expiresIn) {
         this.token = token;
         this.tokenType = tokenType;
         this.userId = userId;
         this.username = username;
         this.email = email;
         this.role = role;
+        this.language = language;
         this.expiresIn = expiresIn;
     }
 
@@ -72,6 +76,7 @@ public class LoginResponse {
         private String username;
         private String email;
         private String role;
+        private String language;
         private Long expiresIn;
 
         public LoginResponseBuilder token(String token) {
@@ -104,13 +109,18 @@ public class LoginResponse {
             return this;
         }
 
+        public LoginResponseBuilder language(String language) {
+            this.language = language;
+            return this;
+        }
+
         public LoginResponseBuilder expiresIn(Long expiresIn) {
             this.expiresIn = expiresIn;
             return this;
         }
 
         public LoginResponse build() {
-            return new LoginResponse(token, tokenType, userId, username, email, role, expiresIn);
+            return new LoginResponse(token, tokenType, userId, username, email, role, language, expiresIn);
         }
     }
 
@@ -161,6 +171,14 @@ public class LoginResponse {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
     }
 
     public Long getExpiresIn() {

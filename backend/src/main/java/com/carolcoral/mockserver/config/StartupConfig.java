@@ -6,12 +6,14 @@
 
 package com.carolcoral.mockserver.config;
 
+import com.carolcoral.mockserver.entity.CustomCodeTemplate;
 import com.carolcoral.mockserver.entity.MockApi;
 import com.carolcoral.mockserver.entity.MockResponse;
 import com.carolcoral.mockserver.entity.Project;
 import com.carolcoral.mockserver.entity.SystemConfig;
 import com.carolcoral.mockserver.entity.User;
 import com.carolcoral.mockserver.plugin.DynamicCompiler;
+import com.carolcoral.mockserver.repository.CustomCodeTemplateRepository;
 import com.carolcoral.mockserver.repository.MockApiRepository;
 import com.carolcoral.mockserver.repository.MockResponseRepository;
 import com.carolcoral.mockserver.repository.ProjectRepository;
@@ -48,7 +50,8 @@ public class StartupConfig implements CommandLineRunner {
         MockResponseRepository mockResponseRepository,
         PasswordEncoder passwordEncoder,
         CacheUtil cacheUtil,
-        SystemConfigRepository systemConfigRepository) {
+        SystemConfigRepository systemConfigRepository,
+        CustomCodeTemplateRepository customCodeTemplateRepository) {
         this.userRepository = userRepository;
         this.projectRepository = projectRepository;
         this.mockApiRepository = mockApiRepository;
@@ -56,6 +59,7 @@ public class StartupConfig implements CommandLineRunner {
         this.passwordEncoder = passwordEncoder;
         this.cacheUtil = cacheUtil;
         this.systemConfigRepository = systemConfigRepository;
+        this.customCodeTemplateRepository = customCodeTemplateRepository;
     }
 
     private final UserRepository userRepository;
@@ -65,6 +69,7 @@ public class StartupConfig implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
     private final CacheUtil cacheUtil;
     private final SystemConfigRepository systemConfigRepository;
+    private final CustomCodeTemplateRepository customCodeTemplateRepository;
 
     // 从系统属性（由.env文件加载）获取管理员配置
     private String adminUsername = System.getProperty("ADMIN_USERNAME", "admin");
@@ -100,6 +105,9 @@ public class StartupConfig implements CommandLineRunner {
 
             // 初始化系统配置默认值
             initSystemConfigDefaults();
+
+            // 初始化系统默认代码模板
+            initSystemCodeTemplates();
 
             log.info("应用数据初始化完成");
         } catch (Exception e) {
@@ -414,6 +422,7 @@ public class StartupConfig implements CommandLineRunner {
             initDefaultConfigIfAbsent("enableRegistration", "false", "是否开启用户注册");
             initDefaultConfigIfAbsent("allowedEmailDomains", "", "允许注册的邮箱域名（逗号分隔）");
             initDefaultConfigIfAbsent("enableEmailVerification", "false", "是否开启邮箱验证");
+            initDefaultConfigIfAbsent("siteBaseUrl", "", "系统访问地址（用于邮件模板中 {{siteUrl}} 占位符，如 https://example.com）");
 
             // 页脚默认配置
             initDefaultConfigIfAbsent("footerCopyright", "© 2026 carolcoral", "页脚版权信息");
@@ -450,5 +459,295 @@ public class StartupConfig implements CommandLineRunner {
         } catch (Exception e) {
             log.warn("初始化配置 {} 失败: {}", key, e.getMessage());
         }
+    }
+
+    /**
+     * 系统默认模板名称常量
+     */
+    private static final String SYSTEM_TEMPLATE_NAME_DEFAULT = "【系统】标准响应包装器";
+    private static final String SYSTEM_TEMPLATE_NAME_HTTPCLIENT = "【系统】HttpClient请求转发器";
+
+    /**
+     * 初始化系统默认代码模板
+     * <p>
+     * 创建两个不可编辑/删除的系统默认模板（全局可用，不关联项目）：
+     * 1. 标准响应包装器 - 将响应包装为统一格式
+     * 2. HttpClient请求转发器 - 使用HttpClient转发请求到真实后端
+     * </p>
+     */
+    @Operation(summary = "初始化系统默认代码模板")
+    private void initSystemCodeTemplates() {
+        try {
+            User admin = userRepository.findByUsername(adminUsername).orElse(null);
+            Long adminUserId = admin != null ? admin.getId() : null;
+
+            int createdCount = 0;
+            int skippedCount = 0;
+
+            // 检查并创建标准响应包装器模板（全局系统模板，project=null）
+            if (createSystemTemplateIfAbsent(adminUserId,
+                    SYSTEM_TEMPLATE_NAME_DEFAULT,
+                    "【系统默认】标准响应包装器 - 将Mock响应包装为统一格式 {code, message, data, timestamp}",
+                    getDefaultWrapperTemplateCode())) {
+                createdCount++;
+            } else {
+                skippedCount++;
+            }
+
+            // 检查并创建HttpClient请求转发器模板（全局系统模板，project=null）
+            if (createSystemTemplateIfAbsent(adminUserId,
+                    SYSTEM_TEMPLATE_NAME_HTTPCLIENT,
+                    "【系统默认】HttpClient请求转发器 - 将请求转发到真实后端服务，适用于部分接口需要代理转发的场景",
+                    getHttpClientForwarderTemplateCode())) {
+                createdCount++;
+            } else {
+                skippedCount++;
+            }
+
+            log.info("系统默认代码模板初始化完成: 新建={}, 跳过(已存在)={}", createdCount, skippedCount);
+
+        } catch (Exception e) {
+            log.error("初始化系统默认代码模板失败: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 如果系统模板不存在则创建（全局模板，不关联项目）
+     *
+     * @param userId      创建用户ID
+     * @param name        模板名称
+     * @param description 模板描述
+     * @param sourceCode  源代码
+     * @return true 表示新建，false 表示已存在跳过
+     */
+    private boolean createSystemTemplateIfAbsent(Long userId,
+                                                  String name, String description, String sourceCode) {
+        // 检查是否已存在同名系统模板（全局）
+        List<CustomCodeTemplate> systemTemplates = customCodeTemplateRepository.findByIsSystemTrue();
+        boolean alreadyExists = systemTemplates.stream()
+                .anyMatch(t -> name.equals(t.getName()));
+
+        if (alreadyExists) {
+            return false;
+        }
+
+        CustomCodeTemplate template = new CustomCodeTemplate();
+        template.setName(name);
+        template.setDescription(description);
+        template.setSourceCode(sourceCode);
+        template.setEnabled(true);
+        template.setIsSystem(true);
+        template.setProject(null);  // 系统模板不关联项目，全局可用
+        template.setCreateUserId(userId);
+        template.setCreateTime(LocalDateTime.now());
+        template.setUpdateTime(LocalDateTime.now());
+
+        customCodeTemplateRepository.save(template);
+        log.info("创建全局系统默认模板: name={}", name);
+        return true;
+    }
+
+    /**
+     * 获取默认标准响应包装器模板代码
+     */
+    private String getDefaultWrapperTemplateCode() {
+        return "import com.carolcoral.mockserver.dto.MockRequest;\n" +
+                "import com.carolcoral.mockserver.dto.MockResponseDTO;\n" +
+                "import com.carolcoral.mockserver.plugin.CustomResponseTransformer;\n" +
+                "import java.util.*;\n" +
+                "import com.alibaba.fastjson.JSON;\n" +
+                "\n" +
+                "/**\n" +
+                " * 【系统默认模板】标准响应包装器\n" +
+                " * 将Mock响应包装为统一的标准格式 {code, message, data, timestamp}\n" +
+                " */\n" +
+                "public class SystemDefaultTransformer implements CustomResponseTransformer {\n" +
+                "\n" +
+                "    @Override\n" +
+                "    public MockResponseDTO transform(MockResponseDTO mockResponse, MockRequest mockRequest,\n" +
+                "                                      String apiName, String apiPath) {\n" +
+                "        Object body = mockResponse.getBody();\n" +
+                "        Map<String, Object> result = new LinkedHashMap<>();\n" +
+                "        result.put(\"code\", mockResponse.getStatusCode());\n" +
+                "        result.put(\"message\", \"success\");\n" +
+                "        result.put(\"data\", body);\n" +
+                "        result.put(\"timestamp\", System.currentTimeMillis());\n" +
+                "\n" +
+                "        return MockResponseDTO.builder()\n" +
+                "                .statusCode(mockResponse.getStatusCode())\n" +
+                "                .headers(mockResponse.getHeaders())\n" +
+                "                .body(result)\n" +
+                "                .delay(mockResponse.getDelay())\n" +
+                "                .build();\n" +
+                "    }\n" +
+                "\n" +
+                "    @Override\n" +
+                "    public String getDescription() {\n" +
+                "        return \"标准格式包装器 - 将响应包装为 {code, message, data, timestamp} 格式\";\n" +
+                "    }\n" +
+                "}";
+    }
+
+    /**
+     * 获取HttpClient请求转发器模板代码
+     * <p>
+     * 使用场景：某些接口需要透传到真实后端，而不是返回Mock数据。
+     * 在接口编辑中选择此模板后，请求将被转发到配置的目标URL。
+     * </p>
+     */
+    private String getHttpClientForwarderTemplateCode() {
+        return "import com.carolcoral.mockserver.dto.MockRequest;\n" +
+                "import com.carolcoral.mockserver.dto.MockResponseDTO;\n" +
+                "import com.carolcoral.mockserver.plugin.CustomResponseTransformer;\n" +
+                "import java.util.*;\n" +
+                "import java.net.URI;\n" +
+                "import java.net.http.HttpClient;\n" +
+                "import java.net.http.HttpRequest;\n" +
+                "import java.net.http.HttpResponse;\n" +
+                "import java.time.Duration;\n" +
+                "\n" +
+                "/**\n" +
+                " * 【系统默认模板】HttpClient请求转发器\n" +
+                " * <p>\n" +
+                " * 将当前请求转发到真实后端服务，获取真实响应并返回。\n" +
+                " * 适用于部分接口需要走真实服务、部分接口需要Mock的场景。\n" +
+                " * </p>\n" +
+                " *\n" +
+                " * <h3>配置说明</h3>\n" +
+                " * <ul>\n" +
+                " *   <li>TARGET_BASE_URL: 目标后端服务的根URL，根据实际环境修改</li>\n" +
+                " *   <li>REQUEST_TIMEOUT_SECONDS: 请求超时时间（秒）</li>\n" +
+                " *   <li>FORWARD_HEADERS: 需要从原始请求中透传的请求头列表</li>\n" +
+                " * </ul>\n" +
+                " *\n" +
+                " * <h3>使用示例</h3>\n" +
+                " * <ol>\n" +
+                " *   <li>修改 TARGET_BASE_URL 为你的真实后端地址</li>\n" +
+                " *   <li>根据需要调整透传的请求头</li>\n" +
+                " *   <li>在接口编辑中选择此模板，保存后该接口将转发到真实后端</li>\n" +
+                " * </ol>\n" +
+                " */\n" +
+                "public class HttpClientForwarder implements CustomResponseTransformer {\n" +
+                "\n" +
+                "    /** 目标后端服务根URL - 请根据实际环境修改 */\n" +
+                "    private static final String TARGET_BASE_URL = \"http://localhost:8080\";\n" +
+                "\n" +
+                "    /** 请求超时时间（秒） */\n" +
+                "    private static final int REQUEST_TIMEOUT_SECONDS = 30;\n" +
+                "\n" +
+                "    /** 需要从原始请求中透传到目标服务的请求头 */\n" +
+                "    private static final Set<String> FORWARD_HEADERS = new HashSet<>(Arrays.asList(\n" +
+                "        \"Content-Type\", \"Accept\", \"Authorization\", \"X-Request-Id\", \"X-Trace-Id\"\n" +
+                "    ));\n" +
+                "\n" +
+                "    private final HttpClient httpClient = HttpClient.newBuilder()\n" +
+                "            .connectTimeout(Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS))\n" +
+                "            .followRedirects(HttpClient.Redirect.NORMAL)\n" +
+                "            .build();\n" +
+                "\n" +
+                "    @Override\n" +
+                "    public MockResponseDTO transform(MockResponseDTO mockResponse, MockRequest mockRequest,\n" +
+                "                                      String apiName, String apiPath) {\n" +
+                "        try {\n" +
+                "            // 构建目标URL：基础URL + 请求路径 + 查询参数\n" +
+                "            StringBuilder urlBuilder = new StringBuilder(TARGET_BASE_URL);\n" +
+                "            urlBuilder.append(mockRequest.getPath());\n" +
+                "\n" +
+                "            // 追加查询参数\n" +
+                "            if (mockRequest.getParams() != null && !mockRequest.getParams().isEmpty()) {\n" +
+                "                boolean first = true;\n" +
+                "                for (Map.Entry<String, String> entry : mockRequest.getParams().entrySet()) {\n" +
+                "                    urlBuilder.append(first ? \"?\" : \"&\");\n" +
+                "                    urlBuilder.append(entry.getKey()).append(\"=\").append(entry.getValue());\n" +
+                "                    first = false;\n" +
+                "                }\n" +
+                "            }\n" +
+                "\n" +
+                "            URI targetUri = URI.create(urlBuilder.toString());\n" +
+                "            String method = mockRequest.getMethod() != null ? mockRequest.getMethod().toUpperCase() : \"GET\";\n" +
+                "\n" +
+                "            // 构建转发请求\n" +
+                "            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()\n" +
+                "                    .uri(targetUri)\n" +
+                "                    .timeout(Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS));\n" +
+                "\n" +
+                "            // 透传请求头\n" +
+                "            if (mockRequest.getHeaders() != null) {\n" +
+                "                for (Map.Entry<String, String> entry : mockRequest.getHeaders().entrySet()) {\n" +
+                "                    String headerName = entry.getKey();\n" +
+                "                    // 跳过HTTP/2受限的请求头\n" +
+                "                    if (headerName == null || \"Host\".equalsIgnoreCase(headerName)\n" +
+                "                            || \"Connection\".equalsIgnoreCase(headerName)) {\n" +
+                "                        continue;\n" +
+                "                    }\n" +
+                "                    // 只透传白名单中的请求头，或所有请求头（如需要可调整）\n" +
+                "                    if (FORWARD_HEADERS.contains(headerName)) {\n" +
+                "                        requestBuilder.header(headerName, entry.getValue());\n" +
+                "                    }\n" +
+                "                }\n" +
+                "            }\n" +
+                "\n" +
+                "            // 设置请求体（POST/PUT/PATCH等方法）\n" +
+                "            if (mockRequest.getBody() != null\n" +
+                "                    && (\"POST\".equals(method) || \"PUT\".equals(method) || \"PATCH\".equals(method))) {\n" +
+                "                String bodyStr = mockRequest.getBody() instanceof String\n" +
+                "                        ? (String) mockRequest.getBody()\n" +
+                "                        : mockRequest.getBody().toString();\n" +
+                "                requestBuilder.method(method, HttpRequest.BodyPublishers.ofString(bodyStr));\n" +
+                "            } else {\n" +
+                "                requestBuilder.method(method, HttpRequest.BodyPublishers.noBody());\n" +
+                "            }\n" +
+                "\n" +
+                "            // 发送请求\n" +
+                "            HttpRequest httpRequest = requestBuilder.build();\n" +
+                "            HttpResponse<String> httpResponse = httpClient.send(httpRequest,\n" +
+                "                    HttpResponse.BodyHandlers.ofString());\n" +
+                "\n" +
+                "            // 解析响应头\n" +
+                "            Map<String, String> responseHeaders = new LinkedHashMap<>();\n" +
+                "            httpResponse.headers().map().forEach((key, values) -> {\n" +
+                "                if (values != null && !values.isEmpty()) {\n" +
+                "                    responseHeaders.put(key, String.join(\", \", values));\n" +
+                "                }\n" +
+                "            });\n" +
+                "\n" +
+                "            // 解析响应体（尝试JSON，失败则保留原始字符串）\n" +
+                "            Object responseBody;\n" +
+                "            try {\n" +
+                "                responseBody = com.alibaba.fastjson.JSON.parse(httpResponse.body());\n" +
+                "            } catch (Exception e) {\n" +
+                "                responseBody = httpResponse.body();\n" +
+                "            }\n" +
+                "\n" +
+                "            // 构建MockResponseDTO返回\n" +
+                "            return MockResponseDTO.builder()\n" +
+                "                    .statusCode(httpResponse.statusCode())\n" +
+                "                    .headers(responseHeaders)\n" +
+                "                    .body(responseBody)\n" +
+                "                    .delay(mockResponse.getDelay())\n" +
+                "                    .build();\n" +
+                "\n" +
+                "        } catch (Exception e) {\n" +
+                "            // 转发失败时返回错误信息\n" +
+                "            Map<String, Object> errorResult = new LinkedHashMap<>();\n" +
+                "            errorResult.put(\"code\", 502);\n" +
+                "            errorResult.put(\"message\", \"请求转发失败: \" + e.getMessage());\n" +
+                "            errorResult.put(\"targetUrl\", TARGET_BASE_URL + mockRequest.getPath());\n" +
+                "            errorResult.put(\"timestamp\", System.currentTimeMillis());\n" +
+                "\n" +
+                "            return MockResponseDTO.builder()\n" +
+                "                    .statusCode(502)\n" +
+                "                    .headers(mockResponse.getHeaders())\n" +
+                "                    .body(errorResult)\n" +
+                "                    .delay(mockResponse.getDelay())\n" +
+                "                    .build();\n" +
+                "        }\n" +
+                "    }\n" +
+                "\n" +
+                "    @Override\n" +
+                "    public String getDescription() {\n" +
+                "        return \"HttpClient请求转发器 - 将请求转发到真实后端服务并返回响应\";\n" +
+                "    }\n" +
+                "}";
     }
 }

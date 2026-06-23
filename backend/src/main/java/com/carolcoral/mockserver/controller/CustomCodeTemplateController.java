@@ -68,10 +68,11 @@ public class CustomCodeTemplateController {
             @RequestBody CustomCodeTemplate template,
             HttpServletRequest request) {
         Long userId = getCurrentUserId(request);
+        User.UserRole userRole = getCurrentUserRole(request);
         if (userId == null) {
             return ApiResponse.error("用户未登录");
         }
-        return templateService.createTemplate(template, userId);
+        return templateService.createTemplate(template, userId, userRole);
     }
 
     /**
@@ -104,6 +105,25 @@ public class CustomCodeTemplateController {
             return ApiResponse.error("用户未登录");
         }
         return templateService.deleteTemplate(templateId, userId, userRole);
+    }
+
+    /**
+     * 批量删除模板（仅系统管理员）
+     */
+    @Operation(summary = "批量删除自定义代码模板（仅管理员）")
+    @DeleteMapping("/batch-delete")
+    public ApiResponse<Void> batchDeleteTemplates(
+            @Parameter(description = "模板ID列表") @RequestBody List<Long> ids,
+            HttpServletRequest request) {
+        Long userId = getCurrentUserId(request);
+        User.UserRole userRole = getCurrentUserRole(request);
+        if (userId == null) {
+            return ApiResponse.error("用户未登录");
+        }
+        if (userRole != User.UserRole.ADMIN) {
+            return ApiResponse.error("仅系统管理员可批量删除");
+        }
+        return templateService.batchDeleteTemplates(ids, userId);
     }
 
     /**

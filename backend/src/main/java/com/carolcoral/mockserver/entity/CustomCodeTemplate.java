@@ -56,6 +56,10 @@ public class CustomCodeTemplate {
     @Column(nullable = false)
     private Boolean enabled = true;
 
+    @Schema(description = "是否为系统默认模板（不可修改/删除）", example = "false")
+    @Column(nullable = false)
+    private Boolean isSystem = false;
+
     @Schema(description = "创建时间")
     @Column(nullable = false, updatable = false)
     private LocalDateTime createTime;
@@ -68,9 +72,9 @@ public class CustomCodeTemplate {
     @Column(nullable = false)
     private Long createUserId;
 
-    @Schema(description = "所属项目")
+    @Schema(description = "所属项目（系统模板为null，表示全局可用）")
     @ManyToOne
-    @JoinColumn(name = "project_id", nullable = false)
+    @JoinColumn(name = "project_id")
     @JsonIgnoreProperties({"mockApis"})
     private Project project;
 
@@ -137,6 +141,14 @@ public class CustomCodeTemplate {
         this.enabled = enabled;
     }
 
+    public Boolean getIsSystem() {
+        return isSystem;
+    }
+
+    public void setIsSystem(Boolean isSystem) {
+        this.isSystem = isSystem;
+    }
+
     public LocalDateTime getCreateTime() {
         return createTime;
     }
@@ -189,6 +201,7 @@ public class CustomCodeTemplate {
                 ", name='" + name + '\'' +
                 ", description='" + description + '\'' +
                 ", enabled=" + enabled +
+                ", isSystem=" + isSystem +
                 ", createTime=" + createTime +
                 ", updateTime=" + updateTime +
                 ", createUserId=" + createUserId +

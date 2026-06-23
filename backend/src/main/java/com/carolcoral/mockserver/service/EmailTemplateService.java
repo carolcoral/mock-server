@@ -20,10 +20,10 @@ import java.util.Optional;
 
 /**
  * 邮件模板服务
- * 负责邮件模板的 CRUD 操作
+ * 负责邮件模板的 CRUD 操作，保证每种类型最多只有一个启用模板
  *
  * @author carolcoral
- * @version 1.0
+ * @version 1.1
  * @since 2026-06-16
  */
 @Tag(name = "邮件模板服务", description = "邮件模板业务逻辑处理")
@@ -40,8 +40,6 @@ public class EmailTemplateService {
 
     /**
      * 获取所有邮件模板
-     *
-     * @return 模板列表
      */
     @Operation(summary = "获取所有邮件模板")
     public ApiResponse<List<EmailTemplate>> getAllTemplates() {
@@ -56,9 +54,6 @@ public class EmailTemplateService {
 
     /**
      * 根据ID获取邮件模板
-     *
-     * @param id 模板ID
-     * @return 邮件模板
      */
     @Operation(summary = "根据ID获取邮件模板")
     public ApiResponse<EmailTemplate> getTemplateById(Long id) {
@@ -75,17 +70,26 @@ public class EmailTemplateService {
     }
 
     /**
-     * 创建邮件模板
-     *
-     * @param template 邮件模板
-     * @return 创建的模板
+     * 创建邮件模板。
+     * 如果新模板被设为启用，则自动禁用同类型的其他已启用模板。
      */
     @Operation(summary = "创建邮件模板")
     @Transactional
     public ApiResponse<EmailTemplate> createTemplate(EmailTemplate template) {
         try {
+            // 验证类型是否合法
+            if (!EmailTemplate.ALL_TYPES.contains(template.getType())) {
+                return ApiResponse.error("不支持的模板类型: " + template.getType() +
+                        "，支持的类型: " + String.join(", ", EmailTemplate.ALL_TYPES));
+            }
+
+            // 如果新模板启用，则禁用同类型的其他启用模板
+            if (Boolean.TRUE.equals(template.getEnabled())) {
+                disableOtherEnabledTemplates(template.getType(), null);
+            }
+
             EmailTemplate saved = emailTemplateRepository.save(template);
-            log.info("邮件模板创建成功: id={}, name={}", saved.getId(), saved.getName());
+            log.info("邮件模板创建成功: id={}, name={}, type={}", saved.getId(), saved.getName(), saved.getType());
             return ApiResponse.success(saved);
         } catch (Exception e) {
             log.error("创建邮件模板失败: {}", e.getMessage(), e);
@@ -94,11 +98,8 @@ public class EmailTemplateService {
     }
 
     /**
-     * 更新邮件模板
-     *
-     * @param id       模板ID
-     * @param template 更新的模板信息
-     * @return 更新后的模板
+     * 更新邮件模板。
+     * 如果模板被设为启用，则自动禁用同类型的其他已启用模板。
      */
     @Operation(summary = "更新邮件模板")
     @Transactional
@@ -110,6 +111,14 @@ public class EmailTemplateService {
             }
 
             EmailTemplate existing = existingOpt.get();
+            
+            // 如果修改了类型，验证是否合法
+            String newType = template.getType() != null ? template.getType() : existing.getType();
+            if (!EmailTemplate.ALL_TYPES.contains(newType)) {
+                return ApiResponse.error("不支持的模板类型: " + newType +
+                        "，支持的类型: " + String.join(", ", EmailTemplate.ALL_TYPES));
+            }
+
             if (template.getName() != null) {
                 existing.setName(template.getName());
             }
@@ -122,13 +131,23 @@ public class EmailTemplateService {
             if (template.getContent() != null) {
                 existing.setContent(template.getContent());
             }
+            
+            boolean enableChanged = false;
             if (template.getEnabled() != null) {
+                enableChanged = !template.getEnabled().equals(existing.getEnabled());
                 existing.setEnabled(template.getEnabled());
             }
+            
             existing.setUpdateTime(LocalDateTime.now());
 
+            // 如果模板被启用（包括类型变更后启用），则禁用同类型的其他启用模板
+            if (Boolean.TRUE.equals(existing.getEnabled()) && 
+                (enableChanged || template.getType() != null)) {
+                disableOtherEnabledTemplates(existing.getType(), id);
+            }
+
             EmailTemplate updated = emailTemplateRepository.save(existing);
-            log.info("邮件模板更新成功: id={}, name={}", updated.getId(), updated.getName());
+            log.info("邮件模板更新成功: id={}, name={}, type={}", updated.getId(), updated.getName(), updated.getType());
             return ApiResponse.success(updated);
         } catch (Exception e) {
             log.error("更新邮件模板失败: {}", e.getMessage(), e);
@@ -138,9 +157,6 @@ public class EmailTemplateService {
 
     /**
      * 删除邮件模板
-     *
-     * @param id 模板ID
-     * @return 删除结果
      */
     @Operation(summary = "删除邮件模板")
     @Transactional
@@ -155,6 +171,21 @@ public class EmailTemplateService {
         } catch (Exception e) {
             log.error("删除邮件模板失败: {}", e.getMessage(), e);
             return ApiResponse.error("删除模板失败");
+        }
+    }
+
+    /**
+     * 禁用指定类型下除 excludeId 外的所有已启用模板。
+     * 保证每种类型最多只有一个启用模板。
+     */
+    private void disableOtherEnabledTemplates(String type, Long excludeId) {
+        List<EmailTemplate> enabledTemplates = emailTemplateRepository.findByType(type);
+        for (EmailTemplate t : enabledTemplates) {
+            if (Boolean.TRUE.equals(t.getEnabled()) && (excludeId == null || !t.getId().equals(excludeId))) {
+                t.setEnabled(false);
+                emailTemplateRepository.save(t);
+                log.info("自动禁用同类型模板: id={}, name={}, type={}", t.getId(), t.getName(), type);
+            }
         }
     }
 }

@@ -47,13 +47,16 @@ public class EmailService {
     private final EmailConfigRepository emailConfigRepository;
     private final EmailTemplateRepository emailTemplateRepository;
     private final VerificationCodeRepository verificationCodeRepository;
+    private final SystemConfigService systemConfigService;
 
     public EmailService(EmailConfigRepository emailConfigRepository,
                         EmailTemplateRepository emailTemplateRepository,
-                        VerificationCodeRepository verificationCodeRepository) {
+                        VerificationCodeRepository verificationCodeRepository,
+                        SystemConfigService systemConfigService) {
         this.emailConfigRepository = emailConfigRepository;
         this.emailTemplateRepository = emailTemplateRepository;
         this.verificationCodeRepository = verificationCodeRepository;
+        this.systemConfigService = systemConfigService;
     }
 
     /**
@@ -187,7 +190,7 @@ public class EmailService {
     @Transactional
     public String sendRegisterVerificationCode(String email, Long templateId) {
         // 使该邮箱之前的注册验证码失效
-        List<VerificationCode> oldCodes = verificationCodeRepository.findByEmailAndTypeAndUsedFalse(email, "REGISTER");
+        List<VerificationCode> oldCodes = verificationCodeRepository.findByEmailAndTypeAndUsedFalse(email, EmailTemplate.TYPE_REGISTER);
         for (VerificationCode oldCode : oldCodes) {
             oldCode.setUsed(true);
             verificationCodeRepository.save(oldCode);
@@ -200,22 +203,23 @@ public class EmailService {
         VerificationCode verificationCode = new VerificationCode();
         verificationCode.setEmail(email);
         verificationCode.setCode(code);
-        verificationCode.setType("REGISTER");
+        verificationCode.setType(EmailTemplate.TYPE_REGISTER);
         verificationCode.setExpiresAt(LocalDateTime.now().plusMinutes(5));
         verificationCode.setUsed(false);
         verificationCodeRepository.save(verificationCode);
 
-        // 获取邮件模板（优先使用指定模板ID）
-        Optional<EmailTemplate> templateOpt;
+        // 获取邮件模板（优先使用指定模板ID，否则按类型查找启用模板）
+        Optional<EmailTemplate> templateOpt = Optional.empty();
         if (templateId != null) {
             templateOpt = emailTemplateRepository.findById(templateId);
-        } else {
-            templateOpt = emailTemplateRepository.findFirstByTypeAndEnabledTrue("REGISTER");
+        }
+        if (templateOpt.isEmpty()) {
+            templateOpt = emailTemplateRepository.findFirstByTypeAndEnabledTrue(EmailTemplate.TYPE_REGISTER);
         }
         String subject;
         String content;
 
-        if (templateOpt.isPresent() && templateOpt.get().getEnabled()) {
+        if (templateOpt.isPresent()) {
             EmailTemplate template = templateOpt.get();
             subject = template.getSubject();
             content = template.getContent();
@@ -229,6 +233,7 @@ public class EmailService {
                     "<span style='font-size:32px;font-weight:bold;color:#667eea;letter-spacing:8px;'>{{code}}</span>" +
                     "</div>" +
                     "<p>验证码 <strong>5分钟</strong> 内有效，请勿泄露给他人。</p>" +
+                    "<p style='color:#909399;'>访问地址：<a href='{{siteUrl}}' style='color:#667eea;'>{{siteUrl}}</a></p>" +
                     "<hr style='border:1px solid #eee;'/>" +
                     "<p style='color:#999;font-size:12px;'>此邮件由系统自动发送，请勿回复。如非本人操作，请忽略。</p>" +
                     "</div>";
@@ -263,7 +268,7 @@ public class EmailService {
     @Transactional
     public boolean verifyRegisterCode(String email, String code) {
         Optional<VerificationCode> codeOpt = verificationCodeRepository
-                .findTopByEmailAndCodeAndTypeAndUsedFalseOrderByCreateTimeDesc(email, code, "REGISTER");
+                .findTopByEmailAndCodeAndTypeAndUsedFalseOrderByCreateTimeDesc(email, code, EmailTemplate.TYPE_REGISTER);
 
         if (codeOpt.isEmpty()) {
             return false;
@@ -283,17 +288,184 @@ public class EmailService {
     }
 
     /**
-     * 替换模板占位符
+     * 发送忘记密码邮件（自动生成的新密码）
+     *
+     * @param email       收件人邮箱
+     * @param username    用户名
+     * @param newPassword 新密码
+     * @return 是否发送成功
+     */
+    @Operation(summary = "发送忘记密码邮件")
+    public boolean sendResetPasswordEmail(String email, String username, String newPassword) {
+        // 查找 RESET_PASSWORD 类型的启用模板
+        Optional<EmailTemplate> templateOpt = emailTemplateRepository
+                .findFirstByTypeAndEnabledTrue(EmailTemplate.TYPE_RESET_PASSWORD);
+        String subject;
+        String content;
+
+        if (templateOpt.isPresent()) {
+            EmailTemplate template = templateOpt.get();
+            subject = template.getSubject();
+            content = template.getContent();
+        } else {
+            subject = "【Mock Server】密码重置 - 您的新密码";
+            content = "<div style='padding:20px;font-family:Arial,sans-serif;'>" +
+                    "<h2 style='color:#667eea;'>Mock Server</h2>" +
+                    "<p>您好，<strong>{{username}}</strong>：</p>" +
+                    "<p>您的密码已被重置，新的登录信息如下：</p>" +
+                    "<div style='background:#f5f7fa;padding:20px;border-radius:8px;margin:20px 0;'>" +
+                    "<p><strong>用户名：</strong>{{username}}</p>" +
+                    "<p><strong>新密码：</strong><code style='background:#e8eaed;padding:2px 8px;border-radius:4px;font-size:16px;'>{{password}}</code></p>" +
+                    "</div>" +
+                    "<p>请尽快使用此密码登录，建议登录后立即修改密码。</p>" +
+                    "<p style='color:#909399;'>访问地址：<a href='{{siteUrl}}' style='color:#667eea;'>{{siteUrl}}</a></p>" +
+                    "<hr style='border:1px solid #eee;'/>" +
+                    "<p style='color:#999;font-size:12px;'>此邮件由系统自动发送，请勿回复。如非本人操作，请联系管理员。</p>" +
+                    "</div>";
+        }
+
+        // 替换占位符
+        String currentTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        subject = replacePlaceholders(subject, username, email, currentTime, newPassword);
+        content = replacePlaceholders(content, username, email, currentTime, newPassword);
+
+        boolean sent = sendEmail(email, subject, content);
+        if (sent) {
+            log.info("忘记密码邮件已发送: email={}, username={}", email, username);
+        } else {
+            log.warn("忘记密码邮件发送失败: email={}", email);
+        }
+        return sent;
+    }
+
+    /**
+     * 发送密码被管理员修改通知邮件
+     *
+     * @param email       收件人邮箱
+     * @param username    用户名
+     * @param newPassword 新密码
+     * @return 是否发送成功
+     */
+    @Operation(summary = "发送密码修改通知邮件（管理员操作）")
+    public boolean sendPasswordChangedEmail(String email, String username, String newPassword) {
+        // 优先查找 PASSWORD_CHANGED 类型的启用模板，找不到则 fallback 到 RESET_PASSWORD 模板
+        Optional<EmailTemplate> templateOpt = emailTemplateRepository
+                .findFirstByTypeAndEnabledTrue(EmailTemplate.TYPE_PASSWORD_CHANGED);
+        if (templateOpt.isEmpty()) {
+            templateOpt = emailTemplateRepository
+                    .findFirstByTypeAndEnabledTrue(EmailTemplate.TYPE_RESET_PASSWORD);
+        }
+        String subject;
+        String content;
+
+        if (templateOpt.isPresent()) {
+            EmailTemplate template = templateOpt.get();
+            subject = template.getSubject();
+            content = template.getContent();
+        } else {
+            subject = "【Mock Server】您的密码已被管理员重置";
+            content = "<div style='padding:20px;font-family:Arial,sans-serif;'>" +
+                    "<h2 style='color:#667eea;'>Mock Server</h2>" +
+                    "<p>您好，<strong>{{username}}</strong>：</p>" +
+                    "<p>您的账号密码已被管理员重置，新的登录信息如下：</p>" +
+                    "<div style='background:#f5f7fa;padding:20px;border-radius:8px;margin:20px 0;'>" +
+                    "<p><strong>用户名：</strong>{{username}}</p>" +
+                    "<p><strong>新密码：</strong><code style='background:#e8eaed;padding:2px 8px;border-radius:4px;font-size:16px;'>{{password}}</code></p>" +
+                    "</div>" +
+                    "<p>请尽快登录并修改密码。</p>" +
+                    "<p style='color:#909399;'>访问地址：<a href='{{siteUrl}}' style='color:#667eea;'>{{siteUrl}}</a></p>" +
+                    "<hr style='border:1px solid #eee;'/>" +
+                    "<p style='color:#999;font-size:12px;'>此邮件由系统自动发送，请勿回复。如非本人操作，请联系管理员。</p>" +
+                    "</div>";
+        }
+
+        // 替换占位符
+        String currentTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        subject = replacePlaceholders(subject, username, email, currentTime, newPassword);
+        content = replacePlaceholders(content, username, email, currentTime, newPassword);
+
+        boolean sent = sendEmail(email, subject, content);
+        if (sent) {
+            log.info("密码修改通知邮件已发送（管理员操作）: email={}, username={}", email, username);
+        } else {
+            log.warn("密码修改通知邮件发送失败（管理员操作）: email={}", email);
+        }
+        return sent;
+    }
+
+    /**
+     * 发送用户自行修改密码的安全通知邮件。
+     * <p>
+     * 与管理员修改密码不同，此场景用户已知新密码，邮件仅作为安全通知，
+     * 告知用户密码已变更的时间，不包含新密码明文。
+     * </p>
+     *
+     * @param email    收件人邮箱
+     * @param username 用户名
+     * @return 是否发送成功
+     */
+    @Operation(summary = "发送密码修改安全通知邮件（用户自行操作）")
+    public boolean sendPasswordChangedBySelfEmail(String email, String username) {
+        // 查找 PASSWORD_CHANGED 类型的启用模板（复用同一类型，通过模板内容区分场景）
+        Optional<EmailTemplate> templateOpt = emailTemplateRepository
+                .findFirstByTypeAndEnabledTrue(EmailTemplate.TYPE_PASSWORD_CHANGED);
+        String subject;
+        String content;
+
+        if (templateOpt.isPresent()) {
+            EmailTemplate template = templateOpt.get();
+            subject = template.getSubject();
+            content = template.getContent();
+        } else {
+            subject = "【Mock Server】您的密码已被修改";
+            content = "<div style='padding:20px;font-family:Arial,sans-serif;'>" +
+                    "<h2 style='color:#667eea;'>Mock Server</h2>" +
+                    "<p>您好，<strong>{{username}}</strong>：</p>" +
+                    "<p>您的账号密码已于 <strong>{{time}}</strong> 被修改。</p>" +
+                    "<p>如果这是您本人操作，请忽略此邮件。</p>" +
+                    "<p style='color:#e74c3c;'><strong>如果不是您本人操作，您的账号可能存在安全风险，请立即联系管理员！</strong></p>" +
+                    "<p style='color:#909399;'>访问地址：<a href='{{siteUrl}}' style='color:#667eea;'>{{siteUrl}}</a></p>" +
+                    "<hr style='border:1px solid #eee;'/>" +
+                    "<p style='color:#999;font-size:12px;'>此邮件由系统自动发送，请勿回复。如有疑问，请联系管理员。</p>" +
+                    "</div>";
+        }
+
+        // 替换占位符（用户自行修改场景不需要密码占位符）
+        String currentTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        subject = replacePlaceholders(subject, username, email, currentTime, null);
+        content = replacePlaceholders(content, username, email, currentTime, null);
+
+        boolean sent = sendEmail(email, subject, content);
+        if (sent) {
+            log.info("密码修改安全通知已发送（用户自行操作）: email={}, username={}", email, username);
+        } else {
+            log.warn("密码修改安全通知发送失败（用户自行操作）: email={}", email);
+        }
+        return sent;
+    }
+
+    /**
+     * 替换模板占位符。
+     * <p>
+     * 支持的占位符：
+     * <ul>
+     *   <li>{{@code {{username}}}} - 用户名</li>
+     *   <li>{{@code {{email}}}} - 邮箱地址</li>
+     *   <li>{{@code {{time}}}} / {{@code {{loginTime}}}} - 发送时间</li>
+     *   <li>{{@code {{siteUrl}}}} / {{@code {{baseUrl}}}} - 系统访问地址（来自系统设置 siteBaseUrl）</li>
+     *   <li>{{@code {{code}}}} - 验证码（REGISTER 类型）或新密码（RESET_PASSWORD/PASSWORD_CHANGED 类型）</li>
+     *   <li>{{@code {{password}}}} / {{@code {{newPassword}}}} - 新密码，与 {{@code {{code}}}} 等价，推荐在密码类模板中使用</li>
+     * </ul>
      *
      * @param text        模板文本
      * @param username    用户名
      * @param email       邮箱
-     * @param currentTime 当前时间
-     * @param code        验证码
+     * @param currentTime 当前时间（格式：yyyy-MM-dd HH:mm:ss）
+     * @param codeOrPassword 验证码（REGISTER场景）或新密码（RESET_PASSWORD/PASSWORD_CHANGED场景）
      * @return 替换后的文本
      */
     private String replacePlaceholders(String text, String username, String email,
-                                       String currentTime, String code) {
+                                       String currentTime, String codeOrPassword) {
         if (text == null) return null;
 
         String result = text;
@@ -307,8 +479,18 @@ public class EmailService {
             result = result.replace("{{time}}", currentTime);
             result = result.replace("{{loginTime}}", currentTime);
         }
-        if (code != null) {
-            result = result.replace("{{code}}", code);
+
+        // 系统访问地址（从系统配置读取）
+        String siteUrl = systemConfigService.getConfig("siteBaseUrl");
+        if (siteUrl != null && !siteUrl.isEmpty()) {
+            result = result.replace("{{siteUrl}}", siteUrl);
+            result = result.replace("{{baseUrl}}", siteUrl);
+        }
+
+        if (codeOrPassword != null) {
+            result = result.replace("{{code}}", codeOrPassword);
+            result = result.replace("{{password}}", codeOrPassword);
+            result = result.replace("{{newPassword}}", codeOrPassword);
         }
         return result;
     }

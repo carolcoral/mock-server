@@ -58,6 +58,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String AUTH_LOGIN_PATH = "/auth/login";
     private static final String AUTH_REGISTER_PATH = "/auth/register";
     private static final String AUTH_SEND_VERIFICATION_CODE_PATH = "/auth/send-verification-code";
+    private static final String AUTH_FORGOT_PASSWORD_PATH = "/auth/forgot-password";
     private static final String ACTUATOR_PATH_PREFIX = "/actuator/";
 
     private final JwtTokenUtil jwtTokenUtil;
@@ -72,8 +73,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String requestUri = request.getRequestURI();
         String servletPath = request.getServletPath(); // 去除context-path后的路径
 
-        // 公开接口 - 直接放行，不设置认证
-        if (isPublicPath(requestUri)) {
+        // 公开接口 - 直接放行，不设置认证（同时检查 requestUri 和 servletPath）
+        if (isPublicPath(requestUri) || isPublicPath(servletPath)) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -137,14 +138,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = getTokenFromRequest(request);
         if (StringUtils.hasText(token)) {
             try {
-                // 首先验证token是否有效（包括过期检查）
-                if (!jwtTokenUtil.validateToken(token)) {
-                    log.warn("JWT token无效或已过期");
-                    writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
-                            ApiResponse.unauthorized());
-                    return;
-                }
-                
                 String username = jwtTokenUtil.getUsernameFromToken(token);
                 Long userId = jwtTokenUtil.getUserIdFromToken(token);
                 String role = jwtTokenUtil.getUserRoleFromToken(token);
@@ -193,18 +186,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /**
-     * 设置匿名认证到SecurityContext（用于公开接口）
-     */
-    private void setAnonymousAuthentication(HttpServletRequest request) {
-        if (SecurityContextHolder.getContext().getAuthentication() == null) {
-            UsernamePasswordAuthenticationToken anonymousAuth = new UsernamePasswordAuthenticationToken(
-                    "anonymous", null, java.util.Collections.emptyList());
-            anonymousAuth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-            SecurityContextHolder.getContext().setAuthentication(anonymousAuth);
-        }
-    }
-
-    /**
      * 判断是否是公开路径（不需要认证）
      */
     private boolean isPublicPath(String requestUri) {
@@ -249,6 +230,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                ("/api" + AUTH_REGISTER_PATH).equals(requestUri) ||
                AUTH_SEND_VERIFICATION_CODE_PATH.equals(requestUri) ||
                ("/api" + AUTH_SEND_VERIFICATION_CODE_PATH).equals(requestUri) ||
+               AUTH_FORGOT_PASSWORD_PATH.equals(requestUri) ||
+               ("/api" + AUTH_FORGOT_PASSWORD_PATH).equals(requestUri) ||
                requestUri.startsWith(MOCK_SERVER_PATH_PREFIX) ||
                requestUri.startsWith("/api" + MOCK_SERVER_PATH_PREFIX) ||
                requestUri.startsWith(ACTUATOR_PATH_PREFIX) ||

@@ -23,24 +23,31 @@
         <el-descriptions-item label="{{username}}">{{ $t('emailTemplate.placeholderUsername') }}</el-descriptions-item>
         <el-descriptions-item label="{{email}}">{{ $t('emailTemplate.placeholderEmail') }}</el-descriptions-item>
         <el-descriptions-item label="{{time}} / {{loginTime}}">{{ $t('emailTemplate.placeholderTime') }}</el-descriptions-item>
+        <el-descriptions-item label="{{siteUrl}} / {{baseUrl}}">{{ $t('emailTemplate.placeholderSiteUrl') }}</el-descriptions-item>
         <el-descriptions-item label="{{code}}">{{ $t('emailTemplate.placeholderCode') }}</el-descriptions-item>
+        <el-descriptions-item label="{{password}} / {{newPassword}}">{{ $t('emailTemplate.placeholderPassword') }}</el-descriptions-item>
       </el-descriptions>
+      <div style="margin-top: 12px; color: #909399; font-size: 12px; line-height: 1.8;">
+        <p style="margin: 0;">{{ $t('emailTemplate.placeholderNote') }}</p>
+        <p style="margin: 2px 0 0 0;">• <strong>{{ $t('emailTemplate.typeRegister') }}</strong>：{{ $t('emailTemplate.placeholderCodeNoteRegister') }}</p>
+        <p style="margin: 2px 0 0 0;">• <strong>{{ $t('emailTemplate.typeResetPassword') }}</strong> / <strong>{{ $t('emailTemplate.typePasswordChanged') }}</strong>：{{ $t('emailTemplate.placeholderCodeNotePassword') }}</p>
+      </div>
     </el-card>
 
     <el-card>
       <el-table :data="templates" border style="width: 100%" v-loading="loading">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="name" :label="$t('emailTemplate.name')" width="200" />
-        <el-table-column prop="type" :label="$t('emailTemplate.type')" width="150">
+        <el-table-column prop="type" :label="$t('emailTemplate.type')" width="180">
           <template #default="{ row }">
-            <el-tag v-if="row.type === 'GENERAL'" type="info">
-              {{ $t('emailTemplate.typeGeneral') }}
+            <el-tag v-if="row.type === 'REGISTER'" type="primary">
+              {{ $t('emailTemplate.typeRegister') }}
             </el-tag>
-            <el-tag v-else-if="row.type === 'VERIFICATION_CODE'" type="primary">
-              {{ $t('emailTemplate.typeVerification') }}
+            <el-tag v-else-if="row.type === 'RESET_PASSWORD'" type="warning">
+              {{ $t('emailTemplate.typeResetPassword') }}
             </el-tag>
-            <el-tag v-else-if="row.type === 'ALERT'" type="danger">
-              {{ $t('emailTemplate.typeAlert') }}
+            <el-tag v-else-if="row.type === 'PASSWORD_CHANGED'" type="danger">
+              {{ $t('emailTemplate.typePasswordChanged') }}
             </el-tag>
             <el-tag v-else>{{ row.type }}</el-tag>
           </template>
@@ -84,9 +91,9 @@
         </el-form-item>
         <el-form-item :label="$t('emailTemplate.templateType')">
           <el-select v-model="form.type" style="width: 100%;">
-            <el-option :label="$t('emailTemplate.typeGeneral')" value="GENERAL" />
-            <el-option :label="$t('emailTemplate.typeVerification')" value="VERIFICATION_CODE" />
-            <el-option :label="$t('emailTemplate.typeAlert')" value="ALERT" />
+            <el-option :label="$t('emailTemplate.typeRegister')" value="REGISTER" />
+            <el-option :label="$t('emailTemplate.typeResetPassword')" value="RESET_PASSWORD" />
+            <el-option :label="$t('emailTemplate.typePasswordChanged')" value="PASSWORD_CHANGED" />
           </el-select>
         </el-form-item>
         <el-form-item :label="$t('emailTemplate.templateEnabled')">
@@ -99,7 +106,7 @@
         <el-form-item :label="$t('emailTemplate.content')">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
             <div style="color: #909399; font-size: 12px;">
-              支持的占位符：&#123;&#123;username&#125;&#125;、&#123;&#123;email&#125;&#125;、&#123;&#123;time&#125;&#125;、&#123;&#123;code&#125;&#125;
+              支持的占位符：&#123;&#123;username&#125;&#125;、&#123;&#123;email&#125;&#125;、&#123;&#123;time&#125;&#125;、&#123;&#123;siteUrl&#125;&#125;、&#123;&#123;code&#125;&#125;、&#123;&#123;password&#125;&#125;、&#123;&#123;newPassword&#125;&#125;
             </div>
             <el-button
               size="small"
@@ -164,7 +171,7 @@ const previewContent = ref('')
 const form = reactive({
   id: null,
   name: '',
-  type: 'GENERAL',
+  type: 'REGISTER',
   subject: '',
   content: '',
   enabled: true
@@ -192,7 +199,7 @@ const openDialog = (row = null) => {
     dialogTitle.value = t('emailTemplate.editTemplate')
     form.id = row.id
     form.name = row.name
-    form.type = row.type || 'GENERAL'
+    form.type = row.type || 'REGISTER'
     form.subject = row.subject
     form.content = row.content
     form.enabled = row.enabled !== false
@@ -200,7 +207,7 @@ const openDialog = (row = null) => {
     dialogTitle.value = t('emailTemplate.createTemplate')
     form.id = null
     form.name = ''
-    form.type = 'GENERAL'
+    form.type = 'REGISTER'
     form.subject = ''
     form.content = ''
     form.enabled = true
@@ -236,7 +243,7 @@ const saveTemplate = async () => {
     if (form.id) {
       response = await request.put(`/email-templates/${form.id}`, {
         name: form.name.trim(),
-        type: form.type || 'GENERAL',
+        type: form.type || 'REGISTER',
         subject: form.subject.trim(),
         content: form.content,
         enabled: form.enabled
@@ -244,7 +251,7 @@ const saveTemplate = async () => {
     } else {
       response = await request.post('/email-templates', {
         name: form.name.trim(),
-        type: form.type || 'GENERAL',
+        type: form.type || 'REGISTER',
         subject: form.subject.trim(),
         content: form.content,
         enabled: form.enabled

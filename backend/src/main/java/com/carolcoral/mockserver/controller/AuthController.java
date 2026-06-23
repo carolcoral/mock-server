@@ -11,6 +11,7 @@ import com.carolcoral.mockserver.dto.LoginRequest;
 import com.carolcoral.mockserver.dto.LoginResponse;
 import com.carolcoral.mockserver.dto.RegisterRequest;
 import com.carolcoral.mockserver.repository.EmailConfigRepository;
+import com.carolcoral.mockserver.repository.UserRepository;
 import com.carolcoral.mockserver.service.EmailService;
 import com.carolcoral.mockserver.service.SystemConfigService;
 import com.carolcoral.mockserver.service.UserService;
@@ -27,6 +28,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 认证控制器
@@ -46,12 +48,14 @@ public class AuthController {
         JwtTokenUtil jwtTokenUtil,
         SystemConfigService systemConfigService,
         EmailService emailService,
-        EmailConfigRepository emailConfigRepository) {
+        EmailConfigRepository emailConfigRepository,
+        UserRepository userRepository) {
         this.userService = userService;
         this.jwtTokenUtil = jwtTokenUtil;
         this.systemConfigService = systemConfigService;
         this.emailService = emailService;
         this.emailConfigRepository = emailConfigRepository;
+        this.userRepository = userRepository;
     }
 
     private final UserService userService;
@@ -59,6 +63,7 @@ public class AuthController {
     private final SystemConfigService systemConfigService;
     private final EmailService emailService;
     private final EmailConfigRepository emailConfigRepository;
+    private final UserRepository userRepository;
 
     /**
      * 用户登录
@@ -245,5 +250,99 @@ public class AuthController {
             log.error("Swagger访问权限验证失败: {}", e.getMessage());
             return ApiResponse.error("验证失败：" + e.getMessage());
         }
+    }
+
+    /**
+     * 忘记密码 - 自动生成新密码并发送到邮箱
+     *
+     * @param requestBody 包含邮箱的请求体
+     * @return 发送结果
+     */
+    @Operation(summary = "忘记密码", description = "向指定邮箱发送自动生成的新密码")
+    @PostMapping("/forgot-password")
+    public ApiResponse<?> forgotPassword(@RequestBody Map<String, Object> requestBody) {
+        String email = (String) requestBody.get("email");
+        if (email == null || email.isEmpty()) {
+            return ApiResponse.error("邮箱不能为空");
+        }
+
+        // 检查邮件服务是否已配置
+        if (emailConfigRepository.findFirstByEnabledTrue().isEmpty()) {
+            log.warn("忘记密码请求被拒绝：邮件服务未配置, email={}", email);
+            return ApiResponse.error("系统邮件服务未配置，无法自助找回密码。请联系管理员处理。");
+        }
+
+        // 检查邮箱是否存在（安全起见不暴露具体信息）
+        if (!userService.isEmailTaken(email)) {
+            log.info("忘记密码请求，邮箱未注册: {}", email);
+            return ApiResponse.success("如果该邮箱已注册，新密码将发送至您的邮箱");
+        }
+
+        // 查找用户
+        Optional<com.carolcoral.mockserver.entity.User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            return ApiResponse.success("如果该邮箱已注册，新密码将发送至您的邮箱");
+        }
+
+        com.carolcoral.mockserver.entity.User user = userOpt.get();
+        if (!user.getEnabled()) {
+            log.warn("忘记密码请求被拒绝：用户已被禁用, email={}", email);
+            return ApiResponse.success("如果该邮箱已注册，新密码将发送至您的邮箱");
+        }
+
+        // 自动生成新密码（12位随机字符串，包含大小写字母、数字和特殊字符）
+        String newPassword = generateRandomPassword();
+
+        log.info("为用户 {} 生成新密码并发送邮件", user.getUsername());
+
+        // 更新密码
+        ApiResponse<Void> resetResult = userService.resetPasswordByEmail(email, newPassword);
+        if (resetResult.getCode() != 200) {
+            return ApiResponse.error("重置密码失败，请稍后重试");
+        }
+
+        // 使用邮件模板发送新密码（优先使用 RESET_PASSWORD 类型模板，无则用默认内容）
+        boolean sent = emailService.sendResetPasswordEmail(email, user.getUsername(), newPassword);
+        if (sent) {
+            return ApiResponse.success("新密码已发送至您的邮箱，请查收邮件");
+        } else {
+            return ApiResponse.error("邮件发送失败，请检查邮箱配置或联系管理员");
+        }
+    }
+
+    /**
+     * 生成随机密码（12位，包含大小写字母、数字和特殊字符）
+     */
+    private String generateRandomPassword() {
+        String upperChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        String lowerChars = "abcdefghijklmnopqrstuvwxyz";
+        String digits = "0123456789";
+        String specialChars = "@$!%*?&";
+        String allChars = upperChars + lowerChars + digits + specialChars;
+
+        java.security.SecureRandom random = new java.security.SecureRandom();
+        StringBuilder sb = new StringBuilder(12);
+
+        // 确保至少包含各类字符
+        sb.append(upperChars.charAt(random.nextInt(upperChars.length())));
+        sb.append(lowerChars.charAt(random.nextInt(lowerChars.length())));
+        sb.append(digits.charAt(random.nextInt(digits.length())));
+        sb.append(specialChars.charAt(random.nextInt(specialChars.length())));
+
+        // 剩余8位随机
+        for (int i = 4; i < 12; i++) {
+            sb.append(allChars.charAt(random.nextInt(allChars.length())));
+        }
+
+        // 打乱顺序
+        char[] chars = sb.toString().toCharArray();
+        for (int i = chars.length - 1; i > 0; i--) {
+            int j = random.nextInt(i + 1);
+            char temp = chars[i];
+            chars[i] = chars[j];
+            chars[j] = temp;
+        }
+
+        return new String(chars);
     }
 }

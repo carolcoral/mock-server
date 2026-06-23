@@ -49,14 +49,14 @@ export const useUserStore = defineStore('user', () => {
     try {
       const response = await loginApi({ username, password })
       if (response.code === 200) {
-        const { token: userToken, userId, username: name, role, email } = response.data
+        const { token: userToken, userId, username: name, role, email, language } = response.data
 
         // 保存token
         token.value = userToken
         localStorage.setItem('token', userToken)
 
         // 保存用户信息
-        userInfo.value = { id: userId, username: name, role, email }
+        userInfo.value = { id: userId, username: name, role, email, language }
         localStorage.setItem('userInfo', JSON.stringify(userInfo.value))
 
         return { success: true }

@@ -228,23 +228,25 @@
             clearable
             filterable
             size="small"
-            style="width: 240px;"
+            style="width: 280px;"
             @change="handleTemplateSelect"
-            :disabled="!isEdit"
           >
             <el-option
               v-for="tpl in projectTemplates"
               :key="tpl.id"
               :label="tpl.name"
               :value="tpl.id"
+              :disabled="tpl.isSystem && !isEdit"
             >
-              <span>{{ tpl.name }}</span>
+              <span>
+                <el-tag v-if="tpl.isSystem" type="danger" size="small" effect="dark" style="margin-right: 6px;">{{ $t('codeTemplate.systemDefault') }}</el-tag>
+                {{ tpl.name }}
+              </span>
               <span style="float: right; color: #909399; font-size: 12px;">{{ tpl.project?.name }}</span>
             </el-option>
           </el-select>
-          <el-button size="small" @click="loadTemplateCode" :disabled="!isEdit">{{ $t('api.loadTemplate') }}</el-button>
           <el-button size="small" type="success" @click="validateCustomCode" :loading="validatingCode">{{ $t('api.compileValidate') }}</el-button>
-          <el-button size="small" type="warning" @click="clearCustomCode" :disabled="!isEdit">{{ $t('api.clearCode') }}</el-button>
+          <el-button size="small" type="warning" @click="clearCustomCode">{{ $t('api.clearCode') }}</el-button>
           <span v-if="validationResult" :style="{ color: validationResult.success ? '#67C23A' : '#F56C6C', fontSize: '13px', marginLeft: '8px' }">
             {{ validationResult.success ? $t('api.validatePassed') : $t('api.validateFailed') + validationResult.message }}
           </span>
@@ -257,18 +259,19 @@
             <el-select
               v-model="selectedTemplateId"
               :placeholder="$t('api.selectTemplate')"
-              clearable filterable size="small" style="width: 240px;"
+              clearable filterable size="small" style="width: 280px;"
               @change="handleTemplateSelect"
-              :disabled="!isEdit"
             >
               <el-option v-for="tpl in projectTemplates" :key="tpl.id" :label="tpl.name" :value="tpl.id">
-                <span>{{ tpl.name }}</span>
+                <span>
+                  <el-tag v-if="tpl.isSystem" type="danger" size="small" effect="dark" style="margin-right: 6px;">{{ $t('codeTemplate.systemDefault') }}</el-tag>
+                  {{ tpl.name }}
+                </span>
                 <span style="float: right; color: #909399; font-size: 12px;">{{ tpl.project?.name }}</span>
               </el-option>
             </el-select>
-            <el-button size="small" @click="loadTemplateCode" :disabled="!isEdit">{{ $t('api.loadTemplate') }}</el-button>
             <el-button size="small" type="success" @click="validateCustomCode" :loading="validatingCode">{{ $t('api.compileValidate') }}</el-button>
-            <el-button size="small" type="warning" @click="clearCustomCode" :disabled="!isEdit">{{ $t('api.clearCode') }}</el-button>
+            <el-button size="small" type="warning" @click="clearCustomCode">{{ $t('api.clearCode') }}</el-button>
             <el-button size="small" style="margin-left: auto;" @click="apiCodeFullscreen = false">{{ $t('common.exitFullscreen') }}</el-button>
           </div>
           <MonacoEditor
@@ -958,6 +961,8 @@ const handleCreate = () => {
 }
 
 // 编辑接口
+
+// 编辑接口
 // 下拉菜单操作分发
 const handleApiAction = (command, row) => {
   switch (command) {
@@ -1521,139 +1526,6 @@ const handleDialogClose = () => {
   validationResult.value = null
 }
 
-// 加载模板代码
-const loadTemplateCode = () => {
-  form.customResponseSource = `import com.carolcoral.mockserver.dto.MockRequest;
-import com.carolcoral.mockserver.dto.MockResponseDTO;
-import com.carolcoral.mockserver.plugin.CustomResponseTransformer;
-import java.util.*;
-import com.alibaba.fastjson.JSON;
-
-/**
- * 自定义响应处理器模板
- * <p>
- * 实现 {@link CustomResponseTransformer} 接口，对接口返回的报文进行自定义处理。
- * 该类会在每次匹配到对应接口时被调用，可以在 transform 方法中对响应数据进行
- * 包装、转换、脱敏、追加字段等任意操作。
- * </p>
- *
- * <h3>使用说明</h3>
- * <ol>
- *   <li>修改类名和 getDescription() 返回值以匹配你的业务场景</li>
- *   <li>在 transform() 方法中编写自定义处理逻辑</li>
- *   <li>点击"编译验证"按钮检查代码是否正确</li>
- *   <li>保存接口配置后，每次请求该接口都会自动调用此处理器</li>
- * </ol>
- *
- * <h3>可用数据源</h3>
- * <ul>
- *   <li>{@code mockResponse.getStatusCode()} — HTTP 状态码</li>
- *   <li>{@code mockResponse.getHeaders()} — 响应头 Map</li>
- *   <li>{@code mockResponse.getBody()} — 响应体（JSON 字符串或 Map/List 对象）</li>
- *   <li>{@code mockResponse.getDelay()} — 响应延迟（毫秒）</li>
- *   <li>{@code mockRequest.getPath()} — 请求路径</li>
- *   <li>{@code mockRequest.getMethod()} — 请求方法（GET/POST/PUT/DELETE）</li>
- *   <li>{@code mockRequest.getHeaders()} — 请求头 Map</li>
- *   <li>{@code mockRequest.getParams()} — URL 查询参数 Map</li>
- *   <li>{@code mockRequest.getBody()} — 请求体</li>
- *   <li>{@code mockRequest.getProjectCode()} — 项目编码</li>
- *   <li>{@code mockRequest.getPathParams()} — RESTful 路径参数 Map</li>
- *   <li>{@code apiName} — 接口名称，可用于日志记录</li>
- *   <li>{@code apiPath} — 接口路径，可用于日志记录</li>
- * </ul>
- *
- * <h3>注意事项</h3>
- * <ul>
- *   <li>禁止使用反射、文件IO、网络、线程、脚本执行等危险API</li>
- *   <li>返回值不能为 null，必须返回有效的 MockResponseDTO 对象</li>
- *   <li>建议使用 MockResponseDTO.builder() 链式构建返回对象</li>
- *   <li>代码长度不超过 50000 字符</li>
- * </ul>
- *
- * @author 请填写你的名字
- * @version 1.0
- */
-public class MyCustomTransformer implements CustomResponseTransformer {
-
-    /**
-     * 对 Mock 响应进行自定义转换处理
-     * <p>
-     * 该方法在基础响应流程（响应匹配、延迟计算、响应体解析等）完成之后调用，
-     * 可以在此方法中对响应体、状态码、响应头等进行任意修改。
-     * </p>
-     *
-     * @param mockResponse 经过基础流程处理后的 Mock 响应对象
-     *                     <ul>
-     *                       <li>{@code getStatusCode()} — HTTP 状态码（如 200, 404, 500）</li>
-     *                       <li>{@code getHeaders()} — 响应头键值对</li>
-     *                       <li>{@code getBody()} — 响应体，可能是 String、Map 或 List</li>
-     *                       <li>{@code getDelay()} — 预设的响应延迟（毫秒），null 表示无延迟</li>
-     *                     </ul>
-     * @param mockRequest  原始 Mock 请求对象
-     *                     <ul>
-     *                       <li>{@code getPath()} — 请求路径，如 "/api/user/login"</li>
-     *                       <li>{@code getMethod()} — 请求方法，如 "GET", "POST"</li>
-     *                       <li>{@code getHeaders()} — 请求头键值对</li>
-     *                       <li>{@code getParams()} — URL 查询参数键值对</li>
-     *                       <li>{@code getBody()} — 请求体内容</li>
-     *                       <li>{@code getProjectCode()} — 项目编码</li>
-     *                       <li>{@code getPathParams()} — RESTful 路径参数，如 /user/{id} 中的 id</li>
-     *                     </ul>
-     * @param apiName      接口名称，如 "用户登录接口"，可用于日志记录
-     * @param apiPath      接口路径，如 "/api/user/login"，可用于日志记录
-     * @return 转换后的 MockResponseDTO 对象，不能返回 null
-     *         <p>建议使用 MockResponseDTO.builder() 构建：</p>
-     *         <pre>{@code
-     *         return MockResponseDTO.builder()
-     *                 .statusCode(200)
-     *                 .headers(mockResponse.getHeaders())
-     *                 .body(result)
-     *                 .delay(mockResponse.getDelay())
-     *                 .build();
-     *         }</pre>
-     */
-    @Override
-    public MockResponseDTO transform(MockResponseDTO mockResponse, MockRequest mockRequest,
-                                      String apiName, String apiPath) {
-        // 获取原始响应体
-        Object body = mockResponse.getBody();
-
-        // 在这里编写自定义处理逻辑
-        // 例如：包装响应、修改字段、添加时间戳、数据脱敏、条件判断等
-
-        // 示例：将响应包装为统一的标准格式 { code, message, data, timestamp }
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("code", mockResponse.getStatusCode());
-        result.put("message", "success");
-        result.put("data", body);
-        result.put("timestamp", System.currentTimeMillis());
-
-        // 使用 Builder 模式构建新的响应对象
-        // 保留原有的状态码、响应头和延迟设置，只替换响应体
-        return MockResponseDTO.builder()
-                .statusCode(mockResponse.getStatusCode())
-                .headers(mockResponse.getHeaders())
-                .body(result)
-                .delay(mockResponse.getDelay())
-                .build();
-    }
-
-    /**
-     * 获取转换器描述信息
-     * <p>
-     * 该描述会在管理界面中展示，帮助区分不同的自定义处理器。
-     * 建议使用简短的中文描述，如"标准格式包装器"、"数据脱敏处理器"等。
-     * </p>
-     *
-     * @return 转换器描述字符串，不能为 null
-     */
-    @Override
-    public String getDescription() {
-        return "标准格式包装器 - 将响应包装为 {code, message, data, timestamp} 格式";
-    }
-}`
-}
-
 // 编译验证自定义代码
 const validateCustomCode = async () => {
   if (!form.customResponseSource || !form.customResponseSource.trim()) {
@@ -1687,6 +1559,7 @@ const validateCustomCode = async () => {
 
 // 清空自定义代码
 const clearCustomCode = () => {
+  selectedTemplateId.value = null
   form.customResponseSource = ''
   validationResult.value = null
   ElMessage.success(t('api.codeCleared'))

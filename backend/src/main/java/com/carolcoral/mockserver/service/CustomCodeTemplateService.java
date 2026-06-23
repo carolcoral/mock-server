@@ -53,25 +53,39 @@ public class CustomCodeTemplateService {
 
     /**
      * 创建模板
+     * 系统管理员可创建系统默认模板（isSystem=true, project=null）
+     * 普通用户只能创建项目级模板
      */
     @Operation(summary = "创建模板")
     @Transactional
-    public ApiResponse<CustomCodeTemplate> createTemplate(CustomCodeTemplate template, Long userId) {
+    public ApiResponse<CustomCodeTemplate> createTemplate(CustomCodeTemplate template, Long userId, User.UserRole userRole) {
         try {
-            if (template.getProject() == null || template.getProject().getId() == null) {
-                return ApiResponse.error("项目ID不能为空");
-            }
+            boolean isSystemTemplate = template.getIsSystem() != null && template.getIsSystem();
 
-            Optional<Project> projectOpt = projectRepository.findById(template.getProject().getId());
-            if (!projectOpt.isPresent()) {
-                return ApiResponse.error("项目不存在");
+            if (isSystemTemplate) {
+                // 只有系统管理员可以创建系统默认模板
+                if (userRole != User.UserRole.ADMIN) {
+                    return ApiResponse.error("只有系统管理员可以创建系统默认模板");
+                }
+                // 系统模板不关联项目
+                template.setProject(null);
+            } else {
+                if (template.getProject() == null || template.getProject().getId() == null) {
+                    return ApiResponse.error("项目ID不能为空");
+                }
+                Optional<Project> projectOpt = projectRepository.findById(template.getProject().getId());
+                if (!projectOpt.isPresent()) {
+                    return ApiResponse.error("项目不存在");
+                }
+                template.setProject(projectOpt.get());
             }
 
             template.setCreateUserId(userId);
-            template.setProject(projectOpt.get());
 
             CustomCodeTemplate saved = templateRepository.save(template);
-            log.info("创建自定义代码模板成功: id={}, name={}, projectId={}", saved.getId(), saved.getName(), template.getProject().getId());
+            log.info("创建自定义代码模板成功: id={}, name={}, isSystem={}, projectId={}",
+                    saved.getId(), saved.getName(), saved.getIsSystem(),
+                    template.getProject() != null ? template.getProject().getId() : "null");
             return ApiResponse.success(saved);
         } catch (Exception e) {
             log.error("创建自定义代码模板失败: {}", e.getMessage(), e);
@@ -97,9 +111,16 @@ public class CustomCodeTemplateService {
 
             CustomCodeTemplate existing = existingOpt.get();
 
-            // 权限检查：系统管理员、项目创建者、项目管理员可操作
-            if (userRole != User.UserRole.ADMIN && !hasProjectAdminPermission(existing.getProject().getId(), userId)) {
-                return ApiResponse.error("没有权限修改此模板");
+            // 权限检查：系统管理员可编辑所有模板（含系统模板），项目创建者/管理员可编辑本项目模板
+            if (userRole != User.UserRole.ADMIN) {
+                // 普通用户：系统默认模板不可修改
+                if (existing.getIsSystem() != null && existing.getIsSystem()) {
+                    return ApiResponse.error("系统默认模板不可修改");
+                }
+                // 普通用户：只能编辑自己项目下的模板
+                if (!hasProjectAdminPermission(existing.getProject().getId(), userId)) {
+                    return ApiResponse.error("没有权限修改此模板");
+                }
             }
 
             if (template.getName() != null) {
@@ -113,6 +134,10 @@ public class CustomCodeTemplateService {
             }
             if (template.getEnabled() != null) {
                 existing.setEnabled(template.getEnabled());
+            }
+            // 系统管理员可以修改 isSystem 标志
+            if (template.getIsSystem() != null && userRole == User.UserRole.ADMIN) {
+                existing.setIsSystem(template.getIsSystem());
             }
             if (template.getProject() != null && template.getProject().getId() != null) {
                 Optional<Project> projectOpt = projectRepository.findById(template.getProject().getId());
@@ -145,9 +170,16 @@ public class CustomCodeTemplateService {
 
             CustomCodeTemplate existing = existingOpt.get();
 
-            // 权限检查：系统管理员、项目创建者、项目管理员可操作
-            if (userRole != User.UserRole.ADMIN && !hasProjectAdminPermission(existing.getProject().getId(), userId)) {
-                return ApiResponse.error("没有权限删除此模板");
+            // 权限检查：系统管理员可删除所有模板（含系统模板），项目创建者/管理员可删除本项目模板
+            if (userRole != User.UserRole.ADMIN) {
+                // 普通用户：系统默认模板不可删除
+                if (existing.getIsSystem() != null && existing.getIsSystem()) {
+                    return ApiResponse.error("系统默认模板不可删除");
+                }
+                // 普通用户：只能删除自己项目下的模板
+                if (!hasProjectAdminPermission(existing.getProject().getId(), userId)) {
+                    return ApiResponse.error("没有权限删除此模板");
+                }
             }
 
             templateRepository.delete(existing);
@@ -156,6 +188,42 @@ public class CustomCodeTemplateService {
         } catch (Exception e) {
             log.error("删除自定义代码模板失败: {}", e.getMessage(), e);
             return ApiResponse.error("删除模板失败，请稍后重试");
+        }
+    }
+
+    /**
+     * 批量删除模板（仅系统管理员）
+     */
+    @Operation(summary = "批量删除模板（仅管理员）")
+    @Transactional
+    public ApiResponse<Void> batchDeleteTemplates(List<Long> ids, Long userId) {
+        try {
+            if (ids == null || ids.isEmpty()) {
+                return ApiResponse.error("请选择要删除的模板");
+            }
+
+            int successCount = 0;
+            int failCount = 0;
+            for (Long id : ids) {
+                try {
+                    Optional<CustomCodeTemplate> existingOpt = templateRepository.findById(id);
+                    if (existingOpt.isPresent()) {
+                        templateRepository.delete(existingOpt.get());
+                        successCount++;
+                    } else {
+                        failCount++;
+                    }
+                } catch (Exception e) {
+                    log.error("批量删除模板失败: id={}, error={}", id, e.getMessage());
+                    failCount++;
+                }
+            }
+
+            log.info("批量删除模板完成: 成功={}, 失败={}, 操作人={}", successCount, failCount, userId);
+            return ApiResponse.success();
+        } catch (Exception e) {
+            log.error("批量删除模板失败: {}", e.getMessage(), e);
+            return ApiResponse.error("批量删除失败，请稍后重试");
         }
     }
 
@@ -177,12 +245,16 @@ public class CustomCodeTemplateService {
     }
 
     /**
-     * 根据项目ID查询模板列表
+     * 根据项目ID查询模板列表（包含系统默认模板）
      */
-    @Operation(summary = "根据项目ID查询模板列表")
+    @Operation(summary = "根据项目ID查询模板列表（包含系统默认模板）")
     public ApiResponse<List<CustomCodeTemplate>> getTemplatesByProjectId(Long projectId) {
         try {
-            List<CustomCodeTemplate> templates = templateRepository.findByProjectId(projectId);
+            List<CustomCodeTemplate> templates = new ArrayList<>();
+            // 系统默认模板（全局可用）
+            templates.addAll(templateRepository.findByIsSystemTrue());
+            // 该项目的模板
+            templates.addAll(templateRepository.findByProjectId(projectId));
             return ApiResponse.success(templates);
         } catch (Exception e) {
             log.error("查询模板列表失败: {}", e.getMessage(), e);
@@ -209,23 +281,37 @@ public class CustomCodeTemplateService {
 
     /**
      * 构建查询条件
+     * <p>
+     * 查询逻辑：
+     * 1. 系统默认模板（isSystem=true, project=null）对所有用户可见
+     * 2. 普通用户额外可看所属项目的模板
+     * 3. 管理员可看所有模板
+     * </p>
      */
     private Specification<CustomCodeTemplate> buildAccessSpec(
             Long userId, User.UserRole userRole, String name, Long projectId, Boolean enabled) {
 
         Specification<CustomCodeTemplate> spec = Specification.where(null);
 
-        // 普通用户：限制只能看所属项目的模板
+        // 系统默认模板对所有用户可见
+        Specification<CustomCodeTemplate> systemSpec = (root, query, cb) ->
+                cb.isTrue(root.get("isSystem"));
+
         if (userRole != User.UserRole.ADMIN) {
             List<Long> projectIds = getAccessibleProjectIds(userId);
             if (projectIds.isEmpty()) {
-                // 没有权限访问任何项目，使用不可能的条件返回空
-                spec = spec.and((root, query, cb) -> cb.disjunction());
+                // 没有权限访问任何项目，只能看系统默认模板
+                spec = spec.and(systemSpec);
             } else {
+                // 普通用户：系统模板 OR 所属项目模板
+                Specification<CustomCodeTemplate> projectSpec = (root, query, cb) ->
+                        root.get("project").get("id").in(projectIds);
                 spec = spec.and((root, query, cb) ->
-                        root.get("project").get("id").in(projectIds));
+                        cb.or(systemSpec.toPredicate(root, query, cb),
+                              projectSpec.toPredicate(root, query, cb)));
             }
         }
+        // 管理员：不做额外限制，可看所有模板
 
         // 按名称模糊搜索
         if (name != null && !name.isEmpty()) {
@@ -266,12 +352,16 @@ public class CustomCodeTemplateService {
     }
 
     /**
-     * 根据项目ID查询已启用的模板列表（用于下拉选择）
+     * 根据项目ID查询已启用的模板列表（用于下拉选择，包含系统默认模板）
      */
-    @Operation(summary = "根据项目ID查询已启用的模板列表")
+    @Operation(summary = "根据项目ID查询已启用的模板列表（包含系统默认模板）")
     public ApiResponse<List<CustomCodeTemplate>> getEnabledTemplatesByProjectId(Long projectId) {
         try {
-            List<CustomCodeTemplate> templates = templateRepository.findByProjectIdAndEnabled(projectId, true);
+            List<CustomCodeTemplate> templates = new ArrayList<>();
+            // 系统默认已启用的模板（全局可用）
+            templates.addAll(templateRepository.findByIsSystemTrueAndEnabledTrue());
+            // 该项目已启用的模板
+            templates.addAll(templateRepository.findByProjectIdAndEnabled(projectId, true));
             return ApiResponse.success(templates);
         } catch (Exception e) {
             log.error("查询启用模板列表失败: {}", e.getMessage(), e);

@@ -167,6 +167,28 @@
       </el-footer>
     </el-container>
 
+    <!-- 系统访问地址同步提示弹窗（仅管理员） -->
+    <el-dialog v-model="siteUrlDialogVisible" :title="$t('settings.siteUrlSyncTitle')" width="520px" :close-on-click-modal="false" :close-on-press-escape="false">
+      <div style="line-height: 1.8; font-size: 14px; color: #606266;">
+        <p>{{ $t('settings.siteUrlSyncMessage') }}</p>
+        <el-divider />
+        <el-descriptions :column="1" border size="small">
+          <el-descriptions-item :label="$t('settings.siteUrlSyncCurrent')">
+            <el-tag type="warning">{{ currentSiteUrl }}</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item :label="$t('settings.siteUrlSyncSaved')">
+            <el-tag type="info">{{ savedSiteUrl || '(' + $t('settings.siteUrlSyncEmpty') + ')' }}</el-tag>
+          </el-descriptions-item>
+        </el-descriptions>
+      </div>
+      <template #footer>
+        <el-button @click="siteUrlDialogVisible = false">{{ $t('settings.siteUrlSyncLater') }}</el-button>
+        <el-button type="primary" @click="syncSiteUrl" :loading="syncingSiteUrl">
+          {{ $t('settings.siteUrlSyncButton') }}
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- 修改密码对话框 -->
     <el-dialog v-model="passwordDialogVisible" :title="$t('user.changePassword')" width="520px" :close-on-click-modal="false">
       <el-form
@@ -372,6 +394,56 @@ const fetchFooterConfig = async () => {
     }
   } catch (error) {
     console.warn('获取页脚配置失败:', error)
+  }
+}
+
+// ========== 系统访问地址自动检测与同步 ==========
+const siteUrlDialogVisible = ref(false)
+const currentSiteUrl = ref(window.location.origin)
+const savedSiteUrl = ref('')
+const syncingSiteUrl = ref(false)
+
+// 检测并提示同步系统访问地址
+const checkAndSyncSiteUrl = async () => {
+  // 仅管理员执行此检测
+  if (!userStore.isAdmin) return
+
+  try {
+    const response = await request.get('/system-config')
+    if (response.code === 200 && response.data) {
+      const saved = response.data.siteBaseUrl || ''
+      savedSiteUrl.value = saved
+
+      // 对比当前 URI 与保存的地址
+      if (saved !== currentSiteUrl.value) {
+        // 不一致则弹窗提示
+        siteUrlDialogVisible.value = true
+      }
+    }
+  } catch (error) {
+    console.warn('检测系统访问地址失败:', error)
+  }
+}
+
+// 一键同步系统访问地址
+const syncSiteUrl = async () => {
+  syncingSiteUrl.value = true
+  try {
+    const response = await request.post('/system-config/registration', {
+      siteBaseUrl: currentSiteUrl.value
+    })
+    if (response.code === 200) {
+      savedSiteUrl.value = currentSiteUrl.value
+      ElMessage.success(t('settings.siteUrlSyncSuccess'))
+      siteUrlDialogVisible.value = false
+    } else {
+      ElMessage.error(response.message || t('common.error'))
+    }
+  } catch (error) {
+    console.error('同步系统访问地址失败:', error)
+    ElMessage.error(t('common.error'))
+  } finally {
+    syncingSiteUrl.value = false
   }
 }
 
@@ -665,6 +737,7 @@ const destroySidebarCanvas = () => {
 onMounted(() => {
   fetchVersion()
   fetchFooterConfig()
+  checkAndSyncSiteUrl()
   window.addEventListener('footer-config-updated', handleFooterConfigUpdated)
   // 延迟初始化 canvas，等 DOM 渲染完成
   setTimeout(() => initSidebarCanvas(), 100)
