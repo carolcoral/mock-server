@@ -38,13 +38,15 @@ export default {
     home: 'ホーム',
     businessManagement: '業務管理',
     systemManagement: 'システム管理',
+    aiManagement: 'AI 管理',
     projects: 'プロジェクト管理',
     apis: 'API管理',
     codeTemplates: 'コードテンプレート',
     emailTemplates: 'メールテンプレート',
     userManagement: 'ユーザー管理',
     settings: 'システム設定',
-    statistics: '統計データ'
+    statistics: '統計データ',
+    aiSettings: 'AI 設定'
   },
 
   // ユーザー関連
@@ -759,6 +761,37 @@ export default {
     blog: 'ブログ',
     github: 'GitHub',
     email: 'メール送信'
+  },
+
+  // AI 設定
+  ai: {
+    title: 'AI 設定',
+    description: 'AIサービスプロバイダーとAPIキーを設定します',
+    currentProvider: '現在有効なプロバイダー',
+    noProvider: '未設定',
+    providers: 'プロバイダー一覧',
+    configTitle: '設定 - {name}',
+    providerName: 'プロバイダー名',
+    providerNamePlaceholder: 'プロバイダー名を入力してください',
+    apiUrl: 'API URL',
+    apiUrlPlaceholder: 'APIエンドポイントURLを入力してください',
+    apiUrlHint: 'OpenAIプロトコル互換のAPIアドレスが必要です',
+    apiKey: 'APIキー',
+    apiKeyPlaceholder: 'APIキーを入力してください',
+    defaultModel: 'デフォルトモデル',
+    modelPlaceholder: 'モデル名を入力してください（例：gpt-4o）',
+    maxTokens: '最大トークン',
+    temperature: '温度パラメータ',
+    enable: '有効にする',
+    disable: '無効にする',
+    enabled: '有効',
+    disabled: '無効',
+    preset: 'プリセット',
+    customTag: 'カスタム',
+    selectHint: '上記からプロバイダーを選択して設定を開始してください',
+    selectProvider: 'プロバイダー選択',
+    website: '公式サイト',
+    validation: 'API URLとAPIキーを入力してください'
   },
 
   // 変更履歴

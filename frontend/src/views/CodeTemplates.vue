@@ -171,13 +171,17 @@
     <!-- 查看代码对话框 -->
     <el-dialog v-model="viewDialogVisible" :title="$t('codeTemplate.viewDialogTitle')" width="800px">
       <div style="margin-bottom: 12px;">
-        <span style="font-weight: 600;">{{ $t('codeTemplate.templateNameLabel') }}</span>
-        <span>{{ viewingTemplate?.name }}</span>
-        <span style="margin-left: 20px; font-weight: 600;">{{ $t('codeTemplate.projectLabel') }}</span>
-        <el-tag v-if="viewingTemplate?.isSystem" type="danger" size="small">{{ $t('codeTemplate.systemDefault') }}</el-tag>
-        <el-tag v-else type="primary" size="small">{{ viewingTemplate?.project?.name }}</el-tag>
-        <span style="margin-left: 20px; font-weight: 600;">{{ $t('codeTemplate.descriptionLabel') }}</span>
-        <span>{{ viewingTemplate?.description }}</span>
+        <div>
+          <span style="font-weight: 600;">{{ $t('codeTemplate.templateNameLabel') }}</span>
+          <span>{{ viewingTemplate?.name }}</span>
+          <span style="margin-left: 20px; font-weight: 600;">{{ $t('codeTemplate.projectLabel') }}</span>
+          <el-tag v-if="viewingTemplate?.isSystem" type="danger" size="small">{{ $t('codeTemplate.systemDefault') }}</el-tag>
+          <el-tag v-else type="primary" size="small">{{ viewingTemplate?.project?.name }}</el-tag>
+        </div>
+        <div style="margin-top: 8px;">
+          <span style="font-weight: 600;">{{ $t('codeTemplate.descriptionLabel') }}</span>
+          <span>{{ viewingTemplate?.description || '—' }}</span>
+        </div>
       </div>
       <MonacoEditor
         :model-value="viewingTemplate?.sourceCode"

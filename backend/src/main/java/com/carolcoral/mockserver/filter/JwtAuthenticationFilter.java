@@ -76,6 +76,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // 公开接口 - 直接放行，不设置认证（同时检查 requestUri 和 servletPath）
         if (isPublicPath(requestUri) || isPublicPath(servletPath)) {
+            log.debug("公开路径放行: requestUri={}, servletPath={}", requestUri, servletPath);
             filterChain.doFilter(request, response);
             return;
         }
@@ -148,6 +149,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         // 其他接口 - 需要JWT认证
+        log.info("需要认证的请求: requestUri={}, servletPath={}", requestUri, servletPath);
         String token = getTokenFromRequest(request);
         if (StringUtils.hasText(token)) {
             try {
@@ -232,7 +234,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             requestUri.equals("/statistics") || requestUri.equals("/guide") ||
             requestUri.equals("/profile") || requestUri.equals("/code-templates") ||
             requestUri.equals("/changelog") ||
-            requestUri.equals("/email-templates")) {
+            requestUri.equals("/email-templates") ||
+            requestUri.equals("/ai-settings")) {
             return true;
         }
 

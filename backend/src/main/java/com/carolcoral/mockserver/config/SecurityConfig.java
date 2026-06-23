@@ -131,7 +131,8 @@ public class SecurityConfig {
                                 "/profile",
                                 "/code-templates",
                                 "/changelog",
-                                "/email-templates"
+                                "/email-templates",
+                                "/ai-settings"
                         ).permitAll()
                         // Swagger 静态资源 - 公开访问（页面加载 CSS/JS 需要）
                         .requestMatchers(
@@ -161,6 +162,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/email-config/**").hasRole("ADMIN")
                         // 邮件模板管理接口 - 需要管理员权限
                         .requestMatchers("/api/email-templates/**").hasRole("ADMIN")
+                        // AI配置接口 - 需要管理员权限
+                        .requestMatchers("/api/ai-config/**").hasRole("ADMIN")
                         // 用户信息接口 - 需要认证
                         .requestMatchers(
                                 "/api/users/profile",
@@ -250,10 +253,11 @@ public class SecurityConfig {
     @Bean
     public AccessDeniedHandler accessDeniedHandler() {
         return (request, response, accessDeniedException) -> {
-            log.warn("访问被拒绝: {} {}, 用户: {}, 角色: {}",
+            log.warn("访问被拒绝(accessDeniedHandler): {} {}, 用户: {}, 角色: {}, 异常: {}",
                     request.getMethod(), request.getRequestURI(),
                     request.getUserPrincipal() != null ? request.getUserPrincipal().getName() : "未知",
-                    request.isUserInRole("ADMIN") ? "ADMIN" : "非ADMIN");
+                    request.isUserInRole("ADMIN") ? "ADMIN" : "非ADMIN",
+                    accessDeniedException.getMessage());
 
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             response.setContentType("application/json;charset=UTF-8");

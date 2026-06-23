@@ -48,6 +48,18 @@
           </el-menu-item>
         </el-sub-menu>
 
+        <!-- AI 管理 - 仅管理员可见的可折叠分组 -->
+        <el-sub-menu index="sub-ai" v-if="userStore.isAdmin">
+          <template #title>
+            <el-icon><Cpu /></el-icon>
+            <span>{{ $t('nav.aiManagement') }}</span>
+          </template>
+          <el-menu-item index="/ai-settings">
+            <el-icon><Setting /></el-icon>
+            <span>{{ $t('nav.aiSettings') }}</span>
+          </el-menu-item>
+        </el-sub-menu>
+
         <!-- 系统管理 - 仅管理员可见的可折叠分组 -->
         <el-sub-menu index="sub-system" v-if="userStore.isAdmin">
           <template #title>
@@ -254,7 +266,8 @@ import {
   Expand,
   Message,
   Monitor,
-  Tools
+  Tools,
+  Cpu
 } from '@element-plus/icons-vue'
 
 const { t } = useI18n()
@@ -277,6 +290,9 @@ const defaultOpeneds = computed(() => {
   }
   if (['/email-templates', '/users', '/statistics', '/settings'].some(p => path === p || path.startsWith(p + '/'))) {
     opened.push('sub-system')
+  }
+  if (['/ai-settings'].some(p => path === p || path.startsWith(p + '/'))) {
+    opened.push('sub-ai')
   }
   return opened
 })

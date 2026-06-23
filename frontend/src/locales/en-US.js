@@ -38,13 +38,15 @@ export default {
     home: 'Home',
     businessManagement: 'Business',
     systemManagement: 'System',
+    aiManagement: 'AI Management',
     projects: 'Project Management',
     apis: 'API Management',
     codeTemplates: 'Code Templates',
     emailTemplates: 'Email Templates',
     userManagement: 'User Management',
     settings: 'System Settings',
-    statistics: 'Statistics'
+    statistics: 'Statistics',
+    aiSettings: 'AI Settings'
   },
 
   // User
@@ -759,6 +761,37 @@ export default {
     blog: 'Blog',
     github: 'GitHub',
     email: 'Send Email'
+  },
+
+  // AI Settings
+  ai: {
+    title: 'AI Settings',
+    description: 'Configure AI service providers and API keys for system AI features',
+    currentProvider: 'Current Enabled Provider',
+    noProvider: 'Not Configured',
+    providers: 'Provider List',
+    configTitle: 'Configuration - {name}',
+    providerName: 'Provider Name',
+    providerNamePlaceholder: 'Enter provider name',
+    apiUrl: 'API URL',
+    apiUrlPlaceholder: 'Enter API endpoint URL',
+    apiUrlHint: 'Must be compatible with OpenAI protocol',
+    apiKey: 'API Key',
+    apiKeyPlaceholder: 'Enter API key',
+    defaultModel: 'Default Model',
+    modelPlaceholder: 'Enter model name, e.g. gpt-4o',
+    maxTokens: 'Max Tokens',
+    temperature: 'Temperature',
+    enable: 'Enable',
+    disable: 'Disable',
+    enabled: 'Enabled',
+    disabled: 'Disabled',
+    preset: 'Preset',
+    customTag: 'Custom',
+    selectHint: 'Select a provider above to start configuration',
+    selectProvider: 'Select Provider',
+    website: 'Website',
+    validation: 'Please fill in API URL and API Key'
   },
 
   // Changelog

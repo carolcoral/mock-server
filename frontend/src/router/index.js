@@ -104,6 +104,12 @@ const routes = [
         name: 'EmailTemplates',
         component: () => import('@/views/EmailTemplates.vue'),
         meta: { requiresAuth: true, requiresAdmin: true }
+      },
+      {
+        path: '/ai-settings',
+        name: 'AiSettings',
+        component: () => import('@/views/AiSettings.vue'),
+        meta: { requiresAuth: true, requiresAdmin: true }
       }
     ]
   }

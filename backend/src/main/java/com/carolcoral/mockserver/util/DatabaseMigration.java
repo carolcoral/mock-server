@@ -196,5 +196,27 @@ public class DatabaseMigration implements CommandLineRunner {
                 log.warn("代码模板表结构升级失败: {}", errorMsg);
             }
         }
+
+        try {
+            // v2.1.2: 创建 AI 配置表
+            jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS t_ai_config (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    provider VARCHAR(50) NOT NULL UNIQUE,
+                    provider_name VARCHAR(100) NOT NULL,
+                    api_url VARCHAR(500) NOT NULL,
+                    api_key VARCHAR(500) NOT NULL,
+                    default_model VARCHAR(100),
+                    max_tokens INTEGER DEFAULT 4096,
+                    temperature REAL DEFAULT 0.7,
+                    enabled BOOLEAN NOT NULL DEFAULT 0,
+                    create_time DATETIME NOT NULL,
+                    update_time DATETIME NOT NULL
+                )
+                """);
+            log.info("成功创建t_ai_config表");
+        } catch (Exception e) {
+            log.warn("创建t_ai_config表失败: {}", e.getMessage());
+        }
     }
 }

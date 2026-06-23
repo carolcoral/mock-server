@@ -79,5 +79,6 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addViewController("/code-templates").setViewName("forward:/index.html");
         registry.addViewController("/changelog").setViewName("forward:/index.html");
         registry.addViewController("/email-templates").setViewName("forward:/index.html");
+        registry.addViewController("/ai-settings").setViewName("forward:/index.html");
     }
 }

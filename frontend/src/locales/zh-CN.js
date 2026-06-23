@@ -38,13 +38,15 @@ export default {
     home: '首页',
     businessManagement: '业务管理',
     systemManagement: '系统管理',
+    aiManagement: 'AI 管理',
     projects: '项目管理',
     apis: '接口管理',
     codeTemplates: '代码模板',
     emailTemplates: '邮件模板',
     userManagement: '用户管理',
     settings: '系统设置',
-    statistics: '数据统计'
+    statistics: '数据统计',
+    aiSettings: 'AI 设置'
   },
 
   // 用户相关
@@ -759,6 +761,37 @@ export default {
     blog: '博客',
     github: 'GitHub',
     email: '发送邮件'
+  },
+
+  // AI 设置
+  ai: {
+    title: 'AI 设置',
+    description: '配置 AI 服务商及 API 密钥，用于系统 AI 功能',
+    currentProvider: '当前启用的服务商',
+    noProvider: '未配置',
+    providers: '服务商列表',
+    configTitle: '配置 - {name}',
+    providerName: '服务商名称',
+    providerNamePlaceholder: '请输入服务商名称',
+    apiUrl: 'API 地址',
+    apiUrlPlaceholder: '请输入 API 接口地址',
+    apiUrlHint: '需符合 OpenAI 协议兼容的接口地址',
+    apiKey: 'API Key',
+    apiKeyPlaceholder: '请输入 API 密钥',
+    defaultModel: '默认模型',
+    modelPlaceholder: '请输入模型名称，如 gpt-4o',
+    maxTokens: '最大 Token',
+    temperature: '温度参数',
+    enable: '启用',
+    disable: '禁用',
+    enabled: '已启用',
+    disabled: '已禁用',
+    preset: '预设',
+    customTag: '自定义',
+    selectHint: '请从上方选择一个服务商开始配置',
+    selectProvider: '选择服务商',
+    website: '官网地址',
+    validation: '请填写 API 地址和 API Key'
   },
 
   // 变更历史
