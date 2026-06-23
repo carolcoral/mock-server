@@ -145,5 +145,18 @@ public class DatabaseMigration implements CommandLineRunner {
                 log.warn("添加custom_response_source字段失败: {}", errorMsg);
             }
         }
+
+        try {
+            // 添加is_system字段到t_custom_code_template表（v2.1.2 系统默认模板标识）
+            jdbcTemplate.execute("ALTER TABLE t_custom_code_template ADD COLUMN is_system BOOLEAN DEFAULT 0");
+            log.info("成功添加is_system字段到t_custom_code_template表");
+        } catch (Exception e) {
+            String errorMsg = e.getMessage();
+            if (errorMsg != null && errorMsg.contains("duplicate column name")) {
+                log.info("is_system字段已存在，跳过迁移");
+            } else {
+                log.warn("添加is_system字段失败: {}", errorMsg);
+            }
+        }
     }
 }

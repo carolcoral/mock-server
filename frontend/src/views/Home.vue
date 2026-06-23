@@ -79,10 +79,16 @@
           <template #header>
             <div class="card-header-row">
               <span>{{ $t('home.usageGuide') }}</span>
-              <el-button type="primary" link @click="$router.push('/changelog')">
-                <el-icon><Clock /></el-icon>
-                {{ $t('home.viewChangelog') }}
-              </el-button>
+              <div class="card-header-actions">
+                <el-button v-if="isAdmin" type="primary" link @click="showSwagger">
+                  <el-icon><Document /></el-icon>
+                  {{ $t('home.swaggerDocs') }}
+                </el-button>
+                <el-button type="primary" link @click="$router.push('/changelog')">
+                  <el-icon><Clock /></el-icon>
+                  {{ $t('home.viewChangelog') }}
+                </el-button>
+              </div>
             </div>
           </template>
           <div class="readme-content" v-if="readmeLoading">
@@ -129,6 +135,8 @@ import {
 import { marked } from 'marked'
 
 const { t } = useI18n()
+const userStore = useUserStore()
+const isAdmin = computed(() => userStore.isAdmin)
 
 // 统计数据
 const stats = ref({
@@ -179,9 +187,13 @@ const formatCount = (count) => {
       ElMessage.warning(t('home.swaggerLoginRequired'))
       return
     }
+    if (!userStore.isAdmin) {
+      ElMessage.warning(t('home.swaggerAdminRequired'))
+      return
+    }
 
     try {
-      // 调用Swagger自动登录接口（后端验证用户token后返回Swagger token）
+      // 调用Swagger自动登录接口，获取携带管理员信息的专用token
       const response = await request({
         url: '/auth/swagger-auto-login',
         method: 'post',
@@ -189,49 +201,11 @@ const formatCount = (count) => {
       })
 
       if (response.code === 200) {
-        // 获取到Swagger专用token
         const swaggerToken = response.data.token
-        
-        // 打开Swagger页面
-        const swaggerUrl = '/api/swagger-ui.html'
-        const swaggerWindow = window.open(swaggerUrl, '_blank')
-        
-        // 尝试自动填充token到Swagger UI（通过localStorage）
-        setTimeout(() => {
-          try {
-            if (swaggerWindow && !swaggerWindow.closed) {
-              // 将token存储到Swagger页面的localStorage
-              swaggerWindow.localStorage.setItem('swagger-auth-token', swaggerToken)
-              
-              // 尝试自动点击Authorize按钮并填充token
-              swaggerWindow.addEventListener('load', () => {
-                try {
-                  // 查找Authorize按钮并点击
-                  const authorizeBtn = swaggerWindow.document.querySelector('.auth-wrapper .authorize-btn')
-                  if (authorizeBtn) {
-                    authorizeBtn.click()
-                    
-                    // 等待弹窗出现后填充token
-                    setTimeout(() => {
-                      const tokenInput = swaggerWindow.document.querySelector('input[name="bearer"]')
-                      if (tokenInput) {
-                        tokenInput.value = swaggerToken
-                      }
-                    }, 500)
-                  }
-                } catch (e) {
-                  console.log('无法自动完成Swagger认证，请手动操作')
-                }
-              })
-            }
-          } catch (e) {
-            console.log('无法自动填充token到Swagger UI，请手动输入')
-          }
-        }, 1000)
-        
+        window.open(`/swagger-ui.html?token=${encodeURIComponent(swaggerToken)}`, '_blank')
         ElMessage.success(t('home.swaggerRedirecting'))
       } else {
-        ElMessage.error(t('home.swaggerLoginFailed') + response.data.message)
+        ElMessage.error(t('home.swaggerLoginFailed'))
       }
     } catch (error) {
       console.error('Swagger自动登录失败', error)
@@ -408,6 +382,12 @@ const fetchAnnouncement = async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .readme-content {

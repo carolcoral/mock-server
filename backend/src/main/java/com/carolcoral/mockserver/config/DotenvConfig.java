@@ -41,8 +41,8 @@ public class DotenvConfig {
                 String key = entry.getKey();
                 String value = entry.getValue();
                 
-                // 如果系统属性未设置，则从.env文件加载
-                if (System.getProperty(key) == null && System.getenv(key) == null) {
+                // 如果系统属性未设置，则从.env文件加载（优先系统属性，但不管环境变量是否存在都加载）
+                if (System.getProperty(key) == null) {
                     System.setProperty(key, value);
                     loadedCount++;
                     

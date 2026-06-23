@@ -53,6 +53,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
     private static final String SWAGGER_AUTO_LOGIN_PATH = "/auth/swagger-auto-login";
+    private static final String API_SWAGGER_AUTO_LOGIN_PATH = "/api/auth/swagger-auto-login";
     private static final String MOCK_PATH_PREFIX = "/mock/";
     private static final String MOCK_SERVER_PATH_PREFIX = "/mock-server/";
     private static final String AUTH_LOGIN_PATH = "/auth/login";
@@ -79,8 +80,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // Swagger自动登录接口（前端已登录用户调用）
-        if (SWAGGER_AUTO_LOGIN_PATH.equals(requestUri) || SWAGGER_AUTO_LOGIN_PATH.equals(servletPath)) {
+        // Swagger自动登录接口（前端已登录用户调用，支持带/不带 /api 前缀）
+        if (SWAGGER_AUTO_LOGIN_PATH.equals(requestUri) || SWAGGER_AUTO_LOGIN_PATH.equals(servletPath) ||
+            API_SWAGGER_AUTO_LOGIN_PATH.equals(requestUri) || API_SWAGGER_AUTO_LOGIN_PATH.equals(servletPath)) {
             handleSwaggerAutoLogin(request, response);
             return;
         }
@@ -99,38 +101,49 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // Swagger相关路径 - 需要认证，但token无效时重定向到登录页
-        if (isSwaggerPath(requestUri) || isSwaggerPath(servletPath)) {
-                String token = getTokenFromRequest(request);
-                if (StringUtils.hasText(token) && jwtTokenUtil.validateToken(token)) {
-                    // token有效，设置认证并放行
-                    String username = jwtTokenUtil.getUsernameFromToken(token);
-                    Long userId = jwtTokenUtil.getUserIdFromToken(token);
-                    String role = jwtTokenUtil.getUserRoleFromToken(token);
+        // Swagger 静态资源 - 直接放行（CSS/JS/图片等）
+        if (isSwaggerStaticPath(requestUri) || isSwaggerStaticPath(servletPath)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
-                    if (username != null && userId != null && role != null) {
-                        UserDetails userDetails = userRepository.findByUsername(username).orElse(null);
-                        if (userDetails != null) {
-                            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                                    userDetails, null, userDetails.getAuthorities());
-                            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                            SecurityContextHolder.getContext().setAuthentication(authentication);
-                            request.setAttribute("userId", userId);
-                            request.setAttribute("userRole", User.UserRole.valueOf(role));
-                            log.debug("Swagger访问认证成功: username={}, role={}", username, role);
-                        }
+        // Swagger 页面入口和 API 文档 - 需要 ADMIN 认证（支持 URL ?token= 参数）
+        if (isSwaggerAuthPath(requestUri) || isSwaggerAuthPath(servletPath)) {
+            String token = getTokenFromRequest(request);
+            if (StringUtils.hasText(token) && jwtTokenUtil.validateToken(token)) {
+                String username = jwtTokenUtil.getUsernameFromToken(token);
+                Long userId = jwtTokenUtil.getUserIdFromToken(token);
+                String role = jwtTokenUtil.getUserRoleFromToken(token);
+
+                if (username != null && userId != null && role != null && "ADMIN".equals(role)) {
+                    UserDetails userDetails = userRepository.findByUsername(username).orElse(null);
+                    if (userDetails != null) {
+                        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                                userDetails, null, userDetails.getAuthorities());
+                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                        request.setAttribute("userId", userId);
+                        request.setAttribute("userRole", User.UserRole.valueOf(role));
+                        log.debug("Swagger访问认证成功: username={}, role={}", username, role);
                     }
-                    filterChain.doFilter(request, response);
+                } else {
+                    log.warn("Swagger访问被拒绝（非管理员）: username={}, role={}", username, role);
+                    writeJsonResponse(response, HttpServletResponse.SC_FORBIDDEN,
+                            ApiResponse.error("权限不足，仅系统管理员可访问Swagger接口文档"));
+                    return;
+                }
             } else {
-                // token无效或不存在，返回401（Swagger UI会显示认证按钮）
+                // 无有效 token，返回 401 触发 Swagger UI 弹出登录框
                 if (!StringUtils.hasText(token)) {
-                    log.warn("Swagger访问未提供token: {}", requestUri);
+                    log.info("Swagger访问未提供token: {}", requestUri);
                 } else {
                     log.warn("Swagger访问token无效: {}", requestUri);
                 }
                 writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
                         ApiResponse.unauthorized());
+                return;
             }
+            filterChain.doFilter(request, response);
             return;
         }
 
@@ -274,33 +287,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
             
-            // 从系统属性获取Swagger凭据（由.env文件加载）
-            String swaggerUsername = System.getProperty("SWAGGER_USERNAME");
-            String swaggerPassword = System.getProperty("SWAGGER_PASSWORD");
-            
-            // 添加调试日志
-            log.debug("Swagger认证配置 - username: {}, password: {}", 
-                     swaggerUsername != null ? "已设置" : "未设置",
-                     swaggerPassword != null ? "已设置" : "未设置");
-            
-            // 检查环境变量是否配置（用于Swagger访问）
-            if (swaggerUsername == null || swaggerUsername.isEmpty() || swaggerPassword == null || swaggerPassword.isEmpty()) {
-                log.error("Swagger登录未配置，当前username: {}, password: {}", swaggerUsername, swaggerPassword);
-                writeJsonResponse(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                        ApiResponse.error("Swagger登录未配置，请设置环境变量SWAGGER_USERNAME和SWAGGER_PASSWORD"));
+            // 检查是否为管理员
+            if (!"ADMIN".equals(role)) {
+                log.warn("非管理员用户尝试获取Swagger访问令牌: user={}, role={}", username, role);
+                writeJsonResponse(response, HttpServletResponse.SC_FORBIDDEN,
+                        ApiResponse.error("权限不足，仅系统管理员可访问Swagger接口文档"));
                 return;
             }
             
-            // 生成Swagger专用token（使用Swagger配置的用户信息）
-            String swaggerToken = jwtTokenUtil.generateToken(
-                    org.springframework.security.core.userdetails.User.builder()
-                            .username(swaggerUsername)
-                            .password("")
-                            .roles("ADMIN")
-                            .build(),
-                    0L,
-                    "ADMIN"
-            );
+            // 使用当前登录用户的信息生成Swagger专用token
+            UserDetails userDetails = userRepository.findByUsername(username).orElse(null);
+            if (userDetails == null) {
+                writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
+                        ApiResponse.error("用户不存在"));
+                return;
+            }
+            
+            String swaggerToken = jwtTokenUtil.generateToken(userDetails, userId, role);
             
             log.info("Swagger自动登录成功: user={}, role={}", username, role);
             
@@ -308,8 +311,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     com.carolcoral.mockserver.dto.LoginResponse.builder()
                             .token(swaggerToken)
                             .tokenType("Bearer")
-                            .username(swaggerUsername)
-                            .role("ADMIN")
+                            .username(username)
+                            .role(role)
                             .build()
             );
             
@@ -323,13 +326,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /**
-     * 判断是否是Swagger相关路径
+     * 判断是否是Swagger静态资源路径（CSS/JS/图片，公开访问）
      */
-    private boolean isSwaggerPath(String requestUri) {
-        return requestUri.contains("/v3/api-docs") || 
-               requestUri.contains("/swagger-ui") ||
+    private boolean isSwaggerStaticPath(String requestUri) {
+        return requestUri.contains("/swagger-ui/") ||
                requestUri.contains("/swagger-resources") ||
                requestUri.contains("/webjars");
+    }
+
+    /**
+     * 判断是否是Swagger需要认证的路径（页面入口 + API文档数据）
+     */
+    private boolean isSwaggerAuthPath(String requestUri) {
+        return requestUri.contains("/v3/api-docs") ||
+               requestUri.equals("/swagger-ui.html");
     }
 
 
