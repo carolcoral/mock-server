@@ -1,5 +1,48 @@
 # 版本变更说明
 
+## v2.1.2 (2026-06-23)
+
+> Swagger 权限管控、代码模板增强与系统优化。
+
+### 🔒 安全
+- **Swagger 权限管控**：仅系统管理员可访问 Swagger 接口文档，入口按钮仅管理员可见
+- Swagger 自动登录使用真实管理员身份签发 token，避免数据库查询失败导致的 403
+
+### 🚀 新增
+- **系统代码模板**：新增 `is_system` 字段，支持全局默认模板（不可修改/删除），`project_id` 改为可空
+
+### 🎨 优化
+- Swagger 静态资源公开访问，确保页面正常加载
+- 首页 Swagger 入口增加管理员权限校验（前端 + 后端双重验证）
+
+### 📝 升级说明
+
+> ⚠️ **v2.1.1 → v2.1.2 数据库变更**：`DatabaseMigration` 启动时自动执行。若自动迁移失败，请手动执行以下 SQL：
+
+```sql
+-- 1. 新增系统默认模板标识
+ALTER TABLE t_custom_code_template ADD COLUMN is_system BOOLEAN DEFAULT 0;
+
+-- 2. 将 project_id 改为可空（系统模板不属于任何项目）
+-- SQLite 不支持直接 ALTER COLUMN，需重建表：
+CREATE TABLE t_custom_code_template_new (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(100) NOT NULL, description VARCHAR(500),
+    source_code TEXT NOT NULL, language VARCHAR(50) NOT NULL DEFAULT 'JAVA',
+    enabled BOOLEAN NOT NULL DEFAULT 1, is_system BOOLEAN DEFAULT 0,
+    create_time DATETIME NOT NULL, update_time DATETIME NOT NULL,
+    create_user_id BIGINT NOT NULL, project_id BIGINT
+);
+INSERT INTO t_custom_code_template_new SELECT
+    id, name, description, source_code, language, enabled,
+    COALESCE(is_system, 0), create_time, update_time, create_user_id, project_id
+FROM t_custom_code_template;
+DROP TABLE t_custom_code_template;
+ALTER TABLE t_custom_code_template_new RENAME TO t_custom_code_template;
+```
+
+---
+
 ## v2.1.1 (2026-06-17)
 
 > 邮件系统、菜单重构与搜索逻辑修复。

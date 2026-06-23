@@ -145,5 +145,56 @@ public class DatabaseMigration implements CommandLineRunner {
                 log.warn("添加custom_response_source字段失败: {}", errorMsg);
             }
         }
+
+        try {
+            // 添加is_system字段到t_custom_code_template表（v2.1.2 系统默认模板标识）
+            jdbcTemplate.execute("ALTER TABLE t_custom_code_template ADD COLUMN is_system BOOLEAN DEFAULT 0");
+            log.info("成功添加is_system字段到t_custom_code_template表");
+        } catch (Exception e) {
+            String errorMsg = e.getMessage();
+            if (errorMsg != null && (errorMsg.contains("duplicate column name") || errorMsg.contains("no such table"))) {
+                log.info("is_system字段已存在或表不存在，跳过迁移");
+            } else {
+                log.warn("添加is_system字段失败: {}", errorMsg);
+            }
+        }
+
+        try {
+            // v2.1.2: 将 project_id 改为可空（系统模板不属于任何项目）
+            // SQLite 不支持 ALTER COLUMN，需要重建表
+            // 注意：v2.1.0 升级时此表由 Hibernate ddl-auto 自动创建，无需迁移
+            jdbcTemplate.execute("""
+                CREATE TABLE t_custom_code_template_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name VARCHAR(100) NOT NULL,
+                    description VARCHAR(500),
+                    source_code TEXT NOT NULL,
+                    language VARCHAR(50) NOT NULL DEFAULT 'JAVA',
+                    enabled BOOLEAN NOT NULL DEFAULT 1,
+                    is_system BOOLEAN DEFAULT 0,
+                    create_time DATETIME NOT NULL,
+                    update_time DATETIME NOT NULL,
+                    create_user_id BIGINT NOT NULL,
+                    project_id BIGINT
+                )
+                """);
+            // 迁移旧数据（如果旧表存在且有数据）
+            jdbcTemplate.execute("""
+                INSERT INTO t_custom_code_template_new
+                SELECT id, name, description, source_code, language, enabled,
+                       COALESCE(is_system, 0), create_time, update_time, create_user_id, project_id
+                FROM t_custom_code_template
+                """);
+            jdbcTemplate.execute("DROP TABLE t_custom_code_template");
+            jdbcTemplate.execute("ALTER TABLE t_custom_code_template_new RENAME TO t_custom_code_template");
+            log.info("成功将project_id改为可空（v2.1.2 代码模板表结构升级）");
+        } catch (Exception e) {
+            String errorMsg = e.getMessage();
+            if (errorMsg != null && (errorMsg.contains("already exists") || errorMsg.contains("no such table"))) {
+                log.info("代码模板表无需升级，跳过迁移");
+            } else {
+                log.warn("代码模板表结构升级失败: {}", errorMsg);
+            }
+        }
     }
 }

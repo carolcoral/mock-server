@@ -91,9 +91,6 @@ public class SecurityConfig {
                                 "/api/ws/**",
                                 "/api/error",
                                 "/api/actuator/**",
-                                "/api/v3/api-docs/**",
-                                "/api/swagger-resources/**",
-                                "/api/webjars/**",
                                 // Bing 图片代理
                                 "/bing-hp",
                                 // 前端静态资源
@@ -136,11 +133,24 @@ public class SecurityConfig {
                                 "/changelog",
                                 "/email-templates"
                         ).permitAll()
-                        // Swagger UI 页面
+                        // Swagger 静态资源 - 公开访问（页面加载 CSS/JS 需要）
                         .requestMatchers(
+                                "/api/swagger-resources/**",
+                                "/api/webjars/**",
                                 "/api/swagger-ui/**",
-                                "/api/swagger-ui.html"
-                        ).authenticated()
+                                // Swagger 静态资源（不带 /api 前缀，springdoc 默认路径）
+                                "/swagger-resources/**",
+                                "/webjars/**",
+                                "/swagger-ui/**"
+                        ).permitAll()
+                        // Swagger 页面入口和 API 文档数据 - 需要管理员权限
+                        .requestMatchers(
+                                "/api/v3/api-docs/**",
+                                "/api/swagger-ui.html",
+                                // Swagger 路径（不带 /api 前缀，springdoc 默认路径）
+                                "/v3/api-docs/**",
+                                "/swagger-ui.html"
+                        ).hasRole("ADMIN")
                         // 系统配置读写接口 - 需要管理员权限
                         .requestMatchers(
                                 "/api/system-config/language",

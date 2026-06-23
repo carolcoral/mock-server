@@ -296,7 +296,7 @@ else
     print_warning "项目根目录未找到 CHANGELOG.md"
 fi
 
-print_info "后端jar包: backend/target/mock-server-2.1.1.jar"
+print_info "后端jar包: backend/target/mock-server-2.1.2.jar"
 print_info "前端dist目录: frontend/dist/"
 print_info ""
 print_info "启动后端: cd backend && mvn spring-boot:run -Djava.home=\"$INTERNAL_JAVA_HOME\""
