@@ -100,7 +100,13 @@
           <el-switch v-model="form.enabled" :active-text="$t('settings.enabledStatus')" :inactive-text="$t('settings.disabledStatus')" />
         </el-form-item>
         <el-form-item :label="$t('emailTemplate.subject')">
-          <el-input v-model="form.subject" :placeholder="$t('emailTemplate.subjectPlaceholder')" />
+          <div style="display: flex; gap: 8px; width: 100%;">
+            <el-input v-model="form.subject" :placeholder="$t('emailTemplate.subjectPlaceholder')" style="flex: 1;" />
+            <el-button type="warning" size="small" @click="handleAiGenerateSubject" :loading="aiSubjectLoading" style="flex-shrink: 0; align-self: flex-start;">
+              <MagicStick :width="'0.9em'" :height="'0.9em'" style="margin-right: 4px;" />
+              {{ aiSubjectLoading ? $t('ai.generating') : $t('ai.generate') }}
+            </el-button>
+          </div>
         </el-form-item>
         <!-- 邮件正文 -->
         <el-form-item :label="$t('emailTemplate.content')">
@@ -108,14 +114,25 @@
             <div style="color: #909399; font-size: 12px;">
               支持的占位符：&#123;&#123;username&#125;&#125;、&#123;&#123;email&#125;&#125;、&#123;&#123;time&#125;&#125;、&#123;&#123;siteUrl&#125;&#125;、&#123;&#123;code&#125;&#125;、&#123;&#123;password&#125;&#125;、&#123;&#123;newPassword&#125;&#125;
             </div>
-            <el-button
-              size="small"
-              :disabled="!form.content"
-              @click="openPreview"
-            >
-              <View :width="'0.9em'" :height="'0.9em'" style="margin-right: 4px;" />
-              {{ $t('emailTemplate.preview') }}
-            </el-button>
+            <div style="display: flex; gap: 8px;">
+              <el-button
+                size="small"
+                :disabled="!form.content"
+                @click="openPreview"
+              >
+                <View :width="'0.9em'" :height="'0.9em'" style="margin-right: 4px;" />
+                {{ $t('emailTemplate.preview') }}
+              </el-button>
+              <el-button
+                type="warning"
+                size="small"
+                @click="handleAiGenerateTemplate"
+                :loading="aiTemplateLoading"
+              >
+                <MagicStick :width="'0.9em'" :height="'0.9em'" style="margin-right: 4px;" />
+                {{ aiTemplateLoading ? $t('ai.generating') : $t('ai.generateTemplate') }}
+              </el-button>
+            </div>
           </div>
           <textarea
             v-model="form.content"
@@ -153,9 +170,10 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Edit, Delete, InfoFilled, View } from '@element-plus/icons-vue'
+import { Edit, Delete, InfoFilled, View, MagicStick } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import request from '@/utils/request'
+import { generateEmailTemplate } from '@/api/ai'
 
 const { t } = useI18n()
 
@@ -176,6 +194,77 @@ const form = reactive({
   content: '',
   enabled: true
 })
+
+// AI 辅助编写相关
+const aiSubjectLoading = ref(false)
+const aiTemplateLoading = ref(false)
+
+// AI 生成邮件主题
+const handleAiGenerateSubject = async () => {
+  if (!form.name || !form.name.trim()) {
+    ElMessage.warning(t('emailTemplate.nameRequired'))
+    return
+  }
+
+  aiSubjectLoading.value = true
+  try {
+    const response = await generateEmailTemplate({
+      templateType: form.type,
+      templateName: form.name.trim(),
+      existingSubject: form.subject || undefined,
+      existingContent: form.content || undefined
+    })
+
+    if (response.code === 200 && response.data) {
+      if (response.data.subject) {
+        form.subject = response.data.subject
+      }
+      ElMessage.success(t('ai.emailSubjectGenerated'))
+    } else {
+      ElMessage.error(response.message || t('ai.generateFailed'))
+    }
+  } catch (error) {
+    console.error('AI 生成主题失败:', error)
+    ElMessage.error(t('ai.generateFailed'))
+  } finally {
+    aiSubjectLoading.value = false
+  }
+}
+
+// AI 生成完整邮件模板
+const handleAiGenerateTemplate = async () => {
+  if (!form.name || !form.name.trim()) {
+    ElMessage.warning(t('emailTemplate.nameRequired'))
+    return
+  }
+
+  aiTemplateLoading.value = true
+  try {
+    const response = await generateEmailTemplate({
+      templateType: form.type,
+      templateName: form.name.trim(),
+      existingSubject: form.subject || undefined,
+      existingContent: form.content || undefined
+    })
+
+    if (response.code === 200 && response.data) {
+      if (response.data.subject) {
+        form.subject = response.data.subject
+      }
+      if (response.data.content) {
+        form.content = response.data.content
+      }
+      ElMessage.success(t('ai.emailTemplateGenerated'))
+    } else {
+      ElMessage.error(response.message || t('ai.generateFailed'))
+    }
+  } catch (error) {
+    console.error('AI 生成邮件模板失败:', error)
+    ElMessage.error(t('ai.generateFailed'))
+  } finally {
+    aiTemplateLoading.value = false
+  }
+}
 
 // 获取模板列表
 const fetchTemplates = async () => {

@@ -38,13 +38,9 @@ public class AiService {
     private AiConfigService aiConfigService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final RestTemplate restTemplate;
 
     public AiService() {
-        // 使用较短的超时时间，避免 AI 调用阻塞过久
-        this.restTemplate = new RestTemplate();
-        // 注意：RestTemplate 默认使用 SimpleClientHttpRequestFactory
-        // 这里使用构建器方式设置超时
+        // 使用 getRestTemplate() 方法获取配置了超时的 RestTemplate
     }
 
     /**
@@ -124,6 +120,100 @@ public class AiService {
         } catch (Exception e) {
             log.error("AI 生成接口描述失败: {}", e.getMessage(), e);
             throw new RuntimeException("AI 生成描述失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 调用 AI 生成邮件模板
+     *
+     * @param templateType 模板类型 (REGISTER/RESET_PASSWORD/PASSWORD_CHANGED)
+     * @param templateName 模板名称
+     * @param existingSubject 已有主题（可为null，用于参考）
+     * @param existingContent 已有内容（可为null，用于参考）
+     * @return 包含 subject 和 content 的 Map
+     */
+    public Map<String, String> generateEmailTemplate(String templateType, String templateName,
+                                                       String existingSubject, String existingContent) {
+        AiConfig config = aiConfigService.getEnabledConfig();
+        if (config == null) {
+            throw new RuntimeException("未启用任何 AI 服务商");
+        }
+        if (config.getApiUrl() == null || config.getApiUrl().isBlank()) {
+            throw new RuntimeException("AI 服务商 API 地址未配置");
+        }
+        if (config.getApiKey() == null || config.getApiKey().isBlank()) {
+            throw new RuntimeException("AI 服务商 API Key 未配置");
+        }
+
+        String typeLabel;
+        switch (templateType) {
+            case "REGISTER":
+                typeLabel = "注册验证";
+                break;
+            case "RESET_PASSWORD":
+                typeLabel = "重置密码";
+                break;
+            case "PASSWORD_CHANGED":
+                typeLabel = "密码已修改";
+                break;
+            default:
+                typeLabel = templateType;
+        }
+
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("你是一个专业的邮件模板编写助手。请为以下场景生成一封邮件模板。\n\n");
+        prompt.append("邮件场景：").append(typeLabel).append("\n");
+        if (templateName != null && !templateName.isBlank()) {
+            prompt.append("模板名称：").append(templateName).append("\n");
+        }
+        prompt.append("\n");
+        prompt.append("要求：\n");
+        prompt.append("1. 邮件主题简洁明了，包含系统名称【Mock Server】前缀\n");
+        prompt.append("2. 邮件内容使用 HTML 格式，风格专业友好\n");
+        prompt.append("3. 内容中可以使用以下占位符变量（按场景选择合适的使用）：\n");
+        prompt.append("   - {{username}} - 用户名\n");
+        prompt.append("   - {{email}} - 用户邮箱\n");
+        prompt.append("   - {{time}} - 发送时间\n");
+        prompt.append("   - {{siteUrl}} - 系统地址\n");
+        prompt.append("   - {{code}} - 验证码\n");
+        prompt.append("   - {{password}} / {{newPassword}} - 新密码\n");
+        prompt.append("4. 根据场景选择最合适的占位符（注册场景用 {{code}}，密码场景用 {{password}} 或 {{newPassword}}）\n");
+        prompt.append("5. 返回严格的 JSON 格式：{\"subject\":\"邮件主题\",\"content\":\"HTML邮件内容\"}\n");
+        prompt.append("6. 不要包含 markdown 代码块标记，不要包含任何解释文字\n");
+
+        if (existingSubject != null && !existingSubject.isBlank()) {
+            prompt.append("\n参考主题：").append(existingSubject).append("\n");
+        }
+        if (existingContent != null && !existingContent.isBlank()) {
+            prompt.append("参考内容：").append(existingContent).append("\n");
+        }
+        prompt.append("\n请在参考基础上改进优化，生成更专业的邮件模板。");
+
+        String promptStr = prompt.toString();
+        log.debug("AI 邮件模板 Prompt: {}", promptStr);
+
+        try {
+            String responseJson = callAiApi(config, promptStr);
+            log.info("AI 邮件模板 API 响应长度: {}", responseJson != null ? responseJson.length() : 0);
+
+            String content = extractTextContent(responseJson);
+            log.info("AI 邮件模板原始响应内容: {}", content);
+
+            // 清理可能的 markdown 标记（更健壮的清理逻辑）
+            content = cleanMarkdownJson(content);
+            log.info("AI 邮件模板清理后内容: {}", content);
+
+            JsonNode root = objectMapper.readTree(content);
+            Map<String, String> result = new LinkedHashMap<>();
+            result.put("subject", root.has("subject") ? root.get("subject").asText() : "");
+            result.put("content", root.has("content") ? root.get("content").asText() : "");
+            log.info("AI 邮件模板生成成功: subject长度={}, content长度={}",
+                    result.get("subject") != null ? result.get("subject").length() : 0,
+                    result.get("content") != null ? result.get("content").length() : 0);
+            return result;
+        } catch (Exception e) {
+            log.error("AI 生成邮件模板失败: {}", e.getMessage(), e);
+            throw new RuntimeException("AI 生成邮件模板失败: " + e.getMessage(), e);
         }
     }
 
@@ -212,15 +302,68 @@ public class AiService {
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
         log.info("AI API 请求: url={}, model={}", chatUrl, model);
+        // debug: 打印请求体（隐藏 API Key）
+        try {
+            String reqBodyJson = objectMapper.writeValueAsString(requestBody);
+            log.debug("AI API 请求体: {}", reqBodyJson.length() > 2000 ? reqBodyJson.substring(0, 2000) + "..." : reqBodyJson);
+        } catch (Exception ignored) {}
 
         RestTemplate rt = getRestTemplate();
-        ResponseEntity<String> response = rt.exchange(chatUrl, HttpMethod.POST, entity, String.class);
+        try {
+            long startTime = System.currentTimeMillis();
+            ResponseEntity<String> response = rt.exchange(chatUrl, HttpMethod.POST, entity, String.class);
+            long elapsed = System.currentTimeMillis() - startTime;
 
-        if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-            return response.getBody();
-        } else {
-            throw new RuntimeException("AI API 返回非 2xx 状态码: " + response.getStatusCode());
+            log.info("AI API 响应: status={}, bodyLength={}, elapsed={}ms",
+                    response.getStatusCode().value(),
+                    response.getBody() != null ? response.getBody().length() : 0,
+                    elapsed);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                // debug: 打印完整响应体
+                String respBody = response.getBody();
+                log.debug("AI API 响应体(前2000字符): {}", respBody.length() > 2000 ? respBody.substring(0, 2000) + "..." : respBody);
+                return respBody;
+            } else {
+                String errorBody = response.getBody() != null ?
+                        (response.getBody().length() > 500 ? response.getBody().substring(0, 500) : response.getBody()) : "";
+                log.error("AI API 返回非 2xx 状态码: {}, body: {}", response.getStatusCode(), errorBody);
+                throw new RuntimeException("AI API 返回非 2xx 状态码: " + response.getStatusCode());
+            }
+        } catch (org.springframework.web.client.ResourceAccessException e) {
+            log.error("AI API 网络连接失败: {}", e.getMessage());
+            throw new RuntimeException("AI API 连接失败，请检查网络和 API 地址: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * 清理 AI 响应中的 markdown 代码块标记，提取纯 JSON 内容
+     */
+    private String cleanMarkdownJson(String content) {
+        if (content == null || content.isBlank()) {
+            return content;
+        }
+        content = content.trim();
+
+        // 查找第一个 { 和最后一个 }，提取 JSON 对象
+        int firstBrace = content.indexOf('{');
+        int lastBrace = content.lastIndexOf('}');
+        if (firstBrace >= 0 && lastBrace > firstBrace) {
+            content = content.substring(firstBrace, lastBrace + 1);
+        }
+
+        // 清理 markdown 代码块标记（可能仍有残留）
+        content = content.trim();
+        if (content.startsWith("```json")) {
+            content = content.substring(7);
+        } else if (content.startsWith("```")) {
+            content = content.substring(3);
+        }
+        if (content.endsWith("```")) {
+            content = content.substring(0, content.length() - 3);
+        }
+
+        return content.trim();
     }
 
     /**
@@ -234,10 +377,16 @@ public class AiService {
             if (message != null) {
                 JsonNode content = message.get("content");
                 if (content != null) {
-                    return content.asText().trim();
+                    String text = content.asText();
+                    if (text != null) {
+                        return text.trim();
+                    }
                 }
             }
         }
+        // 打印原始响应以便调试
+        String preview = responseJson.length() > 500 ? responseJson.substring(0, 500) + "..." : responseJson;
+        log.error("无法解析 AI 响应，原始响应预览: {}", preview);
         throw new RuntimeException("无法解析 AI 响应，响应格式不符合预期");
     }
 

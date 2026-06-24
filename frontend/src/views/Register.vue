@@ -226,13 +226,29 @@ const handleRegister = async () => {
 
 // 发送验证码
 const sendVerificationCode = async () => {
+  // 校验用户名
+  if (!registerForm.username || !registerForm.username.trim()) {
+    ElMessage.warning(t('register.usernameRequired'))
+    return
+  }
+  if (registerForm.username.trim().length < 3 || registerForm.username.trim().length > 50) {
+    ElMessage.warning(t('register.usernameLength'))
+    return
+  }
+  // 校验邮箱
   if (!registerForm.email) {
     ElMessage.warning(t('register.emailRequired'))
+    return
+  }
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailPattern.test(registerForm.email)) {
+    ElMessage.warning(t('register.emailInvalid'))
     return
   }
   codeSending.value = true
   try {
     const response = await axios.post('/api/auth/send-verification-code', {
+      username: registerForm.username.trim(),
       email: registerForm.email,
       templateId: selectedTemplateId.value || undefined
     })

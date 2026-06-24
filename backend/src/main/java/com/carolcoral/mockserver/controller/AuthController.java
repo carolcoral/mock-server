@@ -194,6 +194,8 @@ public class AuthController {
             return ApiResponse.error("邮箱不能为空");
         }
 
+        String username = (String) requestBody.get("username");
+
         // 检查邮箱验证功能是否开启
         String enableEmailVerify = systemConfigService.getConfig("enableEmailVerification");
         if (!"true".equals(enableEmailVerify)) {
@@ -219,8 +221,8 @@ public class AuthController {
                     .orElse(null);
         }
 
-        log.info("请求发送验证码到: {}, templateId: {}", email, templateId);
-        String code = emailService.sendRegisterVerificationCode(email, templateId);
+        log.info("请求发送验证码到: {}, username: {}, templateId: {}", email, username, templateId);
+        String code = emailService.sendRegisterVerificationCode(email, username, templateId);
         if (code != null) {
             return ApiResponse.success("验证码已发送");
         } else {

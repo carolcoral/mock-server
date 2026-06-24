@@ -87,4 +87,31 @@ public class AiMockController {
             return ApiResponse.error(e.getMessage());
         }
     }
+
+    /**
+     * AI 生成邮件模板
+     *
+     * @param params 包含 templateType, templateName, existingSubject, existingContent
+     * @return 包含 subject 和 content 的 Map
+     */
+    @Operation(summary = "AI 智能生成邮件模板")
+    @PostMapping("/generate-email-template")
+    public ApiResponse<Map<String, String>> generateEmailTemplate(@RequestBody Map<String, String> params) {
+        String templateType = params.get("templateType");
+        String templateName = params.get("templateName");
+        String existingSubject = params.get("existingSubject");
+        String existingContent = params.get("existingContent");
+
+        if (templateType == null || templateType.isBlank()) {
+            return ApiResponse.error("请提供模板类型 (templateType)");
+        }
+
+        try {
+            Map<String, String> result = aiService.generateEmailTemplate(
+                    templateType, templateName, existingSubject, existingContent);
+            return ApiResponse.success(result);
+        } catch (RuntimeException e) {
+            return ApiResponse.error(e.getMessage());
+        }
+    }
 }

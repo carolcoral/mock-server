@@ -184,11 +184,13 @@ public class EmailService {
      * 发送注册验证码
      *
      * @param email 收件人邮箱
+     * @param username 用户名（用于替换模板中的 {{username}} 占位符）
+     * @param templateId 模板ID（可选）
      * @return 验证码（如果发送成功），null（如果发送失败）
      */
     @Operation(summary = "发送注册验证码")
     @Transactional
-    public String sendRegisterVerificationCode(String email, Long templateId) {
+    public String sendRegisterVerificationCode(String email, String username, Long templateId) {
         // 使该邮箱之前的注册验证码失效
         List<VerificationCode> oldCodes = verificationCodeRepository.findByEmailAndTypeAndUsedFalse(email, EmailTemplate.TYPE_REGISTER);
         for (VerificationCode oldCode : oldCodes) {
@@ -239,10 +241,10 @@ public class EmailService {
                     "</div>";
         }
 
-        // 替换占位符
+        // 替换占位符（传入 username，使模板中 {{username}} 自动填充为当前实际用户名）
         String currentTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-        subject = replacePlaceholders(subject, null, email, currentTime, code);
-        content = replacePlaceholders(content, null, email, currentTime, code);
+        subject = replacePlaceholders(subject, username, email, currentTime, code);
+        content = replacePlaceholders(content, username, email, currentTime, code);
 
         // 发送邮件
         boolean sent = sendEmail(email, subject, content);

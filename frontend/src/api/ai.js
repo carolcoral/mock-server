@@ -45,3 +45,17 @@ export function testAiConnectivity(params) {
   })
 }
 
+/**
+ * AI 生成邮件模板
+ * @param {Object} params - { templateType, templateName, existingSubject, existingContent }
+ * @returns {Promise}
+ */
+export function generateEmailTemplate(params) {
+  return request({
+    url: '/ai/generate-email-template',
+    method: 'post',
+    data: params,
+    timeout: AI_TIMEOUT
+  })
+}
+

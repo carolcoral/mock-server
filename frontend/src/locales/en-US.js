@@ -817,7 +817,11 @@ export default {
     styleDescPlaceholder: 'Describe the expected response style, e.g. concise, with pagination, nested data, etc.',
     apply: 'Apply',
     applySuccess: 'Response #{index} has been applied to the API',
-    applyFailed: 'Apply failed'
+    applyFailed: 'Apply failed',
+    generate: 'AI Generate',
+    generateTemplate: 'AI Generate Template',
+    emailSubjectGenerated: 'Email subject generated',
+    emailTemplateGenerated: 'Email template generated'
   },
 
   // Changelog

@@ -817,7 +817,11 @@ export default {
     styleDescPlaceholder: '描述期望的响应风格，如：简洁风格、包含分页信息、嵌套数据等',
     apply: '应用',
     applySuccess: '第 {index} 条响应已应用到接口',
-    applyFailed: '应用失败'
+    applyFailed: '应用失败',
+    generate: 'AI 生成',
+    generateTemplate: 'AI 生成模板',
+    emailSubjectGenerated: '邮件主题已生成',
+    emailTemplateGenerated: '邮件模板已生成'
   },
 
   // 变更历史

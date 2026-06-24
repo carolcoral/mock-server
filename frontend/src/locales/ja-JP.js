@@ -817,7 +817,11 @@ export default {
     styleDescPlaceholder: '期待する応答スタイルを説明してください（例：簡潔、ページネーション付き、ネストデータなど）',
     apply: '適用',
     applySuccess: '{index}番目の応答がAPIに適用されました',
-    applyFailed: '適用に失敗しました'
+    applyFailed: '適用に失敗しました',
+    generate: 'AI生成',
+    generateTemplate: 'AIテンプレート生成',
+    emailSubjectGenerated: 'メール件名が生成されました',
+    emailTemplateGenerated: 'メールテンプレートが生成されました'
   },
 
   // 変更履歴
