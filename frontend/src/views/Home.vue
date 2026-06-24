@@ -80,6 +80,12 @@
             <div class="card-header-row">
               <span>{{ $t('home.usageGuide') }}</span>
               <div class="card-header-actions">
+                <el-button type="primary" link @click="showGuide = true">
+                  <svg class="btn-svg-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  {{ $t('common.userGuide') || '使用说明' }}
+                </el-button>
                 <el-button v-if="isAdmin" type="primary" link @click="showSwagger">
                   <el-icon><Document /></el-icon>
                   {{ $t('home.swaggerDocs') }}
@@ -114,6 +120,9 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- 使用说明引导对话框 -->
+    <GuideDialog v-model="showGuide" />
   </div>
 </template>
 
@@ -133,10 +142,12 @@ import {
   Clock
 } from '@element-plus/icons-vue'
 import { marked } from 'marked'
+import GuideDialog from '@/components/GuideDialog.vue'
 
 const { t } = useI18n()
 const userStore = useUserStore()
 const isAdmin = computed(() => userStore.isAdmin)
+const showGuide = ref(false)
 
 // 统计数据
 const stats = ref({
@@ -388,6 +399,10 @@ const fetchAnnouncement = async () => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.btn-svg-icon {
+  flex-shrink: 0;
 }
 
 .readme-content {

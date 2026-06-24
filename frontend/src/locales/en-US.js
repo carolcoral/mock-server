@@ -4,6 +4,7 @@ export default {
     save: 'Save',
     cancel: 'Cancel',
     confirm: 'Confirm',
+    userGuide: 'User Guide',
     delete: 'Delete',
     edit: 'Edit',
     add: 'Add',

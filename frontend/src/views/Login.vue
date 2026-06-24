@@ -2,10 +2,18 @@
   <div class="login-container" :style="{ backgroundImage: `url(${bgImage})` }">
     <div class="login-overlay"></div>
     <div class="login-card">
-      <router-link to="/" class="back-home-link">
-        <el-icon><ArrowLeft /></el-icon>
-        <span>{{ $t('common.backHome') }}</span>
-      </router-link>
+      <div class="login-top-links">
+        <router-link to="/" class="back-home-link">
+          <el-icon><ArrowLeft /></el-icon>
+          <span>{{ $t('common.backHome') }}</span>
+        </router-link>
+        <span class="guide-link" @click="showGuide = true">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <span>{{ $t('common.userGuide') || '使用说明' }}</span>
+        </span>
+      </div>
       <div class="login-header">
         <h1>
           <svg class="login-logo-icon" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -63,6 +71,9 @@
         <router-link v-if="registrationEnabled" to="/register" class="footer-link">{{ $t('login.registerLink') }}</router-link>
       </div>
     </div>
+
+    <!-- 使用说明引导对话框 -->
+    <GuideDialog v-model="showGuide" />
   </div>
 </template>
 
@@ -75,6 +86,7 @@ import { useI18n } from 'vue-i18n'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import axios from 'axios'
 import { useBingBackground } from '@/composables/useBingBackground'
+import GuideDialog from '@/components/GuideDialog.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -82,6 +94,7 @@ const userStore = useUserStore()
 const loginFormRef = ref()
 const loading = ref(false)
 const registrationEnabled = ref(false)
+const showGuide = ref(false)
 
 const { bgImage, fetchBingBg } = useBingBackground()
 
@@ -195,6 +208,13 @@ onMounted(() => {
   z-index: 1;
 }
 
+.login-top-links {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
 .back-home-link {
   display: inline-flex;
   align-items: center;
@@ -202,12 +222,34 @@ onMounted(() => {
   color: #909399;
   text-decoration: none;
   font-size: 13px;
-  margin-bottom: 12px;
   transition: color 0.3s ease;
 }
 
 .back-home-link:hover {
   color: #667eea;
+}
+
+.guide-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #667eea;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.3s ease;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(102, 126, 234, 0.06);
+}
+
+.guide-link:hover {
+  color: #fff;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
+.guide-link svg {
+  flex-shrink: 0;
 }
 
 .login-header {

@@ -4,6 +4,7 @@ export default {
     save: '保存',
     cancel: 'キャンセル',
     confirm: '確認',
+    userGuide: 'ユーザーガイド',
     delete: '削除',
     edit: '編集',
     add: '追加',
