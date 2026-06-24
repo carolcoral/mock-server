@@ -49,9 +49,6 @@
             {{ $t('welcome.cta') }}
             <el-icon class="cta-icon"><ArrowRight /></el-icon>
           </el-button>
-          <el-button size="large" round class="hero-login" @click="goLogin">
-            {{ $t('welcome.login') }}
-          </el-button>
         </div>
       </section>
 
@@ -531,22 +528,6 @@ const aiCaps = computed(() => [
 .hero-cta:hover {
   transform: translateY(-2px) !important;
   box-shadow: 0 8px 32px rgba(102, 126, 234, 0.5) !important;
-}
-
-.hero-login {
-  padding: 14px 36px !important;
-  font-size: 16px !important;
-  font-weight: 500 !important;
-  background: rgba(255, 255, 255, 0.06) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  color: rgba(255, 255, 255, 0.75) !important;
-  transition: all 0.3s ease !important;
-}
-
-.hero-login:hover {
-  background: rgba(255, 255, 255, 0.1) !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
-  color: #fff !important;
 }
 
 .cta-icon {
