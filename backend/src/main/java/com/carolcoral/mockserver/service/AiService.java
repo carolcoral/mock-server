@@ -7,6 +7,8 @@
 package com.carolcoral.mockserver.service;
 
 import com.carolcoral.mockserver.entity.AiConfig;
+import com.carolcoral.mockserver.entity.CustomCodeTemplate;
+import com.carolcoral.mockserver.repository.CustomCodeTemplateRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -37,6 +39,9 @@ public class AiService {
     @Autowired
     private AiConfigService aiConfigService;
 
+    @Autowired
+    private CustomCodeTemplateRepository codeTemplateRepository;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AiService() {
@@ -44,12 +49,23 @@ public class AiService {
     }
 
     /**
-     * 获取配置了超时的 RestTemplate
+     * 获取配置了超时的 RestTemplate（读取用户配置的超时时间，默认 120 秒）
      */
     private RestTemplate getRestTemplate() {
+        int readTimeoutSeconds = 120; // 默认 120 秒
+        try {
+            AiConfig config = aiConfigService.getEnabledConfig();
+            if (config != null && config.getTimeout() != null && config.getTimeout() > 0) {
+                readTimeoutSeconds = config.getTimeout();
+                log.debug("AI RestTemplate 使用用户配置的超时: {}秒", readTimeoutSeconds);
+            }
+        } catch (Exception e) {
+            log.warn("读取 AI 超时配置失败，使用默认 120 秒: {}", e.getMessage());
+        }
+
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout((int) Duration.ofSeconds(10).toMillis());
-        factory.setReadTimeout((int) Duration.ofSeconds(120).toMillis());
+        factory.setReadTimeout((int) Duration.ofSeconds(readTimeoutSeconds).toMillis());
         return new RestTemplate(factory);
     }
 
@@ -217,9 +233,455 @@ public class AiService {
         }
     }
 
+    /** 转换器类型到系统默认模板名称的映射 */
+    private static final Map<String, String> TRANSFORMER_TEMPLATE_NAMES = new LinkedHashMap<>();
+    static {
+        TRANSFORMER_TEMPLATE_NAMES.put("response_wrapping", "【系统】标准响应包装器");
+        TRANSFORMER_TEMPLATE_NAMES.put("data_masking", "【系统】数据脱敏处理器");
+        TRANSFORMER_TEMPLATE_NAMES.put("field_transform", "【系统】字段转换器");
+        TRANSFORMER_TEMPLATE_NAMES.put("conditional_response", "【系统】条件响应处理器");
+        TRANSFORMER_TEMPLATE_NAMES.put("logging", "【系统】日志记录器");
+        TRANSFORMER_TEMPLATE_NAMES.put("http_forward", "【系统】HttpClient请求转发器");
+    }
+
     /**
-     * 构建生成 Mock 响应的 Prompt
+     * AI 生成代码模板（CustomResponseTransformer Java 源码）
+     *
+     * @param apiMethod      接口请求方法 (GET/POST/PUT/DELETE/PATCH)
+     * @param apiPath        接口路径
+     * @param apiName        接口名称
+     * @param description    接口描述（可选）
+     * @param transformerType 转换器类型（如 response_wrapping, data_masking, field_transform, conditional_response, logging）
+     * @param existingSourceCode 已有源码（可为null，用于AI参考优化）
+     * @return 生成的 Java 源代码字符串
      */
+    public String generateCodeTemplate(String apiMethod, String apiPath, String apiName,
+                                        String description, String transformerType, String existingSourceCode) {
+        AiConfig config = aiConfigService.getEnabledConfig();
+        if (config == null) {
+            throw new RuntimeException("未启用任何 AI 服务商");
+        }
+        if (config.getApiUrl() == null || config.getApiUrl().isBlank()) {
+            throw new RuntimeException("AI 服务商 API 地址未配置");
+        }
+        if (config.getApiKey() == null || config.getApiKey().isBlank()) {
+            throw new RuntimeException("AI 服务商 API Key 未配置");
+        }
+
+        String effectiveType = (transformerType != null && !transformerType.isBlank()) ? transformerType : "response_wrapping";
+
+        String typeLabel;
+        switch (effectiveType) {
+            case "response_wrapping":
+                typeLabel = "响应包装 - 将原始响应包装为统一格式 {code, message, data, timestamp}";
+                break;
+            case "data_masking":
+                typeLabel = "数据脱敏 - 对响应中的手机号、邮箱、身份证等敏感字段进行脱敏处理";
+                break;
+            case "field_transform":
+                typeLabel = "字段转换 - 对响应字段进行重命名、类型转换、值映射等操作";
+                break;
+            case "conditional_response":
+                typeLabel = "条件响应 - 根据请求参数返回不同的响应数据";
+                break;
+            case "logging":
+                typeLabel = "日志记录 - 记录请求和响应的详细信息";
+                break;
+            case "http_forward":
+                typeLabel = "请求转发 - 使用HttpClient将请求转发到真实后端服务";
+                break;
+            default:
+                typeLabel = effectiveType;
+        }
+
+        // 查找对应类型的系统默认模板作为参考
+        String systemTemplateCode = null;
+        String systemTemplateName = TRANSFORMER_TEMPLATE_NAMES.get(effectiveType);
+        if (systemTemplateName != null) {
+            List<CustomCodeTemplate> systemTemplates = codeTemplateRepository.findByIsSystemTrue();
+            for (CustomCodeTemplate t : systemTemplates) {
+                if (systemTemplateName.equals(t.getName()) && t.getSourceCode() != null) {
+                    systemTemplateCode = t.getSourceCode();
+                    log.info("AI 代码模板 - 找到系统默认模板: name={}, 源码长度={}", t.getName(), systemTemplateCode.length());
+                    break;
+                }
+            }
+            if (systemTemplateCode == null) {
+                log.warn("AI 代码模板 - 未找到类型 '{}' 对应的系统默认模板 '{}'", effectiveType, systemTemplateName);
+            }
+        }
+
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("你是一个专业的 Java 代码生成助手。请为以下 API 接口生成一个 CustomResponseTransformer 实现类。\n\n");
+        prompt.append("接口信息：\n");
+        prompt.append("- 接口名称：").append(apiName != null ? apiName : "未命名接口").append("\n");
+        prompt.append("- 请求方法：").append(apiMethod).append("\n");
+        prompt.append("- 接口路径：").append(apiPath).append("\n");
+        if (description != null && !description.isBlank()) {
+            prompt.append("- 接口描述：").append(description).append("\n");
+        }
+        prompt.append("\n转换器类型：").append(typeLabel).append("\n\n");
+
+        prompt.append("接口契约（必须严格遵守）：\n");
+        prompt.append("```java\n");
+        prompt.append("public interface CustomResponseTransformer {\n");
+        prompt.append("    MockResponseDTO transform(MockResponseDTO mockResponse, MockRequest mockRequest, String apiName, String apiPath);\n");
+        prompt.append("    String getDescription();\n");
+        prompt.append("}\n");
+        prompt.append("```\n\n");
+
+        prompt.append("可用 DTO 字段：\n");
+        prompt.append("- MockResponseDTO: getStatusCode()(int), getHeaders()(Map), getBody()(Object), getDelay()(Long)\n");
+        prompt.append("- MockRequest: getPath()(String), getMethod()(String), getHeaders()(Map), getParams()(Map), getBody()(String), getProjectCode()(String), getPathParams()(Map)\n");
+        prompt.append("- MockResponseDTO.builder() 支持链式构建: .statusCode(), .headers(), .body(), .delay(), .build()\n\n");
+
+        // 将对应的系统默认模板作为参考代码发送
+        if (systemTemplateCode != null && !systemTemplateCode.isBlank()) {
+            prompt.append("【系统默认参考模板 - ").append(typeLabel).append("】\n");
+            prompt.append("以下是该类型转换器的系统默认实现，请参考其代码结构、import语句、命名规范和实现模式：\n");
+            prompt.append("```java\n").append(systemTemplateCode).append("\n```\n\n");
+            prompt.append("请基于以上系统默认模板的风格和结构，根据接口信息生成适配的代码。\n");
+        }
+
+        prompt.append("代码要求：\n");
+        prompt.append("1. 必须实现 CustomResponseTransformer 接口的两个方法\n");
+        prompt.append("2. 【重要】必须在文件顶部包含所有需要的 import 语句，一个都不能少：\n");
+        prompt.append("   import com.carolcoral.mockserver.dto.MockRequest;\n");
+        prompt.append("   import com.carolcoral.mockserver.dto.MockResponseDTO;\n");
+        prompt.append("   import com.carolcoral.mockserver.plugin.CustomResponseTransformer;\n");
+        prompt.append("   import java.util.*;\n");
+        prompt.append("   import com.alibaba.fastjson.JSON;\n");
+        prompt.append("   （如果使用了 JSONObject 或 JSONArray，还需要 import com.alibaba.fastjson.JSONObject 和 JSONArray）\n");
+        if ("http_forward".equals(effectiveType)) {
+            prompt.append("   import java.net.URI;\n");
+            prompt.append("   import java.net.http.HttpClient;\n");
+            prompt.append("   import java.net.http.HttpRequest;\n");
+            prompt.append("   import java.net.http.HttpResponse;\n");
+            prompt.append("   import java.time.Duration;\n");
+        }
+        prompt.append("3. 类名使用驼峰命名，需与接口场景相关（如 LoginResponseWrapper, UserDataMasker 等）\n");
+        prompt.append("4. transform() 方法中编写核心处理逻辑，必须返回有效的 MockResponseDTO 对象，不能返回 null\n");
+        prompt.append("5. getDescription() 返回简短的中文描述\n");
+        prompt.append("6. 包含完整的 Javadoc 注释\n");
+        prompt.append("7. 禁止使用反射、文件IO、线程、脚本执行等危险API（http_forward 类型允许使用 java.net.http.HttpClient 进行网络请求）\n");
+        prompt.append("8. 使用 MockResponseDTO.builder() 构建返回对象\n");
+        prompt.append("9. 【关键类型约束】mockRequest.getParams() 返回 Map<String, Object>，get() 返回 Object 类型！\n");
+        prompt.append("   - 对 getParams().get(\"key\") 的返回值调用任何 String 方法前，必须先 .toString() 转换\n");
+        prompt.append("   - 例如：request.getParams().get(\"name\").toString().trim()（不能直接 .trim()）\n");
+        prompt.append("   - 例如：JSON.parseObject(request.getParams().get(\"body\").toString())（不能直接传 Object）\n");
+        prompt.append("   - 声明变量时：String value = request.getParams().get(\"key\").toString();（必须加 .toString()）\n\n");
+
+        prompt.append("根据转换器类型，实现相应逻辑：\n");
+        prompt.append("- response_wrapping: 将 body 包装为 {code, message, data, timestamp}\n");
+        prompt.append("- data_masking: 对 JSON 响应中的 phone、email、idCard 等字段进行脱敏\n");
+        prompt.append("- field_transform: 对字段名进行驼峰/下划线转换，或值映射\n");
+        prompt.append("- conditional_response: 根据 mockRequest.getParams() 或 getHeaders() 返回不同响应\n");
+        prompt.append("- logging: 使用 System.out.println 记录请求路径、方法、参数和响应信息\n");
+        prompt.append("- http_forward: 使用 java.net.http.HttpClient 将请求转发到真实后端服务，透传请求头和请求体，返回真实响应\n\n");
+
+        if (existingSourceCode != null && !existingSourceCode.isBlank()) {
+            prompt.append("参考现有代码（请在此基础上改进优化）：\n");
+            prompt.append("```java\n").append(existingSourceCode).append("\n```\n\n");
+            prompt.append("请在参考基础上改进优化，生成更完善的代码模板。\n");
+        }
+
+        prompt.append("重要：只返回纯 Java 源代码，不要包含 markdown 代码块标记（```java 或 ```），不要包含任何解释文字。");
+
+        String promptStr = prompt.toString();
+        log.debug("AI 代码模板 Prompt: {}", promptStr);
+
+        try {
+            String responseJson = callAiApi(config, promptStr);
+            log.info("AI 代码模板 API 响应长度: {}", responseJson != null ? responseJson.length() : 0);
+
+            String content = extractTextContent(responseJson);
+            log.info("AI 代码模板原始响应长度: {}", content != null ? content.length() : 0);
+
+            // 清理 markdown 代码块标记
+            content = cleanCodeBlock(content);
+            log.info("AI 代码模板清理后长度: {}", content != null ? content.length() : 0);
+
+            // 自动补充缺失的必要 import
+            content = fixImports(content, effectiveType);
+            log.info("AI 代码模板补充 import 后长度: {}", content != null ? content.length() : 0);
+
+            // 自动修复类型转换问题（getParams() 返回 Map<String, Object>，直接调用 String 方法会编译失败）
+            content = fixTypeConversions(content);
+            log.info("AI 代码模板类型修复后长度: {}", content != null ? content.length() : 0);
+
+            return content;
+        } catch (Exception e) {
+            log.error("AI 生成代码模板失败: {}", e.getMessage(), e);
+            throw new RuntimeException("AI 生成代码模板失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 清理 AI 响应中的 Java 代码块标记
+     */
+    private String cleanCodeBlock(String content) {
+        if (content == null || content.isBlank()) {
+            return content;
+        }
+        content = content.trim();
+
+        // 移除开头的 markdown 代码块标记
+        if (content.startsWith("```java")) {
+            content = content.substring(7);
+        } else if (content.startsWith("```")) {
+            content = content.substring(3);
+        }
+
+        // 移除结尾的 markdown 代码块标记
+        if (content.endsWith("```")) {
+            content = content.substring(0, content.length() - 3);
+        }
+
+        return content.trim();
+    }
+
+    /**
+     * 自动补充 AI 生成代码中缺失的必要 import 语句
+     * <p>
+     * 检查源码中使用的类和包，自动添加缺失的 import。
+     * 只补充安全的 import（已在白名单中的包）。
+     * </p>
+     */
+    private String fixImports(String sourceCode, String transformerType) {
+        if (sourceCode == null || sourceCode.isBlank()) {
+            return sourceCode;
+        }
+
+        // 必要的基础 import（始终需要）
+        List<String> requiredImports = new ArrayList<>();
+        requiredImports.add("import com.carolcoral.mockserver.dto.MockRequest;");
+        requiredImports.add("import com.carolcoral.mockserver.dto.MockResponseDTO;");
+        requiredImports.add("import com.carolcoral.mockserver.plugin.CustomResponseTransformer;");
+        requiredImports.add("import java.util.*;");
+
+        // 检查源码中是否使用了 fastjson
+        if (sourceCode.contains("JSON.") || sourceCode.contains("JSONObject") || sourceCode.contains("JSONArray")) {
+            if (!sourceCode.contains("import com.alibaba.fastjson.JSON;")) {
+                requiredImports.add("import com.alibaba.fastjson.JSON;");
+            }
+            if (sourceCode.contains("JSONObject") && !sourceCode.contains("import com.alibaba.fastjson.JSONObject;")) {
+                requiredImports.add("import com.alibaba.fastjson.JSONObject;");
+            }
+            if (sourceCode.contains("JSONArray") && !sourceCode.contains("import com.alibaba.fastjson.JSONArray;")) {
+                requiredImports.add("import com.alibaba.fastjson.JSONArray;");
+            }
+        }
+
+        // 检查是否需要 LinkedHashMap（不检查 java.util.* 因为已经包含）
+        // LinkedHashMap 在 java.util.* 中，不需要单独 import
+
+        // http_forward 类型需要的额外 import
+        if ("http_forward".equals(transformerType)) {
+            if (sourceCode.contains("URI") && !sourceCode.contains("import java.net.URI;")) {
+                requiredImports.add("import java.net.URI;");
+            }
+            if (sourceCode.contains("HttpClient") && !sourceCode.contains("import java.net.http.HttpClient;")) {
+                requiredImports.add("import java.net.http.HttpClient;");
+            }
+            if (sourceCode.contains("HttpRequest") && !sourceCode.contains("import java.net.http.HttpRequest;")) {
+                requiredImports.add("import java.net.http.HttpRequest;");
+            }
+            if (sourceCode.contains("HttpResponse") && !sourceCode.contains("import java.net.http.HttpResponse;")) {
+                requiredImports.add("import java.net.http.HttpResponse;");
+            }
+            if (sourceCode.contains("Duration") && !sourceCode.contains("import java.time.Duration;")) {
+                requiredImports.add("import java.time.Duration;");
+            }
+        }
+
+        // 收集源码中已有的 import 行
+        List<String> existingImports = new ArrayList<>();
+        StringBuilder beforeImports = new StringBuilder();
+        StringBuilder afterImports = new StringBuilder();
+        boolean inImportSection = false;
+        boolean importSectionEnded = false;
+
+        for (String line : sourceCode.split("\n")) {
+            String trimmed = line.trim();
+            if (!importSectionEnded && (trimmed.startsWith("import ") || trimmed.startsWith("//"))) {
+                inImportSection = true;
+                if (trimmed.startsWith("import ")) {
+                    existingImports.add(trimmed);
+                }
+            } else if (inImportSection && !trimmed.startsWith("import ") && !trimmed.isEmpty() && !trimmed.startsWith("//")) {
+                // import 段结束，后续内容进入 afterImports
+                inImportSection = false;
+                importSectionEnded = true;
+            }
+
+            if (importSectionEnded) {
+                if (afterImports.length() > 0) afterImports.append("\n");
+                afterImports.append(line);
+            } else if (!inImportSection) {
+                if (beforeImports.length() > 0) beforeImports.append("\n");
+                beforeImports.append(line);
+            }
+        }
+
+        // 如果源码中没有 import 段（beforeImports 包含所有内容），需要找到 package 和类定义之间插入
+        if (existingImports.isEmpty()) {
+            // 找到 package 语句后、类/注释开始前的位置插入 import
+            StringBuilder result = new StringBuilder();
+            boolean importsInserted = false;
+            for (String line : sourceCode.split("\n")) {
+                result.append(line).append("\n");
+                String trimmed = line.trim();
+                // 在 package 语句后插入 import
+                if (!importsInserted && trimmed.startsWith("package ")) {
+                    // package 语句后就是插入 import 的最佳位置
+                    // 继续，等遇到非空非注释行时插入
+                }
+                if (!importsInserted && !trimmed.startsWith("package ") && !trimmed.isEmpty() && !trimmed.startsWith("//") && !trimmed.startsWith("import ")) {
+                    // 找到第一个非 package 非注释非 import 行之前插入
+                    // 在 result 中回退一行，插入 imports
+                    result.setLength(result.length() - line.length() - 1);
+                    for (String imp : requiredImports) {
+                        result.append(imp).append("\n");
+                    }
+                    result.append("\n");
+                    result.append(line).append("\n");
+                    importsInserted = true;
+                }
+            }
+            if (!importsInserted) {
+                // 没有找到合适位置，在开头插入
+                for (String imp : requiredImports) {
+                    result.insert(0, imp + "\n");
+                }
+                result.insert(0, "\n");
+            }
+            return result.toString().trim();
+        }
+
+        // 有现有 import，补充缺失的
+        StringBuilder result = new StringBuilder();
+        result.append(beforeImports).append("\n");
+
+        // 输出所有需要的 import（跳过已存在的）
+        for (String imp : requiredImports) {
+            boolean alreadyExists = existingImports.stream()
+                    .anyMatch(e -> e.equals(imp) || e.startsWith(imp.substring(0, imp.indexOf(';'))));
+            if (!alreadyExists) {
+                result.append(imp).append("\n");
+                log.info("AI 代码模板 - 自动补充 import: {}", imp);
+            }
+        }
+        // 输出已有的 import
+        for (String imp : existingImports) {
+            result.append(imp).append("\n");
+        }
+        result.append("\n");
+        result.append(afterImports);
+
+        return result.toString().trim();
+    }
+
+    /**
+     * 自动修复 AI 生成代码中的类型转换问题。
+     * MockRequest.getParams() 返回 Map&lt;String, Object&gt;，AI 经常直接对 value 调用 String 方法（如 trim()）或
+     * 将 value 直接传给 JSON.parseObject()，导致编译失败。
+     * 此方法自动插入 toString() 包装。
+     */
+    private String fixTypeConversions(String sourceCode) {
+        if (sourceCode == null || sourceCode.isBlank()) {
+            return sourceCode;
+        }
+
+        String result = sourceCode;
+
+        // 核心正则：匹配 getParams().get("...") 后直接跟 String 专有方法调用（而不是 .toString()）
+        // 组1: getParams().get("key") 整体
+        // 组2: 后面跟的方法名（如 trim, split, substring 等）
+        // 修复为: getParams().get("key").toString().方法名(...)
+        String getParamsGet = "(getParams\\s*\\(\\s*\\)\\s*\\.\\s*get\\s*\\(\\s*\"[^\"]*\"\\s*\\))";
+
+        // 模式1: .trim() — 最常见
+        result = result.replaceAll(
+            getParamsGet + "\\s*\\.\\s*trim\\s*\\(\\s*\\)",
+            "$1.toString().trim()"
+        );
+
+        // 模式2: .split(...)
+        result = result.replaceAll(
+            getParamsGet + "\\s*\\.\\s*split\\s*\\(",
+            "$1.toString().split("
+        );
+
+        // 模式3: .substring(...)
+        result = result.replaceAll(
+            getParamsGet + "\\s*\\.\\s*substring\\s*\\(",
+            "$1.toString().substring("
+        );
+
+        // 模式4: .replace / .replaceAll / .replaceFirst
+        result = result.replaceAll(
+            getParamsGet + "\\s*\\.\\s*replace(All|First)?\\s*\\(",
+            "$1.toString().replace$2("
+        );
+
+        // 模式5: .toLowerCase() / .toUpperCase()
+        result = result.replaceAll(
+            getParamsGet + "\\s*\\.\\s*to(Lower|Upper)Case\\s*\\(\\s*\\)",
+            "$1.toString().to$2Case()"
+        );
+
+        // 模式6: .contains(...) / .startsWith(...) / .endsWith(...) / .indexOf(...) / .lastIndexOf(...)
+        result = result.replaceAll(
+            getParamsGet + "\\s*\\.\\s*(contains|startsWith|endsWith|indexOf|lastIndexOf)\\s*\\(",
+            "$1.toString().$2("
+        );
+
+        // 模式7: .charAt(...)
+        result = result.replaceAll(
+            getParamsGet + "\\s*\\.\\s*charAt\\s*\\(",
+            "$1.toString().charAt("
+        );
+
+        // 模式8: .matches(...)
+        result = result.replaceAll(
+            getParamsGet + "\\s*\\.\\s*matches\\s*\\(",
+            "$1.toString().matches("
+        );
+
+        // 模式9: .isEmpty() / .isBlank()
+        result = result.replaceAll(
+            getParamsGet + "\\s*\\.\\s*is(Empty|Blank)\\s*\\(\\s*\\)",
+            "$1.toString().is$2()"
+        );
+
+        // 模式10: .length()
+        result = result.replaceAll(
+            getParamsGet + "\\s*\\.\\s*length\\s*\\(\\s*\\)",
+            "$1.toString().length()"
+        );
+
+        // 模式11: JSON.parseObject(getParams().get("key")) 直接作为参数
+        // 匹配 parseObject(...getParams().get("key")...) — 修复为 .toString()
+        result = result.replaceAll(
+            "(parseObject|parseArray)\\s*\\(\\s*" + getParamsGet + "\\s*\\)",
+            "$1($2.toString())"
+        );
+
+        // 模式12: 变量赋值给局部变量后未显式转型 — String xxx = request.getParams().get("key");
+        //   → String xxx = request.getParams().get("key").toString();
+        // 注意：只匹配 String 类型的声明，不匹配 Object/var 类型
+        result = result.replaceAll(
+            "String\\s+(\\w+)\\s*=\\s*" + getParamsGet + "\\s*;",
+            "String $1 = $2.toString();"
+        );
+
+        if (!result.equals(sourceCode)) {
+            log.info("AI 代码模板 - 自动修复类型转换");
+        }
+
+        return result;
+    }
+
     private String buildPrompt(String method, String path, String name, String description, int count) {
         StringBuilder sb = new StringBuilder();
         sb.append("你是一个 API Mock 数据生成助手。请为以下 API 接口生成 ").append(count).append(" 个不同的 Mock 响应数据。\n\n");

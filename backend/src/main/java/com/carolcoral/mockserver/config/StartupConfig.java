@@ -466,13 +466,21 @@ public class StartupConfig implements CommandLineRunner {
      */
     private static final String SYSTEM_TEMPLATE_NAME_DEFAULT = "【系统】标准响应包装器";
     private static final String SYSTEM_TEMPLATE_NAME_HTTPCLIENT = "【系统】HttpClient请求转发器";
+    private static final String SYSTEM_TEMPLATE_NAME_DATA_MASKING = "【系统】数据脱敏处理器";
+    private static final String SYSTEM_TEMPLATE_NAME_FIELD_TRANSFORM = "【系统】字段转换器";
+    private static final String SYSTEM_TEMPLATE_NAME_CONDITIONAL = "【系统】条件响应处理器";
+    private static final String SYSTEM_TEMPLATE_NAME_LOGGING = "【系统】日志记录器";
 
     /**
      * 初始化系统默认代码模板
      * <p>
-     * 创建两个不可编辑/删除的系统默认模板（全局可用，不关联项目）：
+     * 创建 6 个不可编辑/删除的系统默认模板（全局可用，不关联项目）：
      * 1. 标准响应包装器 - 将响应包装为统一格式
      * 2. HttpClient请求转发器 - 使用HttpClient转发请求到真实后端
+     * 3. 数据脱敏处理器 - 对敏感字段进行脱敏
+     * 4. 字段转换器 - 字段重命名/类型转换/值映射
+     * 5. 条件响应处理器 - 根据请求参数返回不同响应
+     * 6. 日志记录器 - 记录请求和响应信息
      * </p>
      */
     @Operation(summary = "初始化系统默认代码模板")
@@ -504,6 +512,46 @@ public class StartupConfig implements CommandLineRunner {
                 skippedCount++;
             }
 
+            // 检查并创建数据脱敏处理器模板
+            if (createSystemTemplateIfAbsent(adminUserId,
+                    SYSTEM_TEMPLATE_NAME_DATA_MASKING,
+                    "【系统默认】数据脱敏处理器 - 对响应中的手机号、邮箱、身份证等敏感字段进行脱敏处理",
+                    getDataMaskingTemplateCode())) {
+                createdCount++;
+            } else {
+                skippedCount++;
+            }
+
+            // 检查并创建字段转换器模板
+            if (createSystemTemplateIfAbsent(adminUserId,
+                    SYSTEM_TEMPLATE_NAME_FIELD_TRANSFORM,
+                    "【系统默认】字段转换器 - 对响应字段进行重命名、类型转换、值映射等操作",
+                    getFieldTransformTemplateCode())) {
+                createdCount++;
+            } else {
+                skippedCount++;
+            }
+
+            // 检查并创建条件响应处理器模板
+            if (createSystemTemplateIfAbsent(adminUserId,
+                    SYSTEM_TEMPLATE_NAME_CONDITIONAL,
+                    "【系统默认】条件响应处理器 - 根据请求参数返回不同的响应数据",
+                    getConditionalResponseTemplateCode())) {
+                createdCount++;
+            } else {
+                skippedCount++;
+            }
+
+            // 检查并创建日志记录器模板
+            if (createSystemTemplateIfAbsent(adminUserId,
+                    SYSTEM_TEMPLATE_NAME_LOGGING,
+                    "【系统默认】日志记录器 - 记录请求和响应的详细信息",
+                    getLoggingTemplateCode())) {
+                createdCount++;
+            } else {
+                skippedCount++;
+            }
+
             log.info("系统默认代码模板初始化完成: 新建={}, 跳过(已存在)={}", createdCount, skippedCount);
 
         } catch (Exception e) {
@@ -524,10 +572,18 @@ public class StartupConfig implements CommandLineRunner {
                                                   String name, String description, String sourceCode) {
         // 检查是否已存在同名系统模板（全局）
         List<CustomCodeTemplate> systemTemplates = customCodeTemplateRepository.findByIsSystemTrue();
-        boolean alreadyExists = systemTemplates.stream()
-                .anyMatch(t -> name.equals(t.getName()));
+        Optional<CustomCodeTemplate> existing = systemTemplates.stream()
+                .filter(t -> name.equals(t.getName()))
+                .findFirst();
 
-        if (alreadyExists) {
+        if (existing.isPresent()) {
+            // 已存在则更新源码（确保模板始终是最新版本）
+            CustomCodeTemplate template = existing.get();
+            template.setSourceCode(sourceCode);
+            template.setDescription(description);
+            template.setUpdateTime(LocalDateTime.now());
+            customCodeTemplateRepository.save(template);
+            log.info("更新全局系统默认模板: name={}", name);
             return false;
         }
 
@@ -656,7 +712,7 @@ public class StartupConfig implements CommandLineRunner {
                 "            // 追加查询参数\n" +
                 "            if (mockRequest.getParams() != null && !mockRequest.getParams().isEmpty()) {\n" +
                 "                boolean first = true;\n" +
-                "                for (Map.Entry<String, String> entry : mockRequest.getParams().entrySet()) {\n" +
+                "                for (Map.Entry<String, Object> entry : mockRequest.getParams().entrySet()) {\n" +
                 "                    urlBuilder.append(first ? \"?\" : \"&\");\n" +
                 "                    urlBuilder.append(entry.getKey()).append(\"=\").append(entry.getValue());\n" +
                 "                    first = false;\n" +
@@ -747,6 +803,578 @@ public class StartupConfig implements CommandLineRunner {
                 "    @Override\n" +
                 "    public String getDescription() {\n" +
                 "        return \"HttpClient请求转发器 - 将请求转发到真实后端服务并返回响应\";\n" +
+                "    }\n" +
+                "}";
+    }
+
+    /**
+     * 获取数据脱敏处理器模板代码
+     * <p>
+     * 使用场景：对响应中的敏感信息（手机号、邮箱、身份证号、银行卡号等）进行脱敏处理。
+     * </p>
+     */
+    private String getDataMaskingTemplateCode() {
+        return "import com.carolcoral.mockserver.dto.MockRequest;\n" +
+                "import com.carolcoral.mockserver.dto.MockResponseDTO;\n" +
+                "import com.carolcoral.mockserver.plugin.CustomResponseTransformer;\n" +
+                "import java.util.*;\n" +
+                "import com.alibaba.fastjson.JSON;\n" +
+                "import com.alibaba.fastjson.JSONObject;\n" +
+                "import com.alibaba.fastjson.JSONArray;\n" +
+                "\n" +
+                "/**\n" +
+                " * 【系统默认模板】数据脱敏处理器\n" +
+                " * <p>\n" +
+                " * 对响应中的敏感字段进行脱敏处理，保护用户隐私。\n" +
+                " * 支持脱敏的字段：手机号、邮箱、身份证号、银行卡号、姓名等。\n" +
+                " * </p>\n" +
+                " *\n" +
+                " * <h3>脱敏规则</h3>\n" +
+                " * <ul>\n" +
+                " *   <li>手机号：保留前3位和后4位，中间4位用****替代（138****1234）</li>\n" +
+                " *   <li>邮箱：保留首字符和@后内容，中间用***替代（u***@example.com）</li>\n" +
+                " *   <li>身份证号：保留前3位和后4位，中间用****替代</li>\n" +
+                " *   <li>银行卡号：保留后4位，其余用****替代</li>\n" +
+                " *   <li>姓名：保留姓，名用*替代</li>\n" +
+                " * </ul>\n" +
+                " */\n" +
+                "public class DataMaskingTransformer implements CustomResponseTransformer {\n" +
+                "\n" +
+                "    /** 需要脱敏的字段名集合（不区分大小写） */\n" +
+                "    private static final Set<String> PHONE_FIELDS = new HashSet<>(Arrays.asList(\n" +
+                "        \"phone\", \"mobile\", \"tel\", \"telephone\", \"phoneNumber\", \"contactPhone\"\n" +
+                "    ));\n" +
+                "\n" +
+                "    private static final Set<String> EMAIL_FIELDS = new HashSet<>(Arrays.asList(\n" +
+                "        \"email\", \"mail\", \"eMail\", \"emailAddress\", \"contactEmail\"\n" +
+                "    ));\n" +
+                "\n" +
+                "    private static final Set<String> ID_CARD_FIELDS = new HashSet<>(Arrays.asList(\n" +
+                "        \"idCard\", \"idNumber\", \"identityCard\", \"idNo\", \"cardNo\"\n" +
+                "    ));\n" +
+                "\n" +
+                "    private static final Set<String> BANK_CARD_FIELDS = new HashSet<>(Arrays.asList(\n" +
+                "        \"bankCard\", \"bankAccount\", \"cardNumber\", \"bankCardNo\"\n" +
+                "    ));\n" +
+                "\n" +
+                "    private static final Set<String> NAME_FIELDS = new HashSet<>(Arrays.asList(\n" +
+                "        \"name\", \"realName\", \"userName\", \"fullName\", \"contactName\"\n" +
+                "    ));\n" +
+                "\n" +
+                "    @Override\n" +
+                "    public MockResponseDTO transform(MockResponseDTO mockResponse, MockRequest mockRequest,\n" +
+                "                                      String apiName, String apiPath) {\n" +
+                "        Object body = mockResponse.getBody();\n" +
+                "        Object maskedBody = maskSensitiveData(body);\n" +
+                "\n" +
+                "        return MockResponseDTO.builder()\n" +
+                "                .statusCode(mockResponse.getStatusCode())\n" +
+                "                .headers(mockResponse.getHeaders())\n" +
+                "                .body(maskedBody)\n" +
+                "                .delay(mockResponse.getDelay())\n" +
+                "                .build();\n" +
+                "    }\n" +
+                "\n" +
+                "    /**\n" +
+                "     * 递归脱敏处理\n" +
+                "     */\n" +
+                "    @SuppressWarnings(\"unchecked\")\n" +
+                "    private Object maskSensitiveData(Object data) {\n" +
+                "        if (data == null) return null;\n" +
+                "\n" +
+                "        if (data instanceof JSONObject) {\n" +
+                "            JSONObject obj = (JSONObject) data;\n" +
+                "            JSONObject result = new JSONObject();\n" +
+                "            for (String key : obj.keySet()) {\n" +
+                "                Object value = obj.get(key);\n" +
+                "                String lowerKey = key.toLowerCase();\n" +
+                "\n" +
+                "                if (PHONE_FIELDS.contains(lowerKey) && value instanceof String) {\n" +
+                "                    result.put(key, maskPhone((String) value));\n" +
+                "                } else if (EMAIL_FIELDS.contains(lowerKey) && value instanceof String) {\n" +
+                "                    result.put(key, maskEmail((String) value));\n" +
+                "                } else if (ID_CARD_FIELDS.contains(lowerKey) && value instanceof String) {\n" +
+                "                    result.put(key, maskIdCard((String) value));\n" +
+                "                } else if (BANK_CARD_FIELDS.contains(lowerKey) && value instanceof String) {\n" +
+                "                    result.put(key, maskBankCard((String) value));\n" +
+                "                } else if (NAME_FIELDS.contains(lowerKey) && value instanceof String) {\n" +
+                "                    result.put(key, maskName((String) value));\n" +
+                "                } else if (value instanceof JSONObject || value instanceof JSONArray) {\n" +
+                "                    result.put(key, maskSensitiveData(value));\n" +
+                "                } else {\n" +
+                "                    result.put(key, value);\n" +
+                "                }\n" +
+                "            }\n" +
+                "            return result;\n" +
+                "        }\n" +
+                "\n" +
+                "        if (data instanceof JSONArray) {\n" +
+                "            JSONArray arr = (JSONArray) data;\n" +
+                "            JSONArray result = new JSONArray();\n" +
+                "            for (int i = 0; i < arr.size(); i++) {\n" +
+                "                result.add(maskSensitiveData(arr.get(i)));\n" +
+                "            }\n" +
+                "            return result;\n" +
+                "        }\n" +
+                "\n" +
+                "        if (data instanceof Map) {\n" +
+                "            return maskSensitiveData(new JSONObject((Map<String, Object>) data));\n" +
+                "        }\n" +
+                "\n" +
+                "        if (data instanceof List) {\n" +
+                "            return maskSensitiveData(new JSONArray((List<Object>) data));\n" +
+                "        }\n" +
+                "\n" +
+                "        if (data instanceof String) {\n" +
+                "            try {\n" +
+                "                Object parsed = JSON.parse((String) data);\n" +
+                "                if (parsed instanceof JSONObject || parsed instanceof JSONArray) {\n" +
+                "                    return JSON.toJSONString(maskSensitiveData(parsed));\n" +
+                "                }\n" +
+                "            } catch (Exception ignored) {}\n" +
+                "        }\n" +
+                "\n" +
+                "        return data;\n" +
+                "    }\n" +
+                "\n" +
+                "    private String maskPhone(String phone) {\n" +
+                "        if (phone == null || phone.length() < 7) return phone;\n" +
+                "        return phone.replaceAll(\"(\\\\d{3})\\\\d{4}(\\\\d{4})\", \"$1****$2\");\n" +
+                "    }\n" +
+                "\n" +
+                "    private String maskEmail(String email) {\n" +
+                "        if (email == null || !email.contains(\"@\")) return email;\n" +
+                "        int atIndex = email.indexOf('@');\n" +
+                "        String prefix = email.substring(0, atIndex);\n" +
+                "        String suffix = email.substring(atIndex);\n" +
+                "        if (prefix.length() <= 2) {\n" +
+                "            return prefix.charAt(0) + \"***\" + suffix;\n" +
+                "        }\n" +
+                "        return prefix.charAt(0) + \"***\" + prefix.charAt(prefix.length() - 1) + suffix;\n" +
+                "    }\n" +
+                "\n" +
+                "    private String maskIdCard(String idCard) {\n" +
+                "        if (idCard == null || idCard.length() < 8) return idCard;\n" +
+                "        return idCard.replaceAll(\"(\\\\d{3})\\\\d+(\\\\d{4})\", \"$1****$2\");\n" +
+                "    }\n" +
+                "\n" +
+                "    private String maskBankCard(String bankCard) {\n" +
+                "        if (bankCard == null || bankCard.length() < 4) return bankCard;\n" +
+                "        return \"****\" + bankCard.substring(bankCard.length() - 4);\n" +
+                "    }\n" +
+                "\n" +
+                "    private String maskName(String name) {\n" +
+                "        if (name == null || name.isEmpty()) return name;\n" +
+                "        if (name.length() == 1) return \"*\";\n" +
+                "        StringBuilder sb = new StringBuilder();\n" +
+                "        sb.append(name.charAt(0));\n" +
+                "        for (int i = 1; i < name.length(); i++) {\n" +
+                "            sb.append('*');\n" +
+                "        }\n" +
+                "        return sb.toString();\n" +
+                "    }\n" +
+                "\n" +
+                "    @Override\n" +
+                "    public String getDescription() {\n" +
+                "        return \"数据脱敏处理器 - 对响应中的手机号、邮箱、身份证等敏感字段进行脱敏\";\n" +
+                "    }\n" +
+                "}";
+    }
+
+    /**
+     * 获取字段转换器模板代码
+     * <p>
+     * 使用场景：对响应字段进行重命名、类型转换、值映射、字段筛选等操作。
+     * </p>
+     */
+    private String getFieldTransformTemplateCode() {
+        return "import com.carolcoral.mockserver.dto.MockRequest;\n" +
+                "import com.carolcoral.mockserver.dto.MockResponseDTO;\n" +
+                "import com.carolcoral.mockserver.plugin.CustomResponseTransformer;\n" +
+                "import java.util.*;\n" +
+                "import com.alibaba.fastjson.JSON;\n" +
+                "import com.alibaba.fastjson.JSONObject;\n" +
+                "\n" +
+                "/**\n" +
+                " * 【系统默认模板】字段转换器\n" +
+                " * <p>\n" +
+                " * 对响应中的字段进行重命名、类型转换、值映射、字段筛选等操作。\n" +
+                " * 适用于前后端字段名不一致、需要统一字段格式等场景。\n" +
+                " * </p>\n" +
+                " *\n" +
+                " * <h3>支持的转换</h3>\n" +
+                " * <ul>\n" +
+                " *   <li>字段重命名：下划线转驼峰、驼峰转下划线</li>\n" +
+                " *   <li>值映射：将状态码映射为可读文本</li>\n" +
+                " *   <li>字段筛选：只保留需要的字段</li>\n" +
+                " *   <li>添加额外字段：如时间戳、接口版本等</li>\n" +
+                " * </ul>\n" +
+                " */\n" +
+                "public class FieldTransformTransformer implements CustomResponseTransformer {\n" +
+                "\n" +
+                "    /** 状态码到可读文本的映射 */\n" +
+                "    private static final Map<String, String> STATUS_MAP = new LinkedHashMap<>();\n" +
+                "    static {\n" +
+                "        STATUS_MAP.put(\"0\", \"待处理\");\n" +
+                "        STATUS_MAP.put(\"1\", \"处理中\");\n" +
+                "        STATUS_MAP.put(\"2\", \"已完成\");\n" +
+                "        STATUS_MAP.put(\"3\", \"已取消\");\n" +
+                "        STATUS_MAP.put(\"4\", \"已关闭\");\n" +
+                "    }\n" +
+                "\n" +
+                "    /** 需要保留的字段（为空则保留所有字段） */\n" +
+                "    private static final Set<String> KEEP_FIELDS = new HashSet<>();\n" +
+                "    static {\n" +
+                "        // 如需字段筛选，取消注释并添加需要的字段名（驼峰格式）\n" +
+                "        // KEEP_FIELDS.add(\"id\");\n" +
+                "        // KEEP_FIELDS.add(\"name\");\n" +
+                "        // KEEP_FIELDS.add(\"status\");\n" +
+                "    }\n" +
+                "\n" +
+                "    @Override\n" +
+                "    public MockResponseDTO transform(MockResponseDTO mockResponse, MockRequest mockRequest,\n" +
+                "                                      String apiName, String apiPath) {\n" +
+                "        Object body = mockResponse.getBody();\n" +
+                "        Object transformed = transformFields(body);\n" +
+                "\n" +
+                "        return MockResponseDTO.builder()\n" +
+                "                .statusCode(mockResponse.getStatusCode())\n" +
+                "                .headers(mockResponse.getHeaders())\n" +
+                "                .body(transformed)\n" +
+                "                .delay(mockResponse.getDelay())\n" +
+                "                .build();\n" +
+                "    }\n" +
+                "\n" +
+                "    /**\n" +
+                "     * 递归转换字段\n" +
+                "     */\n" +
+                "    @SuppressWarnings(\"unchecked\")\n" +
+                "    private Object transformFields(Object data) {\n" +
+                "        if (data == null) return null;\n" +
+                "\n" +
+                "        if (data instanceof Map) {\n" +
+                "            Map<String, Object> source = (Map<String, Object>) data;\n" +
+                "            Map<String, Object> result = new LinkedHashMap<>();\n" +
+                "\n" +
+                "            for (Map.Entry<String, Object> entry : source.entrySet()) {\n" +
+                "                String key = entry.getKey();\n" +
+                "                Object value = entry.getValue();\n" +
+                "\n" +
+                "                // 下划线转驼峰\n" +
+                "                String camelKey = toCamelCase(key);\n" +
+                "\n" +
+                "                // 字段筛选：如果配置了保留字段且当前字段不在列表中则跳过\n" +
+                "                if (!KEEP_FIELDS.isEmpty() && !KEEP_FIELDS.contains(camelKey)) {\n" +
+                "                    continue;\n" +
+                "                }\n" +
+                "\n" +
+                "                // 值映射：如果是状态字段，尝试映射为可读文本\n" +
+                "                if (\"status\".equals(camelKey) && value instanceof String) {\n" +
+                "                    String statusText = STATUS_MAP.get(value);\n" +
+                "                    if (statusText != null) {\n" +
+                "                        result.put(camelKey + \"Text\", statusText);\n" +
+                "                    }\n" +
+                "                }\n" +
+                "\n" +
+                "                // 递归处理嵌套对象和数组\n" +
+                "                if (value instanceof Map || value instanceof List) {\n" +
+                "                    result.put(camelKey, transformFields(value));\n" +
+                "                } else {\n" +
+                "                    result.put(camelKey, value);\n" +
+                "                }\n" +
+                "            }\n" +
+                "\n" +
+                "            // 添加额外字段\n" +
+                "            result.put(\"timestamp\", System.currentTimeMillis());\n" +
+                "\n" +
+                "            return result;\n" +
+                "        }\n" +
+                "\n" +
+                "        if (data instanceof List) {\n" +
+                "            List<Object> source = (List<Object>) data;\n" +
+                "            List<Object> result = new ArrayList<>();\n" +
+                "            for (Object item : source) {\n" +
+                "                result.add(transformFields(item));\n" +
+                "            }\n" +
+                "            return result;\n" +
+                "        }\n" +
+                "\n" +
+                "        if (data instanceof String) {\n" +
+                "            try {\n" +
+                "                Object parsed = JSON.parse((String) data);\n" +
+                "                if (parsed instanceof Map || parsed instanceof List) {\n" +
+                "                    return JSON.toJSONString(transformFields(parsed));\n" +
+                "                }\n" +
+                "            } catch (Exception ignored) {}\n" +
+                "        }\n" +
+                "\n" +
+                "        return data;\n" +
+                "    }\n" +
+                "\n" +
+                "    /**\n" +
+                "     * 下划线命名转驼峰命名\n" +
+                "     */\n" +
+                "    private String toCamelCase(String input) {\n" +
+                "        if (input == null || input.isEmpty()) return input;\n" +
+                "        StringBuilder sb = new StringBuilder();\n" +
+                "        boolean nextUpper = false;\n" +
+                "        for (int i = 0; i < input.length(); i++) {\n" +
+                "            char c = input.charAt(i);\n" +
+                "            if (c == '_') {\n" +
+                "                nextUpper = true;\n" +
+                "            } else {\n" +
+                "                sb.append(nextUpper ? Character.toUpperCase(c) : c);\n" +
+                "                nextUpper = false;\n" +
+                "            }\n" +
+                "        }\n" +
+                "        return sb.toString();\n" +
+                "    }\n" +
+                "\n" +
+                "    @Override\n" +
+                "    public String getDescription() {\n" +
+                "        return \"字段转换器 - 字段重命名、类型转换、值映射、字段筛选\";\n" +
+                "    }\n" +
+                "}";
+    }
+
+    /**
+     * 获取条件响应处理器模板代码
+     * <p>
+     * 使用场景：根据请求参数、请求头等条件返回不同的响应数据。
+     * </p>
+     */
+    private String getConditionalResponseTemplateCode() {
+        return "import com.carolcoral.mockserver.dto.MockRequest;\n" +
+                "import com.carolcoral.mockserver.dto.MockResponseDTO;\n" +
+                "import com.carolcoral.mockserver.plugin.CustomResponseTransformer;\n" +
+                "import java.util.*;\n" +
+                "import com.alibaba.fastjson.JSON;\n" +
+                "\n" +
+                "/**\n" +
+                " * 【系统默认模板】条件响应处理器\n" +
+                " * <p>\n" +
+                " * 根据请求参数、请求头、路径参数等条件动态返回不同的响应数据。\n" +
+                " * 适用于需要根据业务规则返回不同Mock数据的场景。\n" +
+                " * </p>\n" +
+                " *\n" +
+                " * <h3>支持的条件类型</h3>\n" +
+                " * <ul>\n" +
+                " *   <li>查询参数条件：根据URL参数返回不同数据</li>\n" +
+                " *   <li>请求头条件：根据请求头值（如X-Mock-Scenario）控制响应</li>\n" +
+                " *   <li>路径参数条件：根据RESTful路径参数区分响应</li>\n" +
+                " *   <li>请求体条件：根据POST请求体中的字段决定响应</li>\n" +
+                " * </ul>\n" +
+                " */\n" +
+                "public class ConditionalResponseTransformer implements CustomResponseTransformer {\n" +
+                "\n" +
+                "    @Override\n" +
+                "    public MockResponseDTO transform(MockResponseDTO mockResponse, MockRequest mockRequest,\n" +
+                "                                      String apiName, String apiPath) {\n" +
+                "        Object body = mockResponse.getBody();\n" +
+                "\n" +
+                "        // 1. 根据请求头 X-Mock-Scenario 控制响应场景\n" +
+                "        String scenario = getHeader(mockRequest, \"X-Mock-Scenario\");\n" +
+                "\n" +
+                "        // 2. 根据查询参数决定响应\n" +
+                "        String type = getParam(mockRequest, \"type\");\n" +
+                "\n" +
+                "        // 3. 根据条件构建不同的响应\n" +
+                "        Object resultBody;\n" +
+                "        int statusCode = mockResponse.getStatusCode();\n" +
+                "\n" +
+                "        if (\"error\".equalsIgnoreCase(scenario)) {\n" +
+                "            // 场景1：模拟错误响应\n" +
+                "            Map<String, Object> errorResult = new LinkedHashMap<>();\n" +
+                "            errorResult.put(\"code\", 500);\n" +
+                "            errorResult.put(\"message\", \"服务器内部错误\");\n" +
+                "            errorResult.put(\"data\", null);\n" +
+                "            errorResult.put(\"timestamp\", System.currentTimeMillis());\n" +
+                "            resultBody = errorResult;\n" +
+                "            statusCode = 500;\n" +
+                "\n" +
+                "        } else if (\"empty\".equalsIgnoreCase(scenario)) {\n" +
+                "            // 场景2：模拟空数据响应\n" +
+                "            Map<String, Object> emptyResult = new LinkedHashMap<>();\n" +
+                "            emptyResult.put(\"code\", 200);\n" +
+                "            emptyResult.put(\"message\", \"success\");\n" +
+                "            emptyResult.put(\"data\", new ArrayList<>());\n" +
+                "            emptyResult.put(\"total\", 0);\n" +
+                "            emptyResult.put(\"timestamp\", System.currentTimeMillis());\n" +
+                "            resultBody = emptyResult;\n" +
+                "\n" +
+                "        } else if (\"timeout\".equalsIgnoreCase(scenario)) {\n" +
+                "            // 场景3：模拟超时响应（通过设置较长延迟）\n" +
+                "            Map<String, Object> timeoutResult = new LinkedHashMap<>();\n" +
+                "            timeoutResult.put(\"code\", 504);\n" +
+                "            timeoutResult.put(\"message\", \"网关超时\");\n" +
+                "            timeoutResult.put(\"timestamp\", System.currentTimeMillis());\n" +
+                "            resultBody = timeoutResult;\n" +
+                "            statusCode = 504;\n" +
+                "\n" +
+                "        } else if (\"list\".equals(type)) {\n" +
+                "            // 场景4：根据type参数返回列表格式\n" +
+                "            Map<String, Object> listResult = new LinkedHashMap<>();\n" +
+                "            listResult.put(\"code\", 200);\n" +
+                "            listResult.put(\"message\", \"success\");\n" +
+                "            listResult.put(\"data\", body);\n" +
+                "            listResult.put(\"total\", 1);\n" +
+                "            listResult.put(\"page\", 1);\n" +
+                "            listResult.put(\"pageSize\", 20);\n" +
+                "            listResult.put(\"timestamp\", System.currentTimeMillis());\n" +
+                "            resultBody = listResult;\n" +
+                "\n" +
+                "        } else {\n" +
+                "            // 默认场景：正常包装响应\n" +
+                "            Map<String, Object> defaultResult = new LinkedHashMap<>();\n" +
+                "            defaultResult.put(\"code\", statusCode);\n" +
+                "            defaultResult.put(\"message\", \"success\");\n" +
+                "            defaultResult.put(\"data\", body);\n" +
+                "            defaultResult.put(\"timestamp\", System.currentTimeMillis());\n" +
+                "            resultBody = defaultResult;\n" +
+                "        }\n" +
+                "\n" +
+                "        return MockResponseDTO.builder()\n" +
+                "                .statusCode(statusCode)\n" +
+                "                .headers(mockResponse.getHeaders())\n" +
+                "                .body(resultBody)\n" +
+                "                .delay(mockResponse.getDelay())\n" +
+                "                .build();\n" +
+                "    }\n" +
+                "\n" +
+                "    private String getHeader(MockRequest request, String name) {\n" +
+                "        if (request.getHeaders() == null) return null;\n" +
+                "        return request.getHeaders().get(name);\n" +
+                "    }\n" +
+                "\n" +
+                "    private String getParam(MockRequest request, String name) {\n" +
+                "        if (request.getParams() == null) return null;\n" +
+                "        Object value = request.getParams().get(name);\n" +
+                "        return value != null ? value.toString() : null;\n" +
+                "    }\n" +
+                "\n" +
+                "    @Override\n" +
+                "    public String getDescription() {\n" +
+                "        return \"条件响应处理器 - 根据请求参数/请求头返回不同的响应数据\";\n" +
+                "    }\n" +
+                "}";
+    }
+
+    /**
+     * 获取日志记录器模板代码
+     * <p>
+     * 使用场景：记录请求和响应的详细信息，便于调试和监控。
+     * </p>
+     */
+    private String getLoggingTemplateCode() {
+        return "import com.carolcoral.mockserver.dto.MockRequest;\n" +
+                "import com.carolcoral.mockserver.dto.MockResponseDTO;\n" +
+                "import com.carolcoral.mockserver.plugin.CustomResponseTransformer;\n" +
+                "import java.util.*;\n" +
+                "import com.alibaba.fastjson.JSON;\n" +
+                "\n" +
+                "/**\n" +
+                " * 【系统默认模板】日志记录器\n" +
+                " * <p>\n" +
+                " * 在请求处理过程中记录请求和响应的详细信息，便于调试、审计和监控。\n" +
+                " * 不会修改响应内容，只做日志记录。\n" +
+                " * </p>\n" +
+                " *\n" +
+                " * <h3>记录内容</h3>\n" +
+                " * <ul>\n" +
+                " *   <li>请求信息：方法、路径、请求头、参数、请求体</li>\n" +
+                " *   <li>响应信息：状态码、响应体长度、处理耗时</li>\n" +
+                " *   <li>接口元信息：接口名称、接口路径</li>\n" +
+                " * </ul>\n" +
+                " */\n" +
+                "public class LoggingTransformer implements CustomResponseTransformer {\n" +
+                "\n" +
+                "    /** 是否记录请求体（可能包含敏感信息，生产环境建议关闭） */\n" +
+                "    private static final boolean LOG_REQUEST_BODY = true;\n" +
+                "\n" +
+                "    /** 是否记录响应体 */\n" +
+                "    private static final boolean LOG_RESPONSE_BODY = false;\n" +
+                "\n" +
+                "    /** 请求体最大记录长度 */\n" +
+                "    private static final int MAX_BODY_LOG_LENGTH = 2000;\n" +
+                "\n" +
+                "    @Override\n" +
+                "    public MockResponseDTO transform(MockResponseDTO mockResponse, MockRequest mockRequest,\n" +
+                "                                      String apiName, String apiPath) {\n" +
+                "        long startTime = System.currentTimeMillis();\n" +
+                "\n" +
+                "        // 构建请求日志\n" +
+                "        StringBuilder logBuilder = new StringBuilder();\n" +
+                "        logBuilder.append(\"\\n========== Mock请求日志 ==========\\n\");\n" +
+                "        logBuilder.append(\"接口名称: \").append(apiName != null ? apiName : \"未命名\").append(\"\\n\");\n" +
+                "        logBuilder.append(\"接口路径: \").append(apiPath).append(\"\\n\");\n" +
+                "        logBuilder.append(\"请求方法: \").append(mockRequest.getMethod()).append(\"\\n\");\n" +
+                "        logBuilder.append(\"请求路径: \").append(mockRequest.getPath()).append(\"\\n\");\n" +
+                "        logBuilder.append(\"项目编码: \").append(mockRequest.getProjectCode()).append(\"\\n\");\n" +
+                "\n" +
+                "        // 记录请求头\n" +
+                "        if (mockRequest.getHeaders() != null && !mockRequest.getHeaders().isEmpty()) {\n" +
+                "            logBuilder.append(\"请求头: \");\n" +
+                "            for (Map.Entry<String, String> entry : mockRequest.getHeaders().entrySet()) {\n" +
+                "                // 跳过敏感请求头\n" +
+                "                if (\"Authorization\".equalsIgnoreCase(entry.getKey())\n" +
+                "                        || \"Cookie\".equalsIgnoreCase(entry.getKey())) {\n" +
+                "                    logBuilder.append(entry.getKey()).append(\"=***, \");\n" +
+                "                } else {\n" +
+                "                    logBuilder.append(entry.getKey()).append(\"=\").append(entry.getValue()).append(\", \");\n" +
+                "                }\n" +
+                "            }\n" +
+                "            logBuilder.append(\"\\n\");\n" +
+                "        }\n" +
+                "\n" +
+                "        // 记录查询参数\n" +
+                "        if (mockRequest.getParams() != null && !mockRequest.getParams().isEmpty()) {\n" +
+                "            logBuilder.append(\"查询参数: \").append(JSON.toJSONString(mockRequest.getParams())).append(\"\\n\");\n" +
+                "        }\n" +
+                "\n" +
+                "        // 记录路径参数\n" +
+                "        if (mockRequest.getPathParams() != null && !mockRequest.getPathParams().isEmpty()) {\n" +
+                "            logBuilder.append(\"路径参数: \").append(JSON.toJSONString(mockRequest.getPathParams())).append(\"\\n\");\n" +
+                "        }\n" +
+                "\n" +
+                "        // 记录请求体\n" +
+                "        if (LOG_REQUEST_BODY && mockRequest.getBody() != null) {\n" +
+                "            String bodyStr = mockRequest.getBody().toString();\n" +
+                "            if (bodyStr.length() > MAX_BODY_LOG_LENGTH) {\n" +
+                "                bodyStr = bodyStr.substring(0, MAX_BODY_LOG_LENGTH) + \"... (已截断)\";\n" +
+                "            }\n" +
+                "            logBuilder.append(\"请求体: \").append(bodyStr).append(\"\\n\");\n" +
+                "        }\n" +
+                "\n" +
+                "        // 记录响应信息\n" +
+                "        logBuilder.append(\"响应状态码: \").append(mockResponse.getStatusCode()).append(\"\\n\");\n" +
+                "        if (mockResponse.getBody() != null) {\n" +
+                "            String respStr = mockResponse.getBody().toString();\n" +
+                "            logBuilder.append(\"响应体长度: \").append(respStr.length()).append(\" 字符\\n\");\n" +
+                "            if (LOG_RESPONSE_BODY) {\n" +
+                "                if (respStr.length() > MAX_BODY_LOG_LENGTH) {\n" +
+                "                    respStr = respStr.substring(0, MAX_BODY_LOG_LENGTH) + \"... (已截断)\";\n" +
+                "                }\n" +
+                "                logBuilder.append(\"响应体: \").append(respStr).append(\"\\n\");\n" +
+                "            }\n" +
+                "        }\n" +
+                "        if (mockResponse.getDelay() != null) {\n" +
+                "            logBuilder.append(\"响应延迟: \").append(mockResponse.getDelay()).append(\"ms\\n\");\n" +
+                "        }\n" +
+                "\n" +
+                "        long elapsed = System.currentTimeMillis() - startTime;\n" +
+                "        logBuilder.append(\"处理耗时: \").append(elapsed).append(\"ms\\n\");\n" +
+                "        logBuilder.append(\"====================================\\n\");\n" +
+                "\n" +
+                "        // 输出日志\n" +
+                "        System.out.println(logBuilder.toString());\n" +
+                "\n" +
+                "        // 不修改响应内容，直接返回\n" +
+                "        return mockResponse;\n" +
+                "    }\n" +
+                "\n" +
+                "    @Override\n" +
+                "    public String getDescription() {\n" +
+                "        return \"日志记录器 - 记录请求和响应的详细信息\";\n" +
                 "    }\n" +
                 "}";
     }

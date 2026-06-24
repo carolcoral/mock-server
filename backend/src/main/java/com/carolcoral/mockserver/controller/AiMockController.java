@@ -10,6 +10,8 @@ import com.carolcoral.mockserver.dto.ApiResponse;
 import com.carolcoral.mockserver.service.AiService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -28,6 +30,8 @@ import java.util.Map;
 @RequestMapping("/api/ai")
 @PreAuthorize("isAuthenticated()")
 public class AiMockController {
+
+    private static final Logger log = LoggerFactory.getLogger(AiMockController.class);
 
     @Autowired
     private AiService aiService;
@@ -111,6 +115,33 @@ public class AiMockController {
                     templateType, templateName, existingSubject, existingContent);
             return ApiResponse.success(result);
         } catch (RuntimeException e) {
+            return ApiResponse.error(e.getMessage());
+        }
+    }
+
+    /**
+     * AI 生成代码模板（CustomResponseTransformer Java 源码）
+     *
+     * @param params 包含 apiMethod, apiPath, apiName, description, transformerType, existingSourceCode
+     * @return 生成的 Java 源代码字符串
+     */
+    @Operation(summary = "AI 智能生成代码模板")
+    @PostMapping("/generate-code-template")
+    public ApiResponse<String> generateCodeTemplate(@RequestBody Map<String, Object> params) {
+        String apiMethod = (String) params.get("apiMethod");
+        String apiPath = (String) params.get("apiPath");
+        String apiName = (String) params.get("apiName");
+        String description = (String) params.get("description");
+        String transformerType = (String) params.get("transformerType");
+        String existingSourceCode = (String) params.get("existingSourceCode");
+
+        try {
+            String sourceCode = aiService.generateCodeTemplate(
+                    apiMethod, apiPath, apiName, description, transformerType, existingSourceCode);
+            log.info("AI 代码模板生成成功，源码长度: {}", sourceCode != null ? sourceCode.length() : 0);
+            return ApiResponse.success(sourceCode);
+        } catch (RuntimeException e) {
+            log.error("AI 代码模板生成失败: {}", e.getMessage());
             return ApiResponse.error(e.getMessage());
         }
     }

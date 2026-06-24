@@ -139,6 +139,25 @@
           <span style="font-size: 14px; font-weight: 600; color: #303133;">{{ $t('codeTemplate.javaSourceCode') }}</span>
           <el-tag v-if="form.isSystem && !isAdmin" type="danger" size="small" style="margin-left: 8px;">{{ $t('codeTemplate.systemReadonly') }}</el-tag>
         </el-divider>
+        <!-- AI 生成代码模板区域 -->
+        <div v-if="!form.isSystem || isAdmin" style="margin-bottom: 12px; padding: 12px; background: #fafbfc; border: 1px solid #e4e7ed; border-radius: 6px;">
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span style="font-size: 13px; font-weight: 600; color: #606266; white-space: nowrap;">{{ $t('ai.transformerType') }}：</span>
+            <el-select v-model="aiTransformerType" :placeholder="$t('ai.selectTransformerType')" size="small" style="width: 220px;">
+              <el-option :label="$t('ai.transformerResponseWrapping')" value="response_wrapping" />
+              <el-option :label="$t('ai.transformerDataMasking')" value="data_masking" />
+              <el-option :label="$t('ai.transformerFieldTransform')" value="field_transform" />
+              <el-option :label="$t('ai.transformerConditionalResponse')" value="conditional_response" />
+              <el-option :label="$t('ai.transformerLogging')" value="logging" />
+              <el-option :label="$t('ai.transformerHttpForward')" value="http_forward" />
+            </el-select>
+            <el-button type="warning" size="small" @click="handleAiGenerateCode" :loading="aiCodeLoading">
+              <MagicStick :width="'0.9em'" :height="'0.9em'" style="margin-right: 4px;" />
+              {{ aiCodeLoading ? $t('ai.generatingCode') : $t('ai.generateCodeTemplate') }}
+            </el-button>
+            <span style="font-size: 12px; color: #909399;">基于接口信息智能生成 CustomResponseTransformer 实现代码</span>
+          </div>
+        </div>
         <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
           <el-button v-if="!form.isSystem || isAdmin" size="small" @click="loadDefaultTemplateCode">{{ $t('codeTemplate.useDefaultTemplate') }}</el-button>
           <el-button size="small" type="success" @click="validateTemplateCode" :loading="validatingCode">{{ $t('codeTemplate.compileValidate') }}</el-button>
@@ -156,6 +175,7 @@
             <el-button size="small" style="margin-left: auto;" @click="codeFullscreen = false">{{ $t('common.exitFullscreen') }}</el-button>
           </div>
           <MonacoEditor
+            ref="monacoEditorRef"
             v-model="form.sourceCode"
             :read-only="form.isSystem && !isAdmin"
             :height="codeFullscreen ? 'calc(100vh - 60px)' : '420px'"
@@ -199,7 +219,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, ArrowDown } from '@element-plus/icons-vue'
+import { Plus, ArrowDown, MagicStick } from '@element-plus/icons-vue'
 import { formatTime, loadDateFormat } from '@/utils/dateFormat'
 import { useI18n } from 'vue-i18n'
 import { getAccessibleProjects } from '@/api/project'
@@ -212,6 +232,7 @@ import {
   batchDeleteTemplates,
   validateTemplateSourceCode
 } from '@/api/codeTemplate'
+import { generateCodeTemplate } from '@/api/ai'
 import { defineAsyncComponent } from 'vue'
 
 const MonacoEditor = defineAsyncComponent(() => import('@/components/MonacoEditor.vue'))
@@ -266,12 +287,17 @@ const isEdit = ref(false)
 const submitLoading = ref(false)
 const formRef = ref()
 
+// AI 代码生成相关
+const aiCodeLoading = ref(false)
+const aiTransformerType = ref('response_wrapping')
+
 // 编译验证相关
 const validatingCode = ref(false)
 const validationResult = ref(null)
 
 // 代码编辑器全屏
 const codeFullscreen = ref(false)
+const monacoEditorRef = ref(null)
 
 const form = reactive({
   id: null,
@@ -529,6 +555,66 @@ public class MyCustomTransformer implements CustomResponseTransformer {
         return "标准格式包装器 - 将响应包装为 {code, message, data, timestamp} 格式";
     }
 }`
+}
+
+// AI 智能生成代码模板
+const handleAiGenerateCode = async () => {
+  if (!form.name || !form.name.trim()) {
+    ElMessage.warning(t('codeTemplate.nameRequired'))
+    return
+  }
+
+  aiCodeLoading.value = true
+  validationResult.value = null
+  try {
+    const response = await generateCodeTemplate({
+      apiMethod: 'POST',
+      apiPath: '/api/' + form.name.trim().toLowerCase().replace(/\s+/g, '-'),
+      apiName: form.name.trim(),
+      description: form.description || undefined,
+      transformerType: aiTransformerType.value,
+      existingSourceCode: form.sourceCode || undefined
+    })
+
+    console.log('[AI CodeTemplate] response:', response)
+    console.log('[AI CodeTemplate] response.code:', response.code, 'type:', typeof response.code)
+    console.log('[AI CodeTemplate] response.data type:', typeof response.data, 'length:', response.data ? response.data.length : 0)
+
+    if (response.code === 200 && response.data) {
+      // 先设置 reactive form.sourceCode（用于表单验证和提交）
+      form.sourceCode = response.data
+      console.log('[AI CodeTemplate] form.sourceCode set, length:', form.sourceCode.length)
+      // 直接通过 Monaco Editor 实例设置内容，确保编辑器显示更新
+      if (monacoEditorRef.value) {
+        const editorInstance = monacoEditorRef.value.getEditor()
+        if (editorInstance) {
+          editorInstance.setValue(response.data)
+          console.log('[AI CodeTemplate] editor.setValue() called successfully')
+        } else {
+          console.warn('[AI CodeTemplate] monacoEditorRef.getEditor() returned null')
+        }
+      } else {
+        console.warn('[AI CodeTemplate] monacoEditorRef is null')
+      }
+      ElMessage.success(t('ai.codeTemplateGenerated'))
+      // 自动触发编译验证
+      setTimeout(() => validateTemplateCode(), 300)
+    } else {
+      console.error('[AI CodeTemplate] failed: code=', response.code, 'data=', response.data, 'message=', response.message)
+      ElMessage.error(response.message || t('ai.generateFailed'))
+    }
+  } catch (error) {
+    console.error('AI 生成代码模板失败:', error)
+    console.error('AI 生成代码模板失败 - 错误详情:', {
+      message: error?.message,
+      response: error?.response?.data,
+      status: error?.response?.status,
+      stack: error?.stack
+    })
+    ElMessage.error(t('ai.generateFailed'))
+  } finally {
+    aiCodeLoading.value = false
+  }
 }
 
 // 编译验证模板源码

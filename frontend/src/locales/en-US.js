@@ -782,6 +782,8 @@ export default {
     modelPlaceholder: 'Enter model name, e.g. gpt-4o',
     maxTokens: 'Max Tokens',
     temperature: 'Temperature',
+    timeout: 'Timeout',
+    timeoutHint: 'AI request timeout, recommended 120-300 seconds',
     enable: 'Enable',
     disable: 'Disable',
     enabled: 'Enabled',
@@ -821,7 +823,18 @@ export default {
     generate: 'AI Generate',
     generateTemplate: 'AI Generate Template',
     emailSubjectGenerated: 'Email subject generated',
-    emailTemplateGenerated: 'Email template generated'
+    emailTemplateGenerated: 'Email template generated',
+    generateCodeTemplate: 'AI Generate Code',
+    generatingCode: 'AI generating code...',
+    codeTemplateGenerated: 'Code template generated',
+    transformerType: 'Transformer Type',
+    selectTransformerType: 'Select transformer type',
+    transformerResponseWrapping: 'Response Wrapping - Unified format',
+    transformerDataMasking: 'Data Masking - Sensitive fields',
+    transformerFieldTransform: 'Field Transform - Rename/convert',
+    transformerConditionalResponse: 'Conditional Response - By params',
+    transformerLogging: 'Logging - Request/response details',
+    transformerHttpForward: 'HTTP Forward - Proxy to real backend'
   },
 
   // Changelog

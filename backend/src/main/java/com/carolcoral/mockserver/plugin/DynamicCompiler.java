@@ -503,13 +503,15 @@ public class DynamicCompiler {
             Pattern.compile("java\\.lang\\.reflect"),
             Pattern.compile("java\\.lang\\.Process"),
             Pattern.compile("java\\.lang\\.Runtime"),
-            Pattern.compile("java\\.lang\\.System"),
+            // java.lang.System: 允许 currentTimeMillis() 和 out.println()，禁止 exit/exec/gc/load 等危险方法
+            Pattern.compile("java\\.lang\\.System\\.(exit|gc|exec|load|loadLibrary|setSecurityManager|setErr|setIn|setOut)"),
             Pattern.compile("java\\.lang\\.Thread"),
             Pattern.compile("java\\.lang\\.ClassLoader"),
             Pattern.compile("java\\.lang\\.Class\\b"),
             Pattern.compile("java\\.io\\.File"),
             Pattern.compile("java\\.io\\.RandomAccessFile"),
-            Pattern.compile("java\\.net\\."),
+            // java.net: 允许 java.net.http (HttpClient) 和 java.net.URI，禁止 Socket/URL/ServerSocket 等
+            Pattern.compile("java\\.net\\.(?!http\\.|URI\\b)"),
             Pattern.compile("java\\.nio\\.file\\."),
             Pattern.compile("javax\\.script\\."),
             Pattern.compile("java\\.util\\.concurrent\\.(?!stream\\.)"),

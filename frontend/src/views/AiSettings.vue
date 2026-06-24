@@ -105,6 +105,12 @@
             <el-input v-model="form.defaultModel" :placeholder="$t('ai.modelPlaceholder')" />
           </el-form-item>
 
+          <el-form-item :label="$t('ai.timeout')" class="timeout-form-item">
+            <el-input-number v-model="form.timeout" :min="30" :max="600" :step="30" />
+            <span class="timeout-unit">秒</span>
+            <span class="timeout-hint">{{ $t('ai.timeoutHint') }}</span>
+          </el-form-item>
+
           <el-row :gutter="20">
             <el-col :span="12">
               <el-form-item :label="$t('ai.maxTokens')">
@@ -125,9 +131,10 @@
             <el-button
               @click="testConnectivity"
               :loading="testing"
-              :type="testResult ? (testResult.success ? 'success' : 'danger') : 'default'"
+              type="primary"
+              plain
             >
-              {{ testResult ? (testResult.success ? $t('ai.testPassed') : $t('ai.testFailed')) : $t('ai.testConnectivity') }}
+              {{ $t('ai.testConnectivity') }}
             </el-button>
             <el-button
               v-if="savedConfigId && !form.enabled"
@@ -146,18 +153,6 @@
               {{ $t('ai.disable') }}
             </el-button>
           </el-form-item>
-          <!-- 验证结果详情 -->
-          <el-form-item v-if="testResult" label=" ">
-            <el-alert
-              :title="testResult.success ? $t('ai.testPassed') : $t('ai.testFailed')"
-              :description="testResult.success
-                ? $t('ai.testLatency', { latency: testResult.latency, model: testResult.model })
-                : testResult.error"
-              :type="testResult.success ? 'success' : 'error'"
-              :closable="false"
-              show-icon
-            />
-          </el-form-item>
         </el-form>
       </div>
 
@@ -169,7 +164,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Link } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import request from '@/utils/request'
@@ -180,7 +175,6 @@ const loading = ref(false)
 const saving = ref(false)
 const toggling = ref(false)
 const testing = ref(false)
-const testResult = ref(null)
 const activeProvider = ref('')
 const savedConfigId = ref(null)
 
@@ -196,6 +190,7 @@ const form = ref({
   defaultModel: '',
   maxTokens: 4096,
   temperature: 0.7,
+  timeout: 120,
   enabled: false
 })
 
@@ -241,6 +236,11 @@ async function loadConfigs() {
     const res = await request.get('/ai-config')
     if (res.code === 200) {
       savedConfigs.value = res.data || []
+      // 将已启用配置的超时同步到 localStorage，供 request.js 动态读取
+      const enabled = savedConfigs.value.find(c => c.enabled)
+      if (enabled && enabled.timeout) {
+        localStorage.setItem('aiTimeout', enabled.timeout * 1000)
+      }
     }
   } catch (e) {
     console.error('加载AI配置失败', e)
@@ -250,7 +250,6 @@ async function loadConfigs() {
 // 选择服务商
 function selectProvider(key) {
   activeProvider.value = key
-  testResult.value = null
   const preset = providerList.value.find(p => p.key === key)
   const saved = savedConfigs.value.find(c => c.provider === key)
 
@@ -264,6 +263,7 @@ function selectProvider(key) {
       defaultModel: saved.defaultModel || '',
       maxTokens: saved.maxTokens || 4096,
       temperature: saved.temperature || 0.7,
+      timeout: saved.timeout || 120,
       enabled: saved.enabled
     }
   } else {
@@ -276,6 +276,7 @@ function selectProvider(key) {
       defaultModel: preset ? preset.defaultModel : '',
       maxTokens: 4096,
       temperature: 0.7,
+      timeout: 120,
       enabled: false
     }
   }
@@ -294,6 +295,9 @@ async function saveConfig() {
     if (res.code === 200) {
       savedConfigId.value = res.data.id
       form.value.enabled = res.data.enabled
+      // 实时同步 AI 超时到 localStorage，request.js 会动态读取
+      const timeout = form.value.timeout || 120
+      localStorage.setItem('aiTimeout', timeout * 1000)
       ElMessage.success(t('common.success'))
       await loadConfigs()
     }
@@ -329,7 +333,6 @@ async function testConnectivity() {
   }
 
   testing.value = true
-  testResult.value = null
   try {
     const res = await request.post('/ai-config/test-connectivity', {
       apiUrl: form.value.apiUrl,
@@ -337,16 +340,23 @@ async function testConnectivity() {
       defaultModel: form.value.defaultModel
     })
     if (res.code === 200 && res.data) {
-      testResult.value = res.data
       if (res.data.success) {
-        ElMessage.success(t('ai.testPassed'))
+        ElMessageBox.alert(
+          t('ai.testLatency', { latency: res.data.latency, model: res.data.model }),
+          t('ai.testPassed'),
+          { confirmButtonText: t('common.confirm'), type: 'success' }
+        )
       } else {
-        ElMessage.error(res.data.error || t('ai.testFailed'))
+        ElMessageBox.alert(
+          res.data.error || t('ai.testFailed'),
+          t('ai.testFailed'),
+          { confirmButtonText: t('common.confirm'), type: 'error' }
+        )
       }
     }
   } catch (e) {
-    testResult.value = { success: false, error: e?.response?.data?.message || e?.message || t('ai.testFailed') }
-    ElMessage.error(testResult.value.error)
+    const errorMsg = e?.response?.data?.message || e?.message || t('ai.testFailed')
+    ElMessageBox.alert(errorMsg, t('ai.testFailed'), { confirmButtonText: t('common.confirm'), type: 'error' })
   } finally {
     testing.value = false
   }
@@ -440,5 +450,21 @@ onMounted(async () => {
 
 .el-divider {
   margin: 20px 0;
+}
+
+.timeout-unit {
+  margin-left: 8px;
+  color: #606266;
+  font-size: 13px;
+}
+
+.timeout-hint {
+  margin-left: 12px;
+  color: #909399;
+  font-size: 12px;
+}
+
+.timeout-form-item :deep(.el-input-number) {
+  width: 140px;
 }
 </style>

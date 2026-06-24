@@ -782,6 +782,8 @@ export default {
     modelPlaceholder: 'モデル名を入力してください（例：gpt-4o）',
     maxTokens: '最大トークン',
     temperature: '温度パラメータ',
+    timeout: 'タイムアウト',
+    timeoutHint: 'AIリクエストのタイムアウト、推奨 120-300 秒',
     enable: '有効にする',
     disable: '無効にする',
     enabled: '有効',
@@ -821,7 +823,18 @@ export default {
     generate: 'AI生成',
     generateTemplate: 'AIテンプレート生成',
     emailSubjectGenerated: 'メール件名が生成されました',
-    emailTemplateGenerated: 'メールテンプレートが生成されました'
+    emailTemplateGenerated: 'メールテンプレートが生成されました',
+    generateCodeTemplate: 'AIコード生成',
+    generatingCode: 'AIコード生成中...',
+    codeTemplateGenerated: 'コードテンプレートが生成されました',
+    transformerType: '変換タイプ',
+    selectTransformerType: '変換タイプを選択',
+    transformerResponseWrapping: 'レスポンス包装 - 統一フォーマット',
+    transformerDataMasking: 'データマスキング - 機密フィールド',
+    transformerFieldTransform: 'フィールド変換 - リネーム/型変換',
+    transformerConditionalResponse: '条件付き応答 - パラメータ別',
+    transformerLogging: 'ログ記録 - リクエスト/レスポンス詳細',
+    transformerHttpForward: 'HTTP転送 - バックエンドにプロキシ'
   },
 
   // 変更履歴

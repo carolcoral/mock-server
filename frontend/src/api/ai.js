@@ -1,7 +1,7 @@
 import request from '@/utils/request'
 
-// AI 请求专用超时时间（120秒，AI 生成响应可能需要较长时间）
-const AI_TIMEOUT = 120000
+// AI 请求专用超时时间（180秒，AI 生成响应实际约100-130秒）
+const AI_TIMEOUT = 180000
 
 /**
  * AI 生成 Mock 响应数据
@@ -53,6 +53,20 @@ export function testAiConnectivity(params) {
 export function generateEmailTemplate(params) {
   return request({
     url: '/ai/generate-email-template',
+    method: 'post',
+    data: params,
+    timeout: AI_TIMEOUT
+  })
+}
+
+/**
+ * AI 生成代码模板（CustomResponseTransformer Java 源码）
+ * @param {Object} params - { apiMethod, apiPath, apiName, description, transformerType, existingSourceCode }
+ * @returns {Promise}
+ */
+export function generateCodeTemplate(params) {
+  return request({
+    url: '/ai/generate-code-template',
     method: 'post',
     data: params,
     timeout: AI_TIMEOUT

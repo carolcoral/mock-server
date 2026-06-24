@@ -79,6 +79,10 @@ public class AiConfig {
     @Column
     private Double temperature = 0.7;
 
+    @Schema(description = "AI 请求超时时间（秒），默认 120", example = "120")
+    @Column
+    private Integer timeout = 120;
+
     @Schema(description = "是否启用", example = "true")
     @Column(nullable = false)
     private Boolean enabled = false;
@@ -130,6 +134,9 @@ public class AiConfig {
 
     public Double getTemperature() { return temperature; }
     public void setTemperature(Double temperature) { this.temperature = temperature; }
+
+    public Integer getTimeout() { return timeout; }
+    public void setTimeout(Integer timeout) { this.timeout = timeout; }
 
     public Boolean getEnabled() { return enabled; }
     public void setEnabled(Boolean enabled) { this.enabled = enabled; }

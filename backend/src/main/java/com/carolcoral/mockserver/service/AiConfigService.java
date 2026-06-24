@@ -74,6 +74,7 @@ public class AiConfigService {
             existing.setDefaultModel(config.getDefaultModel());
             existing.setMaxTokens(config.getMaxTokens());
             existing.setTemperature(config.getTemperature());
+            existing.setTimeout(config.getTimeout());
             existing.setEnabled(config.getEnabled());
             return aiConfigRepository.save(existing);
         }

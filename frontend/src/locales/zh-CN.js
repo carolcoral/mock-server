@@ -782,6 +782,8 @@ export default {
     modelPlaceholder: '请输入模型名称，如 gpt-4o',
     maxTokens: '最大 Token',
     temperature: '温度参数',
+    timeout: '超时时间',
+    timeoutHint: 'AI 请求超时时间，建议 120-300 秒',
     enable: '启用',
     disable: '禁用',
     enabled: '已启用',
@@ -821,7 +823,18 @@ export default {
     generate: 'AI 生成',
     generateTemplate: 'AI 生成模板',
     emailSubjectGenerated: '邮件主题已生成',
-    emailTemplateGenerated: '邮件模板已生成'
+    emailTemplateGenerated: '邮件模板已生成',
+    generateCodeTemplate: 'AI 智能生成代码',
+    generatingCode: 'AI 正在生成代码...',
+    codeTemplateGenerated: '代码模板已生成',
+    transformerType: '转换器类型',
+    selectTransformerType: '选择转换器类型',
+    transformerResponseWrapping: '响应包装 - 统一标准格式',
+    transformerDataMasking: '数据脱敏 - 敏感字段处理',
+    transformerFieldTransform: '字段转换 - 重命名/类型转换',
+    transformerConditionalResponse: '条件响应 - 按参数返回不同数据',
+    transformerLogging: '日志记录 - 请求响应详情',
+    transformerHttpForward: '请求转发 - 转发到真实后端服务'
   },
 
   // 变更历史

@@ -6,10 +6,16 @@ import { useUserStore } from '@/stores/user'
 const savedTimeout = localStorage.getItem('axiosTimeout')
 const defaultTimeout = savedTimeout ? parseInt(savedTimeout) : 30000
 
+// 获取 AI 请求超时（由 AiSettings.vue 保存，默认 120 秒）
+function getAiTimeout() {
+  const saved = localStorage.getItem('aiTimeout')
+  return saved ? parseInt(saved) : 120000
+}
+
 // 创建axios实例
 const service = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  timeout: defaultTimeout, // 可配置的超时时间，默认30秒
+  timeout: defaultTimeout,
   withCredentials: false // 关闭凭据发送，避免CORS问题
 })
 
@@ -20,10 +26,16 @@ service.interceptors.request.use(
     const userStore = useUserStore()
     if (userStore.token) {
       config.headers['Authorization'] = `Bearer ${userStore.token}`
-      console.log('[Request] 添加Authorization头:', config.headers['Authorization'])
-    } else {
-      console.warn('[Request] 未找到token，userStore.token为空')
     }
+
+    // AI 相关接口动态读取用户在 AI 设置中配置的超时时间（实时全局生效）
+    if (config.url && (
+      config.url.includes('/ai/generate-') ||
+      config.url.includes('/ai-config/test-connectivity')
+    )) {
+      config.timeout = getAiTimeout()
+    }
+
     return config
   },
   (error) => {
