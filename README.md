@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.1.2-blue?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/version-2.2.0-blue?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/license-Apache%202.0-green?style=flat-square" alt="License">
   <img src="https://img.shields.io/badge/JDK-21%2B-orange?style=flat-square" alt="JDK">
   <img src="https://img.shields.io/badge/Node-18%2B-brightgreen?style=flat-square" alt="Node">
@@ -49,7 +49,7 @@ git clone https://github.com/carolcoral/mock-server.git && cd mock-server
 ```bash
 # 手动构建
 ./build-all-in-one.sh
-java -jar backend/target/mock-server-2.1.2.jar
+java -jar backend/target/mock-server-2.2.0.jar
 
 # 开发模式
 cd backend && mvn spring-boot:run          # 终端 1

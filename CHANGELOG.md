@@ -1,5 +1,132 @@
 # 版本变更说明
 
+## v2.2.0 (2026-06-24)
+
+> AI 智能生成、服务端分页、Swagger 导入与页面美化。
+
+### 🚀 AI 智能生成
+- **AI 代码模板生成**：根据接口信息 + 转换器类型一键生成 `CustomResponseTransformer` Java 代码，支持 6 种转换器（响应包装 / 数据脱敏 / 字段转换 / 条件响应 / 日志记录 / HTTP 请求转发）
+- 生成时将系统默认模板作为 prompt 参考，自动补充缺失 import、修正 `getParams()` 类型转换
+- **AI 邮件模板生成**：AI 自动生成邮件 HTML 内容和主题，支持预览按钮右侧并排
+- **AI 设置页面**：重命名为「服务商设置」，页面全面美化（渐变头部横幅、卡片式布局、自定义 SVG 图标）
+- **AI 超时可配**：AI 设置页新增超时时间字段（30-600 秒），全局实时生效
+- 连通性验证结果改为弹窗展示，延迟毫秒数 + 模型名称
+
+### 🚀 Swagger 导入
+- **项目管理页新增「导入 Swagger」**：支持上传 JSON 文件或输入 Swagger 文档 URL
+- 自动解析 Swagger 2.0 / OpenAPI 3.x，生成接口列表（名称、路径、请求方式、响应体示例）
+- 递归解析 `$ref` 引用，智能生成字段示例值（枚举 / 日期 / 邮箱等格式）
+- 自动跳过已存在的 path+method 重复接口，导入完成后跳转接口管理页
+
+### 🚀 服务端分页
+- **全模块支持真正服务端分页**：项目管理、接口管理、代码模板、用户管理、邮件模板
+- 后端 `JpaSpecificationExecutor` + `PageRequest` 动态查询，前端页码/每页条数联动
+- 邮件模板页新增搜索栏（名称 / 类型 / 启用状态）+ 分页组件
+- 邮件模板启用状态文字改为「启用/禁用」
+
+### 🎨 UI 美化
+- 服务商设置页面全新设计：紫色渐变头部、状态卡片、分区卡片、SVG 图标装饰
+- 菜单图标优化，空状态插画替换
+
+### 🐛 修复
+- 注册邮箱验证码发送时校验用户名并传递用于占位符替换
+- HttpClient 转发模板编译错误（类型不匹配、安全规则误拦截）
+- 条件响应处理器模板 `getParam()` 返回类型错误
+- `DynamicCompiler` 安全规则优化（允许 `System.currentTimeMillis()`、`java.net.http.*`）
+- AI 代码生成 504 超时（动态读取 localStorage 超时配置）
+- AI 生成代码缺失 import 和类型转换错误（自动修正）
+- 邮件模板页面启用状态文字统一
+
+### 📝 升级说明
+
+> ⚠️ **v2.1.2 → v2.2.0 数据库变更**：`DatabaseMigration` 启动时自动执行。若自动迁移失败，请手动执行以下 SQL：
+
+```sql
+-- ============================================
+-- 从 v2.1.0 / v2.1.1 / v2.1.2 升级到 v2.2.0
+-- ============================================
+
+-- 1. 创建 AI 服务商配置表（新增）
+CREATE TABLE IF NOT EXISTS t_ai_config (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    provider VARCHAR(50) NOT NULL UNIQUE,
+    provider_name VARCHAR(100) NOT NULL,
+    api_url VARCHAR(500) NOT NULL,
+    api_key VARCHAR(500) NOT NULL,
+    default_model VARCHAR(100),
+    max_tokens INTEGER DEFAULT 4096,
+    temperature REAL DEFAULT 0.7,
+    timeout INTEGER DEFAULT 120,
+    enabled BOOLEAN NOT NULL DEFAULT 0,
+    create_time DATETIME NOT NULL,
+    update_time DATETIME NOT NULL
+);
+
+-- 2. 创建系统配置表（新增）
+CREATE TABLE IF NOT EXISTS t_system_config (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    config_key VARCHAR(100) NOT NULL UNIQUE,
+    config_value VARCHAR(500),
+    description VARCHAR(500),
+    create_time DATETIME NOT NULL,
+    update_time DATETIME NOT NULL
+);
+INSERT OR IGNORE INTO t_system_config (config_key, config_value, description, create_time, update_time)
+VALUES ('defaultLanguage', 'zh-CN', '系统默认语言', datetime('now'), datetime('now'));
+
+-- 3. 创建请求参数定义表（新增）
+CREATE TABLE IF NOT EXISTS t_response_request_param (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    param_name VARCHAR(100) NOT NULL,
+    param_type VARCHAR(20) NOT NULL DEFAULT 'QUERY',
+    param_value VARCHAR(500),
+    required BOOLEAN NOT NULL DEFAULT 0,
+    create_time DATETIME NOT NULL,
+    update_time DATETIME NOT NULL,
+    response_id BIGINT NOT NULL,
+    FOREIGN KEY (response_id) REFERENCES t_mock_response(id)
+);
+
+-- 4. t_mock_response 新增列（active / is_default / response_delay）
+-- SQLite 不支持 ADD COLUMN IF NOT EXISTS，使用 try/catch 或先检查
+ALTER TABLE t_mock_response ADD COLUMN active BOOLEAN DEFAULT 0;
+ALTER TABLE t_mock_response ADD COLUMN is_default BOOLEAN DEFAULT 0;
+ALTER TABLE t_mock_response ADD COLUMN response_delay INTEGER DEFAULT 0;
+
+-- 5. t_mock_api 新增列（custom_response_handler / custom_response_source）
+ALTER TABLE t_mock_api ADD COLUMN custom_response_handler VARCHAR(500);
+ALTER TABLE t_mock_api ADD COLUMN custom_response_source TEXT;
+
+-- 6. t_user 新增列（language）
+ALTER TABLE t_user ADD COLUMN language VARCHAR(10) DEFAULT 'zh-CN';
+
+-- 7. t_custom_code_template 新增 is_system 列 + project_id 改为可空
+ALTER TABLE t_custom_code_template ADD COLUMN is_system BOOLEAN DEFAULT 0;
+
+-- 将 project_id 改为可空（SQLite 需重建表）
+CREATE TABLE IF NOT EXISTS t_custom_code_template_new (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(100) NOT NULL,
+    description VARCHAR(500),
+    source_code TEXT NOT NULL,
+    language VARCHAR(50) NOT NULL DEFAULT 'JAVA',
+    enabled BOOLEAN NOT NULL DEFAULT 1,
+    is_system BOOLEAN DEFAULT 0,
+    create_time DATETIME NOT NULL,
+    update_time DATETIME NOT NULL,
+    create_user_id BIGINT NOT NULL,
+    project_id BIGINT
+);
+INSERT INTO t_custom_code_template_new SELECT
+    id, name, description, source_code, language, enabled,
+    COALESCE(is_system, 0), create_time, update_time, create_user_id, project_id
+FROM t_custom_code_template;
+DROP TABLE t_custom_code_template;
+ALTER TABLE t_custom_code_template_new RENAME TO t_custom_code_template;
+```
+
+---
+
 ## v2.1.2 (2026-06-23)
 
 > Swagger 权限管控、代码模板增强与系统优化。

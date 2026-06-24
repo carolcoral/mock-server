@@ -62,10 +62,10 @@
         style="width: 100%"
         :header-cell-style="{ background: '#f5f7fa' }"
       >
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="project.name" :label="$t('api.project')" min-width="120" show-overflow-tooltip />
-        <el-table-column prop="name" :label="$t('api.apiName')" min-width="150" />
-        <el-table-column :label="$t('api.apiPath')" min-width="360" show-overflow-tooltip>
+        <el-table-column prop="id" label="ID" width="80" fixed />
+        <el-table-column prop="project.name" :label="$t('api.project')" min-width="120" show-overflow-tooltip fixed />
+        <el-table-column prop="name" :label="$t('api.apiName')" min-width="150" fixed />
+        <el-table-column :label="$t('api.apiPath')" min-width="360" show-overflow-tooltip fixed>
           <template #default="{ row }">
             <div class="path-cell">
               <el-button
