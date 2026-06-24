@@ -122,14 +122,25 @@ public class ProjectController {
     }
 
     /**
-     * 查询所有项目
+     * 查询所有项目（支持分页和搜索）
      *
+     * @param name    项目名称（模糊搜索）
+     * @param code    项目编码（模糊搜索）
+     * @param enabled 启用状态
+     * @param page    页码（从0开始）
+     * @param size    每页大小
      * @param request 请求
-     * @return 项目列表
+     * @return 分页结果
      */
-    @Operation(summary = "查询所有项目", description = "查询所有项目列表（仅管理员）")
+    @Operation(summary = "查询所有项目", description = "查询所有项目列表，支持分页和搜索（仅管理员）")
     @GetMapping
-    public ApiResponse<java.util.List<Project>> getAllProjects(HttpServletRequest request) {
+    public ApiResponse<com.carolcoral.mockserver.dto.PageResult<Project>> getAllProjects(
+            @Parameter(description = "项目名称（模糊搜索）") @RequestParam(required = false) String name,
+            @Parameter(description = "项目编码（模糊搜索）") @RequestParam(required = false) String code,
+            @Parameter(description = "启用状态") @RequestParam(required = false) Boolean enabled,
+            @Parameter(description = "页码（从0开始）") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "每页大小") @RequestParam(defaultValue = "10") int size,
+            HttpServletRequest request) {
         User.UserRole userRole = getUserRoleFromRequest(request);
         
         // 只有管理员可以查询所有项目
@@ -137,8 +148,8 @@ public class ProjectController {
             return ApiResponse.error("没有权限访问");
         }
         
-        log.info("查询所有项目请求");
-        return projectService.getAllProjects();
+        log.info("查询所有项目请求: name={}, code={}, enabled={}, page={}, size={}", name, code, enabled, page, size);
+        return projectService.searchProjects(name, code, enabled, page, size);
     }
 
     /**
@@ -154,18 +165,30 @@ public class ProjectController {
     }
 
     /**
-     * 查询用户有权限访问的项目（带角色信息）
+     * 查询用户有权限访问的项目（带角色信息，支持分页和搜索）
      *
+     * @param name    项目名称（模糊搜索）
+     * @param code    项目编码（模糊搜索）
+     * @param enabled 启用状态
+     * @param page    页码（从0开始）
+     * @param size    每页大小
      * @param request 请求
-     * @return 项目列表（带用户角色）
+     * @return 分页结果（带用户角色）
      */
-    @Operation(summary = "查询用户有权限访问的项目（带角色信息）", description = "查询当前用户有权限访问的项目列表，包含用户在每个项目中的角色")
+    @Operation(summary = "查询用户有权限访问的项目（带角色信息）", description = "查询当前用户有权限访问的项目列表，支持分页和搜索")
     @GetMapping("/accessible")
-    public ApiResponse<java.util.List<ProjectWithRoleDTO>> getAccessibleProjects(HttpServletRequest request) {
+    public ApiResponse<com.carolcoral.mockserver.dto.PageResult<ProjectWithRoleDTO>> getAccessibleProjects(
+            @Parameter(description = "项目名称（模糊搜索）") @RequestParam(required = false) String name,
+            @Parameter(description = "项目编码（模糊搜索）") @RequestParam(required = false) String code,
+            @Parameter(description = "启用状态") @RequestParam(required = false) Boolean enabled,
+            @Parameter(description = "页码（从0开始）") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "每页大小") @RequestParam(defaultValue = "10") int size,
+            HttpServletRequest request) {
         Long userId = getUserIdFromRequest(request);
         User.UserRole userRole = getUserRoleFromRequest(request);
-        log.info("查询用户有权限访问的项目请求，用户: {}, 角色: {}", userId, userRole);
-        return projectService.getAccessibleProjectsWithRole(userId, userRole);
+        log.info("查询用户有权限访问的项目请求，用户: {}, 角色: {}, name={}, code={}, enabled={}, page={}, size={}", 
+            userId, userRole, name, code, enabled, page, size);
+        return projectService.searchAccessibleProjects(userId, userRole, name, code, enabled, page, size);
     }
 
     /**

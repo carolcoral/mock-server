@@ -272,30 +272,22 @@ const fetchProjects = async () => {
   loading.value = true
   try {
     const url = isAdmin.value ? '/projects' : '/projects/accessible'
+    const params = {
+      page: pagination.current - 1,
+      size: pagination.pageSize
+    }
+    if (searchForm.name) params.name = searchForm.name
+    if (searchForm.code) params.code = searchForm.code
+    if (searchForm.enabled !== null && searchForm.enabled !== '') params.enabled = searchForm.enabled
 
     const response = await request({
       url,
-      method: 'get'
+      method: 'get',
+      params
     })
     if (response.code === 200) {
-      let filteredData = response.data || []
-
-      if (searchForm.name) {
-        filteredData = filteredData.filter(p =>
-          p.name?.toLowerCase().includes(searchForm.name.toLowerCase())
-        )
-      }
-      if (searchForm.code) {
-        filteredData = filteredData.filter(p =>
-          p.code?.toLowerCase().includes(searchForm.code.toLowerCase())
-        )
-      }
-      if (searchForm.enabled !== null) {
-        filteredData = filteredData.filter(p => p.enabled === searchForm.enabled)
-      }
-
-      projectList.value = filteredData
-      pagination.total = filteredData.length
+      projectList.value = response.data.content || []
+      pagination.total = response.data.totalElements || 0
     } else {
       ElMessage.error(t('project.fetchFailed'))
     }

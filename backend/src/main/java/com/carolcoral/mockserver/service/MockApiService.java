@@ -7,6 +7,7 @@
 package com.carolcoral.mockserver.service;
 
 import com.carolcoral.mockserver.dto.ApiResponse;
+import com.carolcoral.mockserver.dto.PageResult;
 import com.carolcoral.mockserver.entity.MockApi;
 import com.carolcoral.mockserver.entity.MockResponse;
 import com.carolcoral.mockserver.entity.Project;
@@ -20,9 +21,16 @@ import com.carolcoral.mockserver.util.CacheUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+
+import jakarta.persistence.criteria.Predicate;
+import java.util.ArrayList;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -397,6 +405,94 @@ public class MockApiService {
             log.error("查询接口列表失败: {}", e.getMessage(), e);
             return ApiResponse.error("查询接口列表失败，请稍后重试");
         }
+    }
+
+    /**
+     * 分页搜索所有接口
+     */
+    @Operation(summary = "分页搜索接口")
+    public ApiResponse<PageResult<MockApi>> searchMockApis(String name, String path, MockApi.HttpMethod method,
+            Long projectId, Boolean enabled, int page, int size) {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || auth.getName().equals("anonymousUser")) {
+                return ApiResponse.success(new PageResult<>());
+            }
+            Optional<User> userOpt = userRepository.findByUsername(auth.getName());
+            if (!userOpt.isPresent()) {
+                return ApiResponse.error("用户不存在");
+            }
+            User user = userOpt.get();
+
+            List<Long> accessibleProjectIds = null;
+            if (user.getRole() != User.UserRole.ADMIN) {
+                accessibleProjectIds = projectRepository.findAccessibleProjectsByUserId(user.getId())
+                        .stream().map(Project::getId).collect(Collectors.toList());
+            }
+
+            Specification<MockApi> spec = buildMockApiSpec(name, path, method, projectId, enabled, accessibleProjectIds);
+            PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createTime"));
+            Page<MockApi> result = mockApiRepository.findAll(spec, pageRequest);
+            return ApiResponse.success(toPageResult(result));
+        } catch (Exception e) {
+            log.error("分页搜索接口失败: {}", e.getMessage(), e);
+            return ApiResponse.error("查询接口列表失败，请稍后重试");
+        }
+    }
+
+    /**
+     * 分页搜索指定项目下的接口
+     */
+    @Operation(summary = "分页搜索项目接口")
+    public ApiResponse<PageResult<MockApi>> searchMockApisByProject(Long projectId, String name, String path,
+            MockApi.HttpMethod method, Boolean enabled, int page, int size) {
+        try {
+            Specification<MockApi> spec = buildMockApiSpec(name, path, method, projectId, enabled, null);
+            PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createTime"));
+            Page<MockApi> result = mockApiRepository.findAll(spec, pageRequest);
+            return ApiResponse.success(toPageResult(result));
+        } catch (Exception e) {
+            log.error("分页搜索项目接口失败: {}", e.getMessage(), e);
+            return ApiResponse.error("查询接口列表失败，请稍后重试");
+        }
+    }
+
+    private Specification<MockApi> buildMockApiSpec(String name, String path, MockApi.HttpMethod method,
+            Long projectId, Boolean enabled, List<Long> accessibleProjectIds) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (name != null && !name.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("name")), "%" + name.toLowerCase() + "%"));
+            }
+            if (path != null && !path.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("path")), "%" + path.toLowerCase() + "%"));
+            }
+            if (method != null) {
+                predicates.add(cb.equal(root.get("method"), method));
+            }
+            if (projectId != null) {
+                predicates.add(cb.equal(root.get("project").get("id"), projectId));
+            }
+            if (enabled != null) {
+                predicates.add(cb.equal(root.get("enabled"), enabled));
+            }
+            if (accessibleProjectIds != null && !accessibleProjectIds.isEmpty()) {
+                predicates.add(root.get("project").get("id").in(accessibleProjectIds));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    private <T> PageResult<T> toPageResult(Page<T> page) {
+        PageResult<T> result = new PageResult<>();
+        result.setContent(page.getContent());
+        result.setPage(page.getNumber());
+        result.setSize(page.getSize());
+        result.setTotalElements(page.getTotalElements());
+        result.setTotalPages(page.getTotalPages());
+        result.setFirst(page.isFirst());
+        result.setLast(page.isLast());
+        return result;
     }
 
     /**

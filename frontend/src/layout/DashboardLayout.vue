@@ -55,7 +55,7 @@
             <span>{{ $t('nav.aiManagement') }}</span>
           </template>
           <el-menu-item index="/ai-settings">
-            <el-icon><Setting /></el-icon>
+            <el-icon><Connection /></el-icon>
             <span>{{ $t('nav.aiSettings') }}</span>
           </el-menu-item>
         </el-sub-menu>

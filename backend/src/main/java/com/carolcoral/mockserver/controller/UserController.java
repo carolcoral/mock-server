@@ -168,16 +168,29 @@ public class UserController {
     }
 
     /**
-     * 查询所有用户
+     * 查询所有用户（支持分页和搜索）
      *
-     * @return 用户列表
+     * @param username 用户名（模糊搜索）
+     * @param email    邮箱（模糊搜索）
+     * @param role     角色
+     * @param enabled  启用状态
+     * @param page     页码（从0开始）
+     * @param size     每页大小
+     * @return 分页结果
      */
-    @Operation(summary = "查询所有用户", description = "查询所有用户列表，需要管理员权限")
+    @Operation(summary = "查询所有用户", description = "查询所有用户列表，支持分页和搜索，需要管理员权限")
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
-    public ApiResponse<java.util.List<User>> getAllUsers() {
-        log.info("查询所有用户请求");
-        return userService.getAllUsers();
+    public ApiResponse<com.carolcoral.mockserver.dto.PageResult<User>> getAllUsers(
+            @Parameter(description = "用户名（模糊搜索）") @RequestParam(required = false) String username,
+            @Parameter(description = "邮箱（模糊搜索）") @RequestParam(required = false) String email,
+            @Parameter(description = "角色") @RequestParam(required = false) User.UserRole role,
+            @Parameter(description = "启用状态") @RequestParam(required = false) Boolean enabled,
+            @Parameter(description = "页码（从0开始）") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "每页大小") @RequestParam(defaultValue = "10") int size) {
+        log.info("查询所有用户请求: username={}, email={}, role={}, enabled={}, page={}, size={}",
+            username, email, role, enabled, page, size);
+        return userService.searchUsers(username, email, role, enabled, page, size);
     }
 
     /**

@@ -213,9 +213,12 @@ const fetchUsers = async () => {
   try {
     const params = {
       page: pagination.current - 1,
-      size: pagination.pageSize,
-      ...searchForm
+      size: pagination.pageSize
     }
+    if (searchForm.username) params.username = searchForm.username
+    if (searchForm.email) params.email = searchForm.email
+    if (searchForm.role) params.role = searchForm.role
+    if (searchForm.enabled !== null && searchForm.enabled !== '') params.enabled = searchForm.enabled
 
     const response = await request({
       url: '/users',
@@ -223,8 +226,8 @@ const fetchUsers = async () => {
       params
     })
     if (response.code === 200) {
-      userList.value = response.data
-      pagination.total = response.data.length
+      userList.value = response.data.content || []
+      pagination.total = response.data.totalElements || 0
     } else {
       ElMessage.error(t('userManagement.fetchFailed'))
     }

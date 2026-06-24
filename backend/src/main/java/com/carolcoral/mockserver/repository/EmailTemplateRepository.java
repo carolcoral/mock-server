@@ -10,6 +10,7 @@ import com.carolcoral.mockserver.entity.EmailTemplate;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -24,7 +25,7 @@ import java.util.Optional;
  */
 @Tag(name = "邮件模板Repository", description = "邮件模板数据访问接口")
 @Repository
-public interface EmailTemplateRepository extends JpaRepository<EmailTemplate, Long> {
+public interface EmailTemplateRepository extends JpaRepository<EmailTemplate, Long>, JpaSpecificationExecutor<EmailTemplate> {
 
     /**
      * 根据模板类型查找

@@ -46,7 +46,7 @@ export default {
     userManagement: 'ユーザー管理',
     settings: 'システム設定',
     statistics: '統計データ',
-    aiSettings: 'AI 設定'
+    aiSettings: 'プロバイダー設定'
   },
 
   // ユーザー関連
@@ -765,7 +765,7 @@ export default {
 
   // AI 設定
   ai: {
-    title: 'AI 設定',
+    title: 'プロバイダー設定',
     description: 'AIサービスプロバイダーとAPIキーを設定します',
     currentProvider: '現在有効なプロバイダー',
     noProvider: '未設定',

@@ -44,7 +44,7 @@
     <el-card class="table-card">
       <el-table
         v-loading="loading"
-        :data="pagedList"
+        :data="templateList"
         border
         style="width: 100%"
         :header-cell-style="{ background: '#f5f7fa' }"
@@ -271,15 +271,6 @@ const pagination = reactive({
   total: 0
 })
 
-// 分页后的列表（过滤已在服务端完成，此处仅做分页切片）
-const pagedList = computed(() => {
-  const data = templateList.value || []
-  pagination.total = data.length
-  const start = (pagination.current - 1) * pagination.pageSize
-  const end = start + pagination.pageSize
-  return data.slice(start, end)
-})
-
 // 对话框
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
@@ -346,18 +337,22 @@ const fetchProjects = async () => {
   }
 }
 
-// 获取模板列表（支持服务端过滤）
+// 获取模板列表（支持服务端分页和过滤）
 const fetchTemplates = async () => {
   loading.value = true
   try {
-    const params = {}
+    const params = {
+      page: pagination.current - 1,
+      size: pagination.pageSize
+    }
     if (searchForm.name) params.name = searchForm.name
     if (searchForm.projectId) params.projectId = searchForm.projectId
     if (searchForm.enabled !== null && searchForm.enabled !== '') params.enabled = searchForm.enabled
 
     const response = await getAccessibleTemplates(params)
     if (response.code === 200) {
-      templateList.value = response.data || []
+      templateList.value = response.data.content || []
+      pagination.total = response.data.totalElements || 0
     } else {
       ElMessage.error(t('codeTemplate.fetchFailed'))
     }
@@ -387,10 +382,13 @@ const handleReset = () => {
 // 分页
 const handleSizeChange = (size) => {
   pagination.pageSize = size
+  pagination.current = 1
+  fetchTemplates()
 }
 
 const handleCurrentChange = (page) => {
   pagination.current = page
+  fetchTemplates()
 }
 
 // 创建模板

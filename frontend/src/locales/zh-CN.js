@@ -46,7 +46,7 @@ export default {
     userManagement: '用户管理',
     settings: '系统设置',
     statistics: '数据统计',
-    aiSettings: 'AI 设置'
+    aiSettings: '服务商设置'
   },
 
   // 用户相关
@@ -765,7 +765,7 @@ export default {
 
   // AI 设置
   ai: {
-    title: 'AI 设置',
+    title: '服务商设置',
     description: '配置 AI 服务商及 API 密钥，用于系统 AI 功能',
     currentProvider: '当前启用的服务商',
     noProvider: '未配置',

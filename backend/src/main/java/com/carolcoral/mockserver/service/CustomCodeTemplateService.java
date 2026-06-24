@@ -7,6 +7,7 @@
 package com.carolcoral.mockserver.service;
 
 import com.carolcoral.mockserver.dto.ApiResponse;
+import com.carolcoral.mockserver.dto.PageResult;
 import com.carolcoral.mockserver.entity.CustomCodeTemplate;
 import com.carolcoral.mockserver.entity.Project;
 import com.carolcoral.mockserver.entity.ProjectMember;
@@ -20,6 +21,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.persistence.criteria.Predicate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -275,6 +279,31 @@ public class CustomCodeTemplateService {
             return ApiResponse.success(templates);
         } catch (Exception e) {
             log.error("查询模板列表失败: {}", e.getMessage(), e);
+            return ApiResponse.error("查询模板列表失败，请稍后重试");
+        }
+    }
+
+    /**
+     * 分页搜索用户可访问的模板
+     */
+    @Operation(summary = "分页搜索用户可访问的模板列表")
+    public ApiResponse<PageResult<CustomCodeTemplate>> searchAccessibleTemplates(
+            Long userId, User.UserRole userRole, String name, Long projectId, Boolean enabled, int page, int size) {
+        try {
+            Specification<CustomCodeTemplate> spec = buildAccessSpec(userId, userRole, name, projectId, enabled);
+            PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createTime"));
+            Page<CustomCodeTemplate> result = templateRepository.findAll(spec, pageRequest);
+            PageResult<CustomCodeTemplate> pageResult = new PageResult<>();
+            pageResult.setContent(result.getContent());
+            pageResult.setPage(result.getNumber());
+            pageResult.setSize(result.getSize());
+            pageResult.setTotalElements(result.getTotalElements());
+            pageResult.setTotalPages(result.getTotalPages());
+            pageResult.setFirst(result.isFirst());
+            pageResult.setLast(result.isLast());
+            return ApiResponse.success(pageResult);
+        } catch (Exception e) {
+            log.error("分页搜索模板列表失败: {}", e.getMessage(), e);
             return ApiResponse.error("查询模板列表失败，请稍后重试");
         }
     }

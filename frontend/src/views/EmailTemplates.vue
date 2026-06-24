@@ -35,6 +35,35 @@
     </el-card>
 
     <el-card>
+      <!-- 搜索栏 -->
+      <el-form :inline="true" :model="searchForm" style="margin-bottom: 16px;">
+        <el-form-item :label="$t('emailTemplate.name')">
+          <el-input v-model="searchForm.name" :placeholder="$t('emailTemplate.name')" clearable style="width: 200px" />
+        </el-form-item>
+        <el-form-item :label="$t('emailTemplate.type')">
+          <el-select v-model="searchForm.type" :placeholder="$t('emailTemplate.type')" clearable style="width: 180px">
+            <el-option :label="$t('emailTemplate.typeRegister')" value="REGISTER" />
+            <el-option :label="$t('emailTemplate.typeResetPassword')" value="RESET_PASSWORD" />
+            <el-option :label="$t('emailTemplate.typePasswordChanged')" value="PASSWORD_CHANGED" />
+            <el-option :label="$t('emailTemplate.typeLoginAlert')" value="LOGIN_ALERT" />
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="$t('emailTemplate.enabled')">
+          <el-select v-model="searchForm.enabled" :placeholder="$t('emailTemplate.enabled')" clearable style="width: 120px">
+            <el-option :label="$t('project.enabledStatus')" :value="true" />
+            <el-option :label="$t('project.disabledStatus')" :value="false" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="handleSearch">
+            {{ $t('common.search') }}
+          </el-button>
+          <el-button @click="handleReset">
+            {{ $t('common.reset') }}
+          </el-button>
+        </el-form-item>
+      </el-form>
+
       <el-table :data="templates" border style="width: 100%" v-loading="loading">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="name" :label="$t('emailTemplate.name')" width="200" />
@@ -56,7 +85,7 @@
         <el-table-column prop="enabled" :label="$t('emailTemplate.enabled')" width="100">
           <template #default="{ row }">
             <el-tag :type="row.enabled ? 'success' : 'info'">
-              {{ row.enabled ? $t('settings.enabledStatus') : $t('settings.disabledStatus') }}
+              {{ row.enabled ? $t('project.enabledStatus') : $t('project.disabledStatus') }}
             </el-tag>
           </template>
         </el-table-column>
@@ -81,6 +110,18 @@
       <div v-if="templates.length === 0 && !loading" style="text-align: center; padding: 40px;">
         <el-empty :description="$t('home.noAnnouncement')" />
       </div>
+
+      <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
+        <el-pagination
+          v-model:current-page="pagination.current"
+          v-model:page-size="pagination.pageSize"
+          :total="pagination.total"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
     </el-card>
 
     <!-- 编辑对话框 -->
@@ -97,7 +138,7 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="$t('emailTemplate.templateEnabled')">
-          <el-switch v-model="form.enabled" :active-text="$t('settings.enabledStatus')" :inactive-text="$t('settings.disabledStatus')" />
+          <el-switch v-model="form.enabled" :active-text="$t('project.enabledStatus')" :inactive-text="$t('project.disabledStatus')" />
         </el-form-item>
         <el-form-item :label="$t('emailTemplate.subject')">
           <div style="display: flex; gap: 8px; width: 100%;">
@@ -195,6 +236,18 @@ const form = reactive({
   enabled: true
 })
 
+// 搜索和分页
+const searchForm = reactive({
+  name: '',
+  type: '',
+  enabled: null
+})
+const pagination = reactive({
+  current: 1,
+  pageSize: 10,
+  total: 0
+})
+
 // AI 辅助编写相关
 const aiSubjectLoading = ref(false)
 const aiTemplateLoading = ref(false)
@@ -266,13 +319,22 @@ const handleAiGenerateTemplate = async () => {
   }
 }
 
-// 获取模板列表
+// 获取模板列表（支持分页和搜索）
 const fetchTemplates = async () => {
   loading.value = true
   try {
-    const response = await request.get('/email-templates')
+    const params = {
+      page: pagination.current - 1,
+      size: pagination.pageSize
+    }
+    if (searchForm.name) params.name = searchForm.name
+    if (searchForm.type) params.type = searchForm.type
+    if (searchForm.enabled !== null && searchForm.enabled !== '') params.enabled = searchForm.enabled
+
+    const response = await request.get('/email-templates', { params })
     if (response.code === 200) {
-      templates.value = response.data || []
+      templates.value = response.data.content || []
+      pagination.total = response.data.totalElements || 0
     }
   } catch (error) {
     console.error('加载模板列表失败:', error)
@@ -280,6 +342,30 @@ const fetchTemplates = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const handleSearch = () => {
+  pagination.current = 1
+  fetchTemplates()
+}
+
+const handleReset = () => {
+  searchForm.name = ''
+  searchForm.type = ''
+  searchForm.enabled = null
+  pagination.current = 1
+  fetchTemplates()
+}
+
+const handleSizeChange = (size) => {
+  pagination.pageSize = size
+  pagination.current = 1
+  fetchTemplates()
+}
+
+const handleCurrentChange = (page) => {
+  pagination.current = page
+  fetchTemplates()
 }
 
 // 打开编辑对话框

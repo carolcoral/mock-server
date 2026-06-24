@@ -46,7 +46,7 @@ export default {
     userManagement: 'User Management',
     settings: 'System Settings',
     statistics: 'Statistics',
-    aiSettings: 'AI Settings'
+    aiSettings: 'Provider Settings'
   },
 
   // User
@@ -765,7 +765,7 @@ export default {
 
   // AI Settings
   ai: {
-    title: 'AI Settings',
+    title: 'Provider Settings',
     description: 'Configure AI service providers and API keys for system AI features',
     currentProvider: 'Current Enabled Provider',
     noProvider: 'Not Configured',

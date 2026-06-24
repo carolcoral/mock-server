@@ -11,6 +11,7 @@ import com.carolcoral.mockserver.entity.Project;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -25,7 +26,7 @@ import java.util.Optional;
  */
 @Tag(name = "接口管理", description = "自定义接口数据访问接口")
 @Repository
-public interface MockApiRepository extends JpaRepository<MockApi, Long> {
+public interface MockApiRepository extends JpaRepository<MockApi, Long>, JpaSpecificationExecutor<MockApi> {
 
     /**
      * 根据项目ID查询接口列表

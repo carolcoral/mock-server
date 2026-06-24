@@ -7,6 +7,7 @@
 package com.carolcoral.mockserver.service;
 
 import com.carolcoral.mockserver.dto.ApiResponse;
+import com.carolcoral.mockserver.dto.PageResult;
 import com.carolcoral.mockserver.dto.ProjectWithRoleDTO;
 import com.carolcoral.mockserver.entity.Project;
 import com.carolcoral.mockserver.entity.ProjectMember;
@@ -18,9 +19,14 @@ import com.carolcoral.mockserver.util.CacheUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -256,6 +262,116 @@ public class ProjectService {
             log.error("查询项目列表失败: {}", e.getMessage(), e);
             return ApiResponse.error("查询项目列表失败，请稍后重试");
         }
+    }
+
+    /**
+     * 分页搜索项目（管理员）
+     */
+    @Operation(summary = "分页搜索项目（管理员）")
+    public ApiResponse<PageResult<Project>> searchProjects(String name, String code, Boolean enabled, int page, int size) {
+        try {
+            Specification<Project> spec = buildProjectSpec(name, code, enabled);
+            PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createTime"));
+            Page<Project> result = projectRepository.findAll(spec, pageRequest);
+            return ApiResponse.success(toPageResult(result));
+        } catch (Exception e) {
+            log.error("分页搜索项目失败: {}", e.getMessage(), e);
+            return ApiResponse.error("查询项目列表失败，请稍后重试");
+        }
+    }
+
+    /**
+     * 分页搜索用户可访问的项目（带角色信息）
+     */
+    @Operation(summary = "分页搜索用户可访问的项目")
+    public ApiResponse<PageResult<ProjectWithRoleDTO>> searchAccessibleProjects(
+            Long userId, User.UserRole userRole, String name, String code, Boolean enabled, int page, int size) {
+        try {
+            Optional<User> userOpt = userRepository.findById(userId);
+            if (!userOpt.isPresent()) {
+                return ApiResponse.error("用户不存在");
+            }
+
+            List<Long> accessibleProjectIds;
+            if (userRole == User.UserRole.ADMIN) {
+                // 管理员：获取所有项目ID（用于过滤）
+                accessibleProjectIds = null; // null 表示不限制
+            } else {
+                List<Project> accessibleProjects = projectRepository.findAccessibleProjectsByUserId(userId);
+                accessibleProjectIds = accessibleProjects.stream().map(Project::getId).collect(Collectors.toList());
+            }
+
+            Specification<Project> spec = buildAccessibleProjectSpec(accessibleProjectIds, name, code, enabled);
+            PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createTime"));
+            Page<Project> result = projectRepository.findAll(spec, pageRequest);
+
+            // 转换为带角色的DTO
+            List<ProjectWithRoleDTO> dtos = result.getContent().stream().map(project -> {
+                String role = project.getCreateUserId().equals(userId) ? "CREATOR" : 
+                    (userRole == User.UserRole.ADMIN ? "ADMIN" : determineUserRole(project, userId));
+                return ProjectWithRoleDTO.fromProject(project, role);
+            }).collect(Collectors.toList());
+
+            PageResult<ProjectWithRoleDTO> pageResult = new PageResult<>();
+            pageResult.setContent(dtos);
+            pageResult.setPage(result.getNumber());
+            pageResult.setSize(result.getSize());
+            pageResult.setTotalElements(result.getTotalElements());
+            pageResult.setTotalPages(result.getTotalPages());
+            pageResult.setFirst(result.isFirst());
+            pageResult.setLast(result.isLast());
+            return ApiResponse.success(pageResult);
+        } catch (Exception e) {
+            log.error("分页搜索可访问项目失败: {}", e.getMessage(), e);
+            return ApiResponse.error("查询项目列表失败，请稍后重试");
+        }
+    }
+
+    private Specification<Project> buildProjectSpec(String name, String code, Boolean enabled) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (name != null && !name.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("name")), "%" + name.toLowerCase() + "%"));
+            }
+            if (code != null && !code.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("code")), "%" + code.toLowerCase() + "%"));
+            }
+            if (enabled != null) {
+                predicates.add(cb.equal(root.get("enabled"), enabled));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    private Specification<Project> buildAccessibleProjectSpec(List<Long> projectIds, String name, String code, Boolean enabled) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (projectIds != null && !projectIds.isEmpty()) {
+                predicates.add(root.get("id").in(projectIds));
+            }
+            if (name != null && !name.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("name")), "%" + name.toLowerCase() + "%"));
+            }
+            if (code != null && !code.isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("code")), "%" + code.toLowerCase() + "%"));
+            }
+            if (enabled != null) {
+                predicates.add(cb.equal(root.get("enabled"), enabled));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    private <T> PageResult<T> toPageResult(Page<T> page) {
+        PageResult<T> result = new PageResult<>();
+        result.setContent(page.getContent());
+        result.setPage(page.getNumber());
+        result.setSize(page.getSize());
+        result.setTotalElements(page.getTotalElements());
+        result.setTotalPages(page.getTotalPages());
+        result.setFirst(page.isFirst());
+        result.setLast(page.isLast());
+        return result;
     }
 
     /**

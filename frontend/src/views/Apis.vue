@@ -975,15 +975,20 @@ const fetchApis = async () => {
   loading.value = true
   try {
     const params = {
-      ...searchForm
+      page: pagination.current - 1,
+      size: pagination.pageSize
     }
+    if (searchForm.name) params.name = searchForm.name
+    if (searchForm.path) params.path = searchForm.path
+    if (searchForm.method) params.method = searchForm.method
+    if (searchForm.enabled !== null && searchForm.enabled !== '') params.enabled = searchForm.enabled
 
     // 使用搜索表单中的projectId，如果没有则使用路由参数
     let url = '/mock-apis'
-    if (searchForm.projectId) {
-      url = `/mock-apis/project/${searchForm.projectId}`
-    } else if (route.query.projectId) {
-      url = `/mock-apis/project/${route.query.projectId}`
+    const projectId = searchForm.projectId || route.query.projectId
+    if (projectId) {
+      url = `/mock-apis/project/${projectId}`
+      params.projectId = projectId
     }
 
     const response = await request({
@@ -993,8 +998,8 @@ const fetchApis = async () => {
     })
 
     if (response.code === 200) {
-      apiList.value = response.data
-      pagination.total = response.data.length
+      apiList.value = response.data.content || []
+      pagination.total = response.data.totalElements || 0
     } else {
       ElMessage.error(t('api.fetchFailed'))
     }

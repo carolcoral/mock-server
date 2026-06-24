@@ -121,29 +121,57 @@ public class MockApiController {
     }
 
     /**
-     * 根据项目ID查询接口列表
+     * 根据项目ID查询接口列表（支持分页和搜索）
      *
      * @param projectId 项目ID
-     * @return 接口列表
+     * @param name      接口名称（模糊搜索）
+     * @param path      接口路径（模糊搜索）
+     * @param method    请求方法
+     * @param enabled   启用状态
+     * @param page      页码（从0开始）
+     * @param size      每页大小
+     * @return 分页结果
      */
-    @Operation(summary = "根据项目ID查询接口列表", description = "根据项目ID查询该项目下的所有接口")
+    @Operation(summary = "根据项目ID查询接口列表", description = "根据项目ID查询该项目下的所有接口，支持分页和搜索")
     @GetMapping("/project/{projectId}")
-    public ApiResponse<java.util.List<MockApi>> getMockApisByProjectId(
-            @Parameter(description = "项目ID", example = "1") @PathVariable Long projectId) {
-        log.info("查询项目接口列表请求: 项目={}", projectId);
-        return mockApiService.getMockApisByProjectId(projectId);
+    public ApiResponse<com.carolcoral.mockserver.dto.PageResult<MockApi>> getMockApisByProjectId(
+            @Parameter(description = "项目ID", example = "1") @PathVariable Long projectId,
+            @Parameter(description = "接口名称（模糊搜索）") @RequestParam(required = false) String name,
+            @Parameter(description = "接口路径（模糊搜索）") @RequestParam(required = false) String path,
+            @Parameter(description = "请求方法") @RequestParam(required = false) MockApi.HttpMethod method,
+            @Parameter(description = "启用状态") @RequestParam(required = false) Boolean enabled,
+            @Parameter(description = "页码（从0开始）") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "每页大小") @RequestParam(defaultValue = "10") int size) {
+        log.info("查询项目接口列表请求: projectId={}, name={}, path={}, method={}, enabled={}, page={}, size={}",
+            projectId, name, path, method, enabled, page, size);
+        return mockApiService.searchMockApisByProject(projectId, name, path, method, enabled, page, size);
     }
 
     /**
-     * 查询所有接口
+     * 查询所有接口（支持分页和搜索）
      *
-     * @return 接口列表
+     * @param name      接口名称（模糊搜索）
+     * @param path      接口路径（模糊搜索）
+     * @param method    请求方法
+     * @param projectId 项目ID
+     * @param enabled   启用状态
+     * @param page      页码（从0开始）
+     * @param size      每页大小
+     * @return 分页结果
      */
-    @Operation(summary = "查询所有接口", description = "查询所有自定义接口列表")
+    @Operation(summary = "查询所有接口", description = "查询所有自定义接口列表，支持分页和搜索")
     @GetMapping
-    public ApiResponse<java.util.List<MockApi>> getAllMockApis() {
-        log.info("查询所有接口请求");
-        return mockApiService.getAllMockApis();
+    public ApiResponse<com.carolcoral.mockserver.dto.PageResult<MockApi>> getAllMockApis(
+            @Parameter(description = "接口名称（模糊搜索）") @RequestParam(required = false) String name,
+            @Parameter(description = "接口路径（模糊搜索）") @RequestParam(required = false) String path,
+            @Parameter(description = "请求方法") @RequestParam(required = false) MockApi.HttpMethod method,
+            @Parameter(description = "项目ID") @RequestParam(required = false) Long projectId,
+            @Parameter(description = "启用状态") @RequestParam(required = false) Boolean enabled,
+            @Parameter(description = "页码（从0开始）") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "每页大小") @RequestParam(defaultValue = "10") int size) {
+        log.info("查询所有接口请求: name={}, path={}, method={}, projectId={}, enabled={}, page={}, size={}",
+            name, path, method, projectId, enabled, page, size);
+        return mockApiService.searchMockApis(name, path, method, projectId, enabled, page, size);
     }
 
     /**

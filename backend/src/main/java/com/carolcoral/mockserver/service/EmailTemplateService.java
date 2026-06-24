@@ -7,14 +7,21 @@
 package com.carolcoral.mockserver.service;
 
 import com.carolcoral.mockserver.dto.ApiResponse;
+import com.carolcoral.mockserver.dto.PageResult;
 import com.carolcoral.mockserver.entity.EmailTemplate;
 import com.carolcoral.mockserver.repository.EmailTemplateRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.criteria.Predicate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -48,6 +55,43 @@ public class EmailTemplateService {
             return ApiResponse.success(templates);
         } catch (Exception e) {
             log.error("获取邮件模板列表失败: {}", e.getMessage(), e);
+            return ApiResponse.error("获取模板列表失败");
+        }
+    }
+
+    /**
+     * 分页搜索邮件模板
+     */
+    @Operation(summary = "分页搜索邮件模板")
+    public ApiResponse<PageResult<EmailTemplate>> searchTemplates(String name, String type,
+            Boolean enabled, int page, int size) {
+        try {
+            Specification<EmailTemplate> spec = (root, query, cb) -> {
+                List<Predicate> predicates = new ArrayList<>();
+                if (name != null && !name.isBlank()) {
+                    predicates.add(cb.like(cb.lower(root.get("name")), "%" + name.toLowerCase() + "%"));
+                }
+                if (type != null && !type.isBlank()) {
+                    predicates.add(cb.equal(root.get("type"), type));
+                }
+                if (enabled != null) {
+                    predicates.add(cb.equal(root.get("enabled"), enabled));
+                }
+                return cb.and(predicates.toArray(new Predicate[0]));
+            };
+            PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createTime"));
+            Page<EmailTemplate> result = emailTemplateRepository.findAll(spec, pageRequest);
+            PageResult<EmailTemplate> pageResult = new PageResult<>();
+            pageResult.setContent(result.getContent());
+            pageResult.setPage(result.getNumber());
+            pageResult.setSize(result.getSize());
+            pageResult.setTotalElements(result.getTotalElements());
+            pageResult.setTotalPages(result.getTotalPages());
+            pageResult.setFirst(result.isFirst());
+            pageResult.setLast(result.isLast());
+            return ApiResponse.success(pageResult);
+        } catch (Exception e) {
+            log.error("分页搜索邮件模板失败: {}", e.getMessage(), e);
             return ApiResponse.error("获取模板列表失败");
         }
     }

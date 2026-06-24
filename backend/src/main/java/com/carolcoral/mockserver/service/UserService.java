@@ -9,16 +9,23 @@ package com.carolcoral.mockserver.service;
 import com.carolcoral.mockserver.dto.ApiResponse;
 import com.carolcoral.mockserver.dto.LoginRequest;
 import com.carolcoral.mockserver.dto.LoginResponse;
+import com.carolcoral.mockserver.dto.PageResult;
 import com.carolcoral.mockserver.entity.User;
 import com.carolcoral.mockserver.repository.UserRepository;
 import com.carolcoral.mockserver.util.JwtTokenUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.criteria.Predicate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -371,6 +378,46 @@ public class UserService {
 
         } catch (Exception e) {
             log.error("查询用户列表失败: {}", e.getMessage(), e);
+            return ApiResponse.error("查询用户列表失败，请稍后重试");
+        }
+    }
+
+    /**
+     * 分页搜索用户（支持多条件过滤）
+     */
+    @Operation(summary = "分页搜索用户")
+    public ApiResponse<PageResult<User>> searchUsers(String username, String email, User.UserRole role,
+            Boolean enabled, int page, int size) {
+        try {
+            Specification<User> spec = (root, query, cb) -> {
+                List<Predicate> predicates = new ArrayList<>();
+                if (username != null && !username.isBlank()) {
+                    predicates.add(cb.like(cb.lower(root.get("username")), "%" + username.toLowerCase() + "%"));
+                }
+                if (email != null && !email.isBlank()) {
+                    predicates.add(cb.like(cb.lower(root.get("email")), "%" + email.toLowerCase() + "%"));
+                }
+                if (role != null) {
+                    predicates.add(cb.equal(root.get("role"), role));
+                }
+                if (enabled != null) {
+                    predicates.add(cb.equal(root.get("enabled"), enabled));
+                }
+                return cb.and(predicates.toArray(new Predicate[0]));
+            };
+            PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createTime"));
+            Page<User> result = userRepository.findAll(spec, pageRequest);
+            PageResult<User> pageResult = new PageResult<>();
+            pageResult.setContent(result.getContent());
+            pageResult.setPage(result.getNumber());
+            pageResult.setSize(result.getSize());
+            pageResult.setTotalElements(result.getTotalElements());
+            pageResult.setTotalPages(result.getTotalPages());
+            pageResult.setFirst(result.isFirst());
+            pageResult.setLast(result.isLast());
+            return ApiResponse.success(pageResult);
+        } catch (Exception e) {
+            log.error("分页搜索用户失败: {}", e.getMessage(), e);
             return ApiResponse.error("查询用户列表失败，请稍后重试");
         }
     }

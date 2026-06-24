@@ -7,9 +7,11 @@
 package com.carolcoral.mockserver.controller;
 
 import com.carolcoral.mockserver.dto.ApiResponse;
+import com.carolcoral.mockserver.dto.PageResult;
 import com.carolcoral.mockserver.entity.EmailTemplate;
 import com.carolcoral.mockserver.service.EmailTemplateService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -38,15 +40,25 @@ public class EmailTemplateController {
     }
 
     /**
-     * 获取所有邮件模板
+     * 获取所有邮件模板（支持分页和搜索）
      *
-     * @return 模板列表
+     * @param name    模板名称（模糊搜索）
+     * @param type    模板类型
+     * @param enabled 启用状态
+     * @param page    页码（从0开始）
+     * @param size    每页大小
+     * @return 分页结果
      */
     @GetMapping
     @Operation(summary = "获取所有邮件模板")
     @PreAuthorize("hasRole('ADMIN')")
-    public ApiResponse<List<EmailTemplate>> getAllTemplates() {
-        return emailTemplateService.getAllTemplates();
+    public ApiResponse<PageResult<EmailTemplate>> getAllTemplates(
+            @Parameter(description = "模板名称（模糊搜索）") @RequestParam(required = false) String name,
+            @Parameter(description = "模板类型") @RequestParam(required = false) String type,
+            @Parameter(description = "启用状态") @RequestParam(required = false) Boolean enabled,
+            @Parameter(description = "页码（从0开始）") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "每页大小") @RequestParam(defaultValue = "10") int size) {
+        return emailTemplateService.searchTemplates(name, type, enabled, page, size);
     }
 
     /**
