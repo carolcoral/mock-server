@@ -453,7 +453,24 @@ export default {
     modifyRoleTitle: 'Modify role of {name}',
     modifyRolePrompt: 'Please select new role',
     modifyRoleHint: 'Please enter ADMIN or MEMBER',
-    confirmRemove: 'Confirm removing {name} from the project?'
+    confirmRemove: 'Confirm removing {name} from the project?',
+    // Swagger Import
+    importSwagger: 'Import Swagger',
+    importSwaggerTitle: 'Import Swagger APIs',
+    importByFile: 'Upload File',
+    importByUrl: 'Enter URL',
+    uploadHint: 'Drag Swagger JSON file here, or click to upload',
+    uploadFormat: 'Only .json files are supported',
+    swaggerUrlPlaceholder: 'Enter Swagger doc URL, e.g. https://example.com/v2/api-docs',
+    swaggerUrlHint: 'Supports Swagger 2.0 and OpenAPI 3.x formats',
+    startImport: 'Start Import',
+    importFailed: 'Import failed, please check file format or network connection',
+    importResultTitle: 'Import Result',
+    importSuccessCount: 'Successfully imported {count} APIs',
+    importFailedCount: '{count} APIs failed to import',
+    importErrorList: 'Error Details',
+    pleaseSelectFile: 'Please select a file first',
+    pleaseEnterUrl: 'Please enter a Swagger doc URL'
   },
 
   // API Management

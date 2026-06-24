@@ -453,7 +453,24 @@ export default {
     modifyRoleTitle: '{name} の役割を変更',
     modifyRolePrompt: '新しい役割を選択してください',
     modifyRoleHint: 'ADMIN または MEMBER を入力してください',
-    confirmRemove: '{name} をプロジェクトから削除してもよろしいですか？'
+    confirmRemove: '{name} をプロジェクトから削除してもよろしいですか？',
+    // Swagger インポート
+    importSwagger: 'Swagger インポート',
+    importSwaggerTitle: 'Swagger API をインポート',
+    importByFile: 'ファイルアップロード',
+    importByUrl: 'URL 入力',
+    uploadHint: 'Swagger JSONファイルをここにドラッグ、またはクリックしてアップロード',
+    uploadFormat: '.json ファイルのみ対応',
+    swaggerUrlPlaceholder: 'SwaggerドキュメントURLを入力（例：https://example.com/v2/api-docs）',
+    swaggerUrlHint: 'Swagger 2.0 および OpenAPI 3.x 形式に対応',
+    startImport: 'インポート開始',
+    importFailed: 'インポートに失敗しました。ファイル形式またはネットワーク接続を確認してください',
+    importResultTitle: 'インポート結果',
+    importSuccessCount: '{count} 件のAPIをインポートしました',
+    importFailedCount: '{count} 件のAPIが失敗しました',
+    importErrorList: 'エラー詳細',
+    pleaseSelectFile: '最初にファイルを選択してください',
+    pleaseEnterUrl: 'SwaggerドキュメントURLを入力してください'
   },
 
   // API管理

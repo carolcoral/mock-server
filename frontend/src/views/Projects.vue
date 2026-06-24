@@ -63,6 +63,7 @@
                 <el-dropdown-menu>
                   <el-dropdown-item command="edit" :disabled="!canEditProject(row)">{{ $t('project.editProject') }}</el-dropdown-item>
                   <el-dropdown-item command="api">{{ $t('project.apiManagement') }}</el-dropdown-item>
+                  <el-dropdown-item command="import">{{ $t('project.importSwagger') }}</el-dropdown-item>
                   <el-dropdown-item command="members" :disabled="!canManageMembers(row)">{{ $t('project.memberManagement') }}</el-dropdown-item>
                   <el-dropdown-item command="delete" :disabled="!canDeleteProject(row)" divided style="color: #f56c6c;">{{ $t('project.deleteProject') }}</el-dropdown-item>
                 </el-dropdown-menu>
@@ -176,6 +177,76 @@
       </el-table>
     </el-dialog>
 
+    <!-- Swagger 导入对话框 -->
+    <el-dialog v-model="importDialogVisible" :title="$t('project.importSwaggerTitle')" width="560px" @close="handleImportDialogClose">
+      <el-tabs v-model="importTab" class="import-tabs">
+        <el-tab-pane :label="$t('project.importByFile')" name="file">
+          <el-upload
+            ref="uploadRef"
+            class="import-upload"
+            drag
+            :auto-upload="false"
+            :limit="1"
+            accept=".json"
+            :on-change="handleFileChange"
+            :on-remove="handleFileRemove"
+          >
+            <el-icon class="upload-icon"><UploadFilled /></el-icon>
+            <div class="upload-text">
+              <p>{{ $t('project.uploadHint') }}</p>
+              <p class="upload-sub">{{ $t('project.uploadFormat') }}</p>
+            </div>
+          </el-upload>
+        </el-tab-pane>
+        <el-tab-pane :label="$t('project.importByUrl')" name="url">
+          <el-input
+            v-model="importUrl"
+            :placeholder="$t('project.swaggerUrlPlaceholder')"
+            size="large"
+            clearable
+          >
+            <template #prefix>
+              <el-icon><Link /></el-icon>
+            </template>
+          </el-input>
+          <div class="import-url-hint">{{ $t('project.swaggerUrlHint') }}</div>
+        </el-tab-pane>
+      </el-tabs>
+      <template #footer>
+        <el-button @click="importDialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="importLoading" @click="handleImportSubmit">
+          {{ $t('project.startImport') }}
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 导入结果对话框 -->
+    <el-dialog v-model="importResultVisible" :title="$t('project.importResultTitle')" width="520px">
+      <div class="import-result">
+        <div class="result-summary">
+          <div class="result-item success">
+            <el-icon><CircleCheckFilled /></el-icon>
+            <span>{{ $t('project.importSuccessCount', { count: importResult.success }) }}</span>
+          </div>
+          <div class="result-item failed" v-if="importResult.failed > 0">
+            <el-icon><CircleCloseFilled /></el-icon>
+            <span>{{ $t('project.importFailedCount', { count: importResult.failed }) }}</span>
+          </div>
+        </div>
+        <div v-if="importResult.errors && importResult.errors.length > 0" class="result-errors">
+          <h4>{{ $t('project.importErrorList') }}</h4>
+          <div v-for="(err, idx) in importResult.errors" :key="idx" class="error-item">
+            <span class="error-method">{{ err.method }}</span>
+            <span class="error-path">{{ err.path }}</span>
+            <span class="error-reason">{{ err.reason }}</span>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <el-button type="primary" @click="onImportDone">{{ $t('common.confirm') }}</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="addMemberDialogVisible" :title="addMemberDialogTitle" width="500px" style="max-width: 50%;" @close="handleAddMemberDialogClose">
       <el-form ref="memberFormRef" :model="memberForm" :rules="memberRules" label-width="80px">
         <el-form-item :label="$t('project.selectUser')" prop="userId">
@@ -218,7 +289,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete, Search, ArrowDown } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Search, ArrowDown, UploadFilled, Link, CircleCheckFilled, CircleCloseFilled } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { formatTime, loadDateFormat } from '@/utils/dateFormat'
 
@@ -377,6 +448,9 @@ const handleActionCommand = (command, row) => {
       break
     case 'api':
       router.push(`/apis?projectId=${row.id}`)
+      break
+    case 'import':
+      handleImportSwagger(row)
       break
     case 'members':
       handleManageMembers(row)
@@ -618,6 +692,125 @@ const handleMemberDialogClose = () => {
   currentProject.value = null
 }
 
+// ====== Swagger 导入相关 ======
+const importDialogVisible = ref(false)
+const importLoading = ref(false)
+const importTab = ref('file')
+const importUrl = ref('')
+const importFile = ref(null)
+const uploadRef = ref(null)
+const currentImportProject = ref(null)
+
+const importResultVisible = ref(false)
+const importResult = reactive({
+  total: 0,
+  success: 0,
+  failed: 0,
+  errors: []
+})
+
+const handleImportSwagger = (row) => {
+  currentImportProject.value = row
+  importTab.value = 'file'
+  importUrl.value = ''
+  importFile.value = null
+  importResult.total = 0
+  importResult.success = 0
+  importResult.failed = 0
+  importResult.errors = []
+  importDialogVisible.value = true
+}
+
+const handleFileChange = (file) => {
+  importFile.value = file.raw
+}
+
+const handleFileRemove = () => {
+  importFile.value = null
+}
+
+const handleImportSubmit = async () => {
+  if (importTab.value === 'file') {
+    if (!importFile.value) {
+      ElMessage.warning(t('project.pleaseSelectFile'))
+      return
+    }
+    await importFromFile()
+  } else {
+    if (!importUrl.value || !importUrl.value.trim()) {
+      ElMessage.warning(t('project.pleaseEnterUrl'))
+      return
+    }
+    await importFromUrl()
+  }
+}
+
+const importFromFile = async () => {
+  importLoading.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', importFile.value)
+
+    const response = await request({
+      url: `/projects/${currentImportProject.value.id}/import-swagger-file`,
+      method: 'post',
+      data: formData,
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+
+    if (response.code === 200) {
+      Object.assign(importResult, response.data)
+      importDialogVisible.value = false
+      importResultVisible.value = true
+    } else {
+      ElMessage.error(response.message || t('project.importFailed'))
+    }
+  } catch (error) {
+    console.error('导入失败:', error)
+    ElMessage.error(t('project.importFailed'))
+  } finally {
+    importLoading.value = false
+  }
+}
+
+const importFromUrl = async () => {
+  importLoading.value = true
+  try {
+    const response = await request({
+      url: `/projects/${currentImportProject.value.id}/import-swagger-url`,
+      method: 'post',
+      data: { url: importUrl.value.trim() }
+    })
+
+    if (response.code === 200) {
+      Object.assign(importResult, response.data)
+      importDialogVisible.value = false
+      importResultVisible.value = true
+    } else {
+      ElMessage.error(response.message || t('project.importFailed'))
+    }
+  } catch (error) {
+    console.error('导入失败:', error)
+    ElMessage.error(t('project.importFailed'))
+  } finally {
+    importLoading.value = false
+  }
+}
+
+const onImportDone = () => {
+  importResultVisible.value = false
+  // 导入完成后跳转到接口管理页面查看结果
+  if (currentImportProject.value && importResult.success > 0) {
+    router.push(`/apis?projectId=${currentImportProject.value.id}`)
+  }
+}
+
+const handleImportDialogClose = () => {
+  importFile.value = null
+  importUrl.value = ''
+  uploadRef.value?.clearFiles()
+}
+
 const handleAddMemberDialogClose = () => {
   memberFormRef.value?.resetFields()
 }
@@ -687,6 +880,120 @@ onMounted(async () => {
   padding: 12px 0;
   border-bottom: 1px solid #ebeef5;
   margin-bottom: 16px;
+}
+
+/* ====== Swagger 导入 ====== */
+.import-tabs {
+  margin-top: 4px;
+}
+
+.import-upload {
+  padding: 20px 0;
+}
+
+.import-upload .upload-icon {
+  font-size: 48px;
+  color: #c0c4cc;
+  margin-bottom: 8px;
+}
+
+.upload-text p {
+  margin: 4px 0;
+  color: #606266;
+  font-size: 14px;
+}
+
+.upload-sub {
+  color: #909399 !important;
+  font-size: 12px !important;
+}
+
+.import-url-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #909399;
+}
+
+/* 导入结果 */
+.import-result {
+  padding: 8px 0;
+}
+
+.result-summary {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.result-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.result-item.success {
+  color: #67c23a;
+}
+
+.result-item.failed {
+  color: #f56c6c;
+}
+
+.result-item .el-icon {
+  font-size: 20px;
+}
+
+.result-errors {
+  background: #f5f7fa;
+  border-radius: 8px;
+  padding: 12px 16px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.result-errors h4 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #909399;
+}
+
+.error-item {
+  display: flex;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 13px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.error-item:last-child {
+  border-bottom: none;
+}
+
+.error-method {
+  display: inline-block;
+  padding: 1px 6px;
+  background: #e6f0ff;
+  color: #409eff;
+  border-radius: 3px;
+  font-weight: 600;
+  font-size: 11px;
+  min-width: 44px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.error-path {
+  color: #303133;
+  word-break: break-all;
+  flex: 1;
+}
+
+.error-reason {
+  color: #f56c6c;
+  flex-shrink: 0;
+  font-size: 12px;
 }
 </style>
 

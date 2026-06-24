@@ -453,7 +453,24 @@ export default {
     modifyRoleTitle: '修改 {name} 的角色',
     modifyRolePrompt: '请选择新的角色',
     modifyRoleHint: '请输入 ADMIN 或 MEMBER',
-    confirmRemove: '确认将 {name} 从项目中移除吗？'
+    confirmRemove: '确认将 {name} 从项目中移除吗？',
+    // Swagger 导入
+    importSwagger: '导入 Swagger',
+    importSwaggerTitle: '导入 Swagger 接口',
+    importByFile: '上传文件',
+    importByUrl: '输入地址',
+    uploadHint: '将 Swagger JSON 文件拖到此处，或点击上传',
+    uploadFormat: '仅支持 .json 格式文件',
+    swaggerUrlPlaceholder: '请输入 Swagger 文档地址，如 https://example.com/v2/api-docs',
+    swaggerUrlHint: '支持 Swagger 2.0 和 OpenAPI 3.x 格式',
+    startImport: '开始导入',
+    importFailed: '导入失败，请检查文件格式或网络连接',
+    importResultTitle: '导入结果',
+    importSuccessCount: '成功导入 {count} 个接口',
+    importFailedCount: '{count} 个接口导入失败',
+    importErrorList: '失败详情',
+    pleaseSelectFile: '请先选择文件',
+    pleaseEnterUrl: '请输入 Swagger 文档地址'
   },
 
   // 接口管理
