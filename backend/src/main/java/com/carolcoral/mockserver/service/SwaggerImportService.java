@@ -7,13 +7,16 @@
 package com.carolcoral.mockserver.service;
 
 import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONException;
 import com.carolcoral.mockserver.entity.MockApi;
 import com.carolcoral.mockserver.entity.MockApi.HttpMethod;
 import com.carolcoral.mockserver.entity.MockApi.RequestType;
 import com.carolcoral.mockserver.entity.MockResponse;
 import com.carolcoral.mockserver.entity.Project;
 import com.carolcoral.mockserver.repository.MockApiRepository;
+import com.carolcoral.mockserver.repository.MockResponseRepository;
 import com.carolcoral.mockserver.repository.ProjectRepository;
+import com.carolcoral.mockserver.util.CacheUtil;
 import io.swagger.parser.OpenAPIParser;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
@@ -49,13 +52,19 @@ public class SwaggerImportService {
     private final MockApiRepository mockApiRepository;
     private final ProjectRepository projectRepository;
     private final MockApiService mockApiService;
+    private final MockResponseRepository mockResponseRepository;
+    private final CacheUtil cacheUtil;
 
     public SwaggerImportService(MockApiRepository mockApiRepository,
                                  ProjectRepository projectRepository,
-                                 MockApiService mockApiService) {
+                                 MockApiService mockApiService,
+                                 MockResponseRepository mockResponseRepository,
+                                 CacheUtil cacheUtil) {
         this.mockApiRepository = mockApiRepository;
         this.projectRepository = projectRepository;
         this.mockApiService = mockApiService;
+        this.mockResponseRepository = mockResponseRepository;
+        this.cacheUtil = cacheUtil;
     }
 
     /**
@@ -65,13 +74,39 @@ public class SwaggerImportService {
         public int total;
         public int success;
         public int failed;
+        public int skipped;
         public List<ImportError> errors = new ArrayList<>();
+        public List<ConflictItem> conflicts = new ArrayList<>();
 
         public static class ImportError {
             public String path;
             public String method;
             public String reason;
         }
+
+        /**
+         * 路径重复但响应报文不一致的冲突项
+         */
+        public static class ConflictItem {
+            public Long existingApiId;
+            public String path;
+            public String method;
+            public String existingName;
+            public String newName;
+            public String newDescription;
+            public String existingResponseBody;
+            public String newResponseBody;
+        }
+    }
+
+    /**
+     * 冲突解决请求 DTO
+     */
+    public static class ResolveConflictRequest {
+        public Long existingApiId;
+        public String newName;
+        public String newDescription;
+        public String newResponseBody;
     }
 
     /**
@@ -178,16 +213,44 @@ public class SwaggerImportService {
                 // 生成 API 名称
                 String apiName = generateApiName(operation, path, mockMethod);
 
+                // 构建新导入的默认响应体
+                String newResponseBody = buildDefaultResponse(operation, openAPI);
+
+                // 描述：优先用 operation summary，其次 description
+                String desc = operation.getSummary();
+                if (desc == null || desc.isBlank()) {
+                    desc = operation.getDescription();
+                }
+                if (desc != null && desc.length() > 500) {
+                    desc = desc.substring(0, 497) + "...";
+                }
+
                 // 检查是否已存在相同 path+method 的接口
                 Optional<MockApi> existing = mockApiRepository.findByProjectIdAndPathAndMethod(
                         projectId, path, mockMethod);
                 if (existing.isPresent()) {
-                    result.failed++;
-                    ImportResult.ImportError err = new ImportResult.ImportError();
-                    err.path = path;
-                    err.method = mockMethod.name();
-                    err.reason = "该路径和方法已存在";
-                    result.errors.add(err);
+                    MockApi existingApi = existing.get();
+                    // 获取已有接口的默认响应
+                    String existingResponseBody = getExistingDefaultResponseBody(existingApi.getId());
+
+                    // 比较响应报文是否一致（标准化 JSON 后比较）
+                    if (isJsonEqual(newResponseBody, existingResponseBody)) {
+                        // 响应报文一致，跳过
+                        result.skipped++;
+                        continue;
+                    }
+
+                    // 响应报文不一致，记录冲突
+                    ImportResult.ConflictItem conflict = new ImportResult.ConflictItem();
+                    conflict.existingApiId = existingApi.getId();
+                    conflict.path = path;
+                    conflict.method = mockMethod.name();
+                    conflict.existingName = existingApi.getName();
+                    conflict.newName = apiName;
+                    conflict.newDescription = desc;
+                    conflict.existingResponseBody = existingResponseBody;
+                    conflict.newResponseBody = newResponseBody;
+                    result.conflicts.add(conflict);
                     continue;
                 }
 
@@ -200,15 +263,6 @@ public class SwaggerImportService {
                 mockApi.setEnabled(true);
                 mockApi.setResponseDelay(0);
                 mockApi.setEnableRandom(false);
-
-                // 描述：优先用 operation summary，其次 description
-                String desc = operation.getSummary();
-                if (desc == null || desc.isBlank()) {
-                    desc = operation.getDescription();
-                }
-                if (desc != null && desc.length() > 500) {
-                    desc = desc.substring(0, 497) + "...";
-                }
                 mockApi.setDescription(desc);
                 mockApi.setCreateTime(LocalDateTime.now());
                 mockApi.setUpdateTime(LocalDateTime.now());
@@ -219,14 +273,11 @@ public class SwaggerImportService {
                 project.setId(projectId);
                 mockApi.setProject(project);
 
-                // 构建默认响应体
-                String responseBody = buildDefaultResponse(operation, openAPI);
-
                 // 创建默认响应
                 MockResponse mockResponse = new MockResponse();
                 mockResponse.setStatusCode(200);
                 mockResponse.setContentType("application/json");
-                mockResponse.setResponseBody(responseBody);
+                mockResponse.setResponseBody(newResponseBody);
                 mockResponse.setIsDefault(true);
                 mockResponse.setEnabled(true);
                 mockResponse.setActive(true);
@@ -510,5 +561,99 @@ public class SwaggerImportService {
             }
         }
         return null;
+    }
+
+    /**
+     * 获取已有接口的默认响应体内容
+     */
+    private String getExistingDefaultResponseBody(Long apiId) {
+        List<MockResponse> responses = mockResponseRepository.findByMockApiId(apiId);
+        if (responses != null && !responses.isEmpty()) {
+            // 优先查找 isDefault=true 的响应
+            for (MockResponse r : responses) {
+                if (Boolean.TRUE.equals(r.getIsDefault())) {
+                    return r.getResponseBody();
+                }
+            }
+            // 否则取第一个
+            return responses.get(0).getResponseBody();
+        }
+        return "{}";
+    }
+
+    /**
+     * 标准化 JSON 字符串后比较是否相等
+     */
+    private boolean isJsonEqual(String json1, String json2) {
+        if (json1 == null && json2 == null) return true;
+        if (json1 == null || json2 == null) return false;
+        try {
+            Object obj1 = JSON.parse(json1.trim());
+            Object obj2 = JSON.parse(json2.trim());
+            return Objects.equals(obj1, obj2);
+        } catch (JSONException e) {
+            // 解析失败时直接字符串比较
+            return json1.trim().equals(json2.trim());
+        }
+    }
+
+    /**
+     * 解决导入冲突：用新导入的数据覆盖已有接口信息
+     * （更新接口名称、描述、响应报文，但不更新接口路径和方法）
+     */
+    @Transactional
+    public int resolveConflicts(Long projectId, List<ResolveConflictRequest> requests) {
+        int resolved = 0;
+        for (ResolveConflictRequest req : requests) {
+            Optional<MockApi> existingOpt = mockApiRepository.findById(req.existingApiId);
+            if (existingOpt.isEmpty()) {
+                log.warn("冲突解决失败，接口不存在: {}", req.existingApiId);
+                continue;
+            }
+            MockApi existingApi = existingOpt.get();
+
+            // 验证接口属于当前项目
+            if (!existingApi.getProject().getId().equals(projectId)) {
+                log.warn("冲突解决失败，接口不属于当前项目: {}", req.existingApiId);
+                continue;
+            }
+
+            // 更新接口名称
+            if (req.newName != null && !req.newName.isBlank()) {
+                existingApi.setName(req.newName);
+            }
+
+            // 更新接口描述
+            if (req.newDescription != null && !req.newDescription.isBlank()) {
+                existingApi.setDescription(req.newDescription);
+            }
+
+            existingApi.setUpdateTime(LocalDateTime.now());
+            mockApiRepository.save(existingApi);
+
+            // 更新默认响应体的内容
+            if (req.newResponseBody != null && !req.newResponseBody.isBlank()) {
+                List<MockResponse> responses = mockResponseRepository.findByMockApiId(existingApi.getId());
+                if (responses != null) {
+                    for (MockResponse r : responses) {
+                        if (Boolean.TRUE.equals(r.getIsDefault())) {
+                            r.setResponseBody(req.newResponseBody);
+                            r.setUpdateTime(LocalDateTime.now());
+                            mockResponseRepository.save(r);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 更新缓存
+            cacheUtil.cacheApi(existingApi);
+            List<MockResponse> updatedResponses = mockResponseRepository.findByMockApiId(existingApi.getId());
+            cacheUtil.cacheApiResponses(existingApi.getId(), updatedResponses);
+
+            resolved++;
+            log.info("冲突解决成功: apiId={}, path={}, method={}", existingApi.getId(), existingApi.getPath(), existingApi.getMethod());
+        }
+        return resolved;
     }
 }

@@ -8,7 +8,9 @@ package com.carolcoral.mockserver.service;
 
 import com.carolcoral.mockserver.entity.AiConfig;
 import com.carolcoral.mockserver.entity.CustomCodeTemplate;
+import com.carolcoral.mockserver.entity.EmailTemplate;
 import com.carolcoral.mockserver.repository.CustomCodeTemplateRepository;
+import com.carolcoral.mockserver.repository.EmailTemplateRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
@@ -51,6 +53,9 @@ public class AiService {
     @Autowired
     private CustomCodeTemplateRepository codeTemplateRepository;
 
+    @Autowired
+    private EmailTemplateRepository emailTemplateRepository;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AiService() {
@@ -58,10 +63,10 @@ public class AiService {
     }
 
     /**
-     * 获取配置了超时的 RestTemplate（读取用户配置的超时时间，默认 120 秒）
+     * 获取配置了超时的 RestTemplate（读取用户配置的超时时间，默认 15 分钟）
      */
     private RestTemplate getRestTemplate() {
-        int readTimeoutSeconds = 120; // 默认 120 秒
+        int readTimeoutSeconds = 900; // 默认 15 分钟
         try {
             AiConfig config = aiConfigService.getEnabledConfig();
             if (config != null && config.getTimeout() != null && config.getTimeout() > 0) {
@@ -69,7 +74,7 @@ public class AiService {
                 log.debug("AI RestTemplate 使用用户配置的超时: {}秒", readTimeoutSeconds);
             }
         } catch (Exception e) {
-            log.warn("读取 AI 超时配置失败，使用默认 120 秒: {}", e.getMessage());
+            log.warn("读取 AI 超时配置失败，使用默认 15 分钟: {}", e.getMessage());
         }
 
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
@@ -157,6 +162,20 @@ public class AiService {
     }
 
     /**
+     * 调用 AI 生成接口描述（流式 SSE）
+     */
+    public java.io.BufferedReader generateApiDescriptionStream(String apiMethod, String apiPath, String apiName) throws Exception {
+        String prompt = String.format(
+                "请为以下 API 接口生成一段简洁的中文描述（50字以内），仅返回描述文本，不要包含任何其他内容。\n\n" +
+                "接口名称：%s\n请求方法：%s\n接口路径：%s",
+                apiName != null ? apiName : "未命名接口",
+                apiMethod,
+                apiPath
+        );
+        return callAiApiStream(prompt, "你是一个专业的 API 文档助手，只返回简洁的描述文本，不返回任何额外内容。");
+    }
+
+    /**
      * 调用 AI 生成邮件模板
      *
      * @param templateType 模板类型 (REGISTER/RESET_PASSWORD/PASSWORD_CHANGED)
@@ -178,19 +197,55 @@ public class AiService {
             throw new RuntimeException("AI 服务商 API Key 未配置");
         }
 
+        String promptStr = buildEmailTemplatePrompt(templateType, templateName, existingSubject, existingContent);
+        log.debug("AI 邮件模板 Prompt: {}", promptStr);
+
+        try {
+            String responseJson = callAiApi(config, promptStr);
+            log.info("AI 邮件模板 API 响应长度: {}", responseJson != null ? responseJson.length() : 0);
+
+            String content = extractTextContent(responseJson);
+            log.info("AI 邮件模板原始响应内容: {}", content);
+
+            // 清理可能的 markdown 标记（更健壮的清理逻辑）
+            content = cleanMarkdownJson(content);
+            log.info("AI 邮件模板清理后内容: {}", content);
+
+            JsonNode root = objectMapper.readTree(content);
+            Map<String, String> result = new LinkedHashMap<>();
+            result.put("subject", root.has("subject") ? root.get("subject").asText() : "");
+            result.put("content", root.has("content") ? root.get("content").asText() : "");
+            log.info("AI 邮件模板生成成功: subject长度={}, content长度={}",
+                    result.get("subject") != null ? result.get("subject").length() : 0,
+                    result.get("content") != null ? result.get("content").length() : 0);
+            return result;
+        } catch (Exception e) {
+            log.error("AI 生成邮件模板失败: {}", e.getMessage(), e);
+            throw new RuntimeException("AI 生成邮件模板失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 调用 AI 生成邮件模板（流式 SSE）
+     */
+    public java.io.BufferedReader generateEmailTemplateStream(String templateType, String templateName,
+                                                               String existingSubject, String existingContent) throws Exception {
+        String prompt = buildEmailTemplatePrompt(templateType, templateName, existingSubject, existingContent);
+        return callAiApiStream(prompt, "你是一个专业的邮件模板编写助手，只返回严格的 JSON 格式数据，不返回任何额外内容。");
+    }
+
+    /**
+     * 构建邮件模板生成提示词（非流式和流式共用）
+     * 自动查询同类型已有模板作为风格参考
+     */
+    private String buildEmailTemplatePrompt(String templateType, String templateName,
+                                            String existingSubject, String existingContent) {
         String typeLabel;
         switch (templateType) {
-            case "REGISTER":
-                typeLabel = "注册验证";
-                break;
-            case "RESET_PASSWORD":
-                typeLabel = "重置密码";
-                break;
-            case "PASSWORD_CHANGED":
-                typeLabel = "密码已修改";
-                break;
-            default:
-                typeLabel = templateType;
+            case "REGISTER": typeLabel = "注册验证"; break;
+            case "RESET_PASSWORD": typeLabel = "重置密码"; break;
+            case "PASSWORD_CHANGED": typeLabel = "密码已修改"; break;
+            default: typeLabel = templateType;
         }
 
         StringBuilder prompt = new StringBuilder();
@@ -220,34 +275,44 @@ public class AiService {
         if (existingContent != null && !existingContent.isBlank()) {
             prompt.append("参考内容：").append(existingContent).append("\n");
         }
-        prompt.append("\n请在参考基础上改进优化，生成更专业的邮件模板。");
 
-        String promptStr = prompt.toString();
-        log.debug("AI 邮件模板 Prompt: {}", promptStr);
-
+        // 查询同类型已有模板作为风格参考（排除当前正在编辑的模板）
         try {
-            String responseJson = callAiApi(config, promptStr);
-            log.info("AI 邮件模板 API 响应长度: {}", responseJson != null ? responseJson.length() : 0);
+            List<EmailTemplate> existingTemplates = emailTemplateRepository.findByType(templateType);
+            if (existingTemplates != null && !existingTemplates.isEmpty()) {
+                // 过滤掉当前正在编辑的模板（如果提供了 existingSubject/existingContent）
+                List<EmailTemplate> referenceTemplates = existingTemplates.stream()
+                        .filter(t -> {
+                            if (existingSubject != null && existingSubject.equals(t.getSubject())) return false;
+                            if (existingContent != null && existingContent.equals(t.getContent())) return false;
+                            return true;
+                        })
+                        .collect(java.util.stream.Collectors.toList());
 
-            String content = extractTextContent(responseJson);
-            log.info("AI 邮件模板原始响应内容: {}", content);
-
-            // 清理可能的 markdown 标记（更健壮的清理逻辑）
-            content = cleanMarkdownJson(content);
-            log.info("AI 邮件模板清理后内容: {}", content);
-
-            JsonNode root = objectMapper.readTree(content);
-            Map<String, String> result = new LinkedHashMap<>();
-            result.put("subject", root.has("subject") ? root.get("subject").asText() : "");
-            result.put("content", root.has("content") ? root.get("content").asText() : "");
-            log.info("AI 邮件模板生成成功: subject长度={}, content长度={}",
-                    result.get("subject") != null ? result.get("subject").length() : 0,
-                    result.get("content") != null ? result.get("content").length() : 0);
-            return result;
+                if (!referenceTemplates.isEmpty()) {
+                    prompt.append("\n【同类型已有模板参考】\n");
+                    prompt.append("以下是系统中已有的同类型（").append(typeLabel).append("）邮件模板，请参考其风格、结构和排版方式：\n\n");
+                    int count = 0;
+                    for (EmailTemplate t : referenceTemplates) {
+                        if (count >= 2) break; // 最多参考2个，避免 prompt 过长
+                        prompt.append("--- 参考模板 ").append(count + 1).append("：").append(t.getName()).append(" ---\n");
+                        prompt.append("主题：").append(t.getSubject()).append("\n");
+                        String refContent = t.getContent();
+                        if (refContent != null && refContent.length() > 1500) {
+                            refContent = refContent.substring(0, 1500) + "\n...(内容过长，已截断)";
+                        }
+                        prompt.append("内容：").append(refContent).append("\n\n");
+                        count++;
+                    }
+                    prompt.append("请参考以上模板的风格和结构，生成风格一致但内容不同的新模板。\n");
+                }
+            }
         } catch (Exception e) {
-            log.error("AI 生成邮件模板失败: {}", e.getMessage(), e);
-            throw new RuntimeException("AI 生成邮件模板失败: " + e.getMessage(), e);
+            log.warn("查询同类型邮件模板参考失败，跳过: {}", e.getMessage());
         }
+
+        prompt.append("\n请在参考基础上改进优化，生成更专业的邮件模板。");
+        return prompt.toString();
     }
 
     /** 转换器类型到系统默认模板名称的映射 */
@@ -286,29 +351,61 @@ public class AiService {
         }
 
         String effectiveType = (transformerType != null && !transformerType.isBlank()) ? transformerType : "response_wrapping";
+        String promptStr = buildCodeTemplatePrompt(apiMethod, apiPath, apiName, description, transformerType, existingSourceCode);
+        log.debug("AI 代码模板 Prompt: {}", promptStr);
+
+        try {
+            String responseJson = callAiApi(config, promptStr);
+            log.info("AI 代码模板 API 响应长度: {}", responseJson != null ? responseJson.length() : 0);
+
+            String content = extractTextContent(responseJson);
+            log.info("AI 代码模板原始响应长度: {}", content != null ? content.length() : 0);
+
+            // 清理 markdown 代码块标记
+            content = cleanCodeBlock(content);
+            log.info("AI 代码模板清理后长度: {}", content != null ? content.length() : 0);
+
+            // 自动补充缺失的必要 import
+            content = fixImports(content, effectiveType);
+            log.info("AI 代码模板补充 import 后长度: {}", content != null ? content.length() : 0);
+
+            // 自动修复类型转换问题（getParams() 返回 Map<String, Object>，直接调用 String 方法会编译失败）
+            content = fixTypeConversions(content);
+            log.info("AI 代码模板类型修复后长度: {}", content != null ? content.length() : 0);
+
+            return content;
+        } catch (Exception e) {
+            log.error("AI 生成代码模板失败: {}", e.getMessage(), e);
+            throw new RuntimeException("AI 生成代码模板失败: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * AI 生成代码模板（流式 SSE）
+     */
+    public java.io.BufferedReader generateCodeTemplateStream(String apiMethod, String apiPath, String apiName,
+                                                               String description, String transformerType,
+                                                               String existingSourceCode) throws Exception {
+        String prompt = buildCodeTemplatePrompt(apiMethod, apiPath, apiName, description, transformerType, existingSourceCode);
+        return callAiApiStream(prompt, "你是一个专业的 Java 代码生成助手，只返回纯 Java 源代码，不包含 markdown 标记或解释文字。");
+    }
+
+    /**
+     * 构建代码模板生成提示词（非流式和流式共用）
+     */
+    private String buildCodeTemplatePrompt(String apiMethod, String apiPath, String apiName,
+                                           String description, String transformerType, String existingSourceCode) {
+        String effectiveType = (transformerType != null && !transformerType.isBlank()) ? transformerType : "response_wrapping";
 
         String typeLabel;
         switch (effectiveType) {
-            case "response_wrapping":
-                typeLabel = "响应包装 - 将原始响应包装为统一格式 {code, message, data, timestamp}";
-                break;
-            case "data_masking":
-                typeLabel = "数据脱敏 - 对响应中的手机号、邮箱、身份证等敏感字段进行脱敏处理";
-                break;
-            case "field_transform":
-                typeLabel = "字段转换 - 对响应字段进行重命名、类型转换、值映射等操作";
-                break;
-            case "conditional_response":
-                typeLabel = "条件响应 - 根据请求参数返回不同的响应数据";
-                break;
-            case "logging":
-                typeLabel = "日志记录 - 记录请求和响应的详细信息";
-                break;
-            case "http_forward":
-                typeLabel = "请求转发 - 使用HttpClient将请求转发到真实后端服务";
-                break;
-            default:
-                typeLabel = effectiveType;
+            case "response_wrapping": typeLabel = "响应包装 - 将原始响应包装为统一格式 {code, message, data, timestamp}"; break;
+            case "data_masking": typeLabel = "数据脱敏 - 对响应中的手机号、邮箱、身份证等敏感字段进行脱敏处理"; break;
+            case "field_transform": typeLabel = "字段转换 - 对响应字段进行重命名、类型转换、值映射等操作"; break;
+            case "conditional_response": typeLabel = "条件响应 - 根据请求参数返回不同的响应数据"; break;
+            case "logging": typeLabel = "日志记录 - 记录请求和响应的详细信息"; break;
+            case "http_forward": typeLabel = "请求转发 - 使用HttpClient将请求转发到真实后端服务"; break;
+            default: typeLabel = effectiveType;
         }
 
         // 查找对应类型的系统默认模板作为参考
@@ -319,12 +416,8 @@ public class AiService {
             for (CustomCodeTemplate t : systemTemplates) {
                 if (systemTemplateName.equals(t.getName()) && t.getSourceCode() != null) {
                     systemTemplateCode = t.getSourceCode();
-                    log.info("AI 代码模板 - 找到系统默认模板: name={}, 源码长度={}", t.getName(), systemTemplateCode.length());
                     break;
                 }
-            }
-            if (systemTemplateCode == null) {
-                log.warn("AI 代码模板 - 未找到类型 '{}' 对应的系统默认模板 '{}'", effectiveType, systemTemplateName);
             }
         }
 
@@ -352,7 +445,6 @@ public class AiService {
         prompt.append("- MockRequest: getPath()(String), getMethod()(String), getHeaders()(Map), getParams()(Map), getBody()(String), getProjectCode()(String), getPathParams()(Map)\n");
         prompt.append("- MockResponseDTO.builder() 支持链式构建: .statusCode(), .headers(), .body(), .delay(), .build()\n\n");
 
-        // 将对应的系统默认模板作为参考代码发送
         if (systemTemplateCode != null && !systemTemplateCode.isBlank()) {
             prompt.append("【系统默认参考模板 - ").append(typeLabel).append("】\n");
             prompt.append("以下是该类型转换器的系统默认实现，请参考其代码结构、import语句、命名规范和实现模式：\n");
@@ -362,31 +454,13 @@ public class AiService {
 
         prompt.append("代码要求：\n");
         prompt.append("1. 必须实现 CustomResponseTransformer 接口的两个方法\n");
-        prompt.append("2. 【重要】必须在文件顶部包含所有需要的 import 语句，一个都不能少：\n");
-        prompt.append("   import com.carolcoral.mockserver.dto.MockRequest;\n");
-        prompt.append("   import com.carolcoral.mockserver.dto.MockResponseDTO;\n");
-        prompt.append("   import com.carolcoral.mockserver.plugin.CustomResponseTransformer;\n");
-        prompt.append("   import java.util.*;\n");
-        prompt.append("   import com.alibaba.fastjson.JSON;\n");
-        prompt.append("   （如果使用了 JSONObject 或 JSONArray，还需要 import com.alibaba.fastjson.JSONObject 和 JSONArray）\n");
-        if ("http_forward".equals(effectiveType)) {
-            prompt.append("   import java.net.URI;\n");
-            prompt.append("   import java.net.http.HttpClient;\n");
-            prompt.append("   import java.net.http.HttpRequest;\n");
-            prompt.append("   import java.net.http.HttpResponse;\n");
-            prompt.append("   import java.time.Duration;\n");
-        }
-        prompt.append("3. 类名使用驼峰命名，需与接口场景相关（如 LoginResponseWrapper, UserDataMasker 等）\n");
-        prompt.append("4. transform() 方法中编写核心处理逻辑，必须返回有效的 MockResponseDTO 对象，不能返回 null\n");
+        prompt.append("2. 【重要】必须在文件顶部包含所有需要的 import 语句\n");
+        prompt.append("3. 类名使用驼峰命名，需与接口场景相关\n");
+        prompt.append("4. transform() 方法中编写核心处理逻辑，必须返回有效的 MockResponseDTO 对象\n");
         prompt.append("5. getDescription() 返回简短的中文描述\n");
         prompt.append("6. 包含完整的 Javadoc 注释\n");
-        prompt.append("7. 禁止使用反射、文件IO、线程、脚本执行等危险API（http_forward 类型允许使用 java.net.http.HttpClient 进行网络请求）\n");
-        prompt.append("8. 使用 MockResponseDTO.builder() 构建返回对象\n");
-        prompt.append("9. 【关键类型约束】mockRequest.getParams() 返回 Map<String, Object>，get() 返回 Object 类型！\n");
-        prompt.append("   - 对 getParams().get(\"key\") 的返回值调用任何 String 方法前，必须先 .toString() 转换\n");
-        prompt.append("   - 例如：request.getParams().get(\"name\").toString().trim()（不能直接 .trim()）\n");
-        prompt.append("   - 例如：JSON.parseObject(request.getParams().get(\"body\").toString())（不能直接传 Object）\n");
-        prompt.append("   - 声明变量时：String value = request.getParams().get(\"key\").toString();（必须加 .toString()）\n\n");
+        prompt.append("7. 使用 MockResponseDTO.builder() 构建返回对象\n");
+        prompt.append("8. mockRequest.getParams() 返回 Map<String, Object>，get() 返回 Object，调用 String 方法前必须 .toString()\n\n");
 
         prompt.append("根据转换器类型，实现相应逻辑：\n");
         prompt.append("- response_wrapping: 将 body 包装为 {code, message, data, timestamp}\n");
@@ -394,7 +468,7 @@ public class AiService {
         prompt.append("- field_transform: 对字段名进行驼峰/下划线转换，或值映射\n");
         prompt.append("- conditional_response: 根据 mockRequest.getParams() 或 getHeaders() 返回不同响应\n");
         prompt.append("- logging: 使用 System.out.println 记录请求路径、方法、参数和响应信息\n");
-        prompt.append("- http_forward: 使用 java.net.http.HttpClient 将请求转发到真实后端服务，透传请求头和请求体，返回真实响应\n\n");
+        prompt.append("- http_forward: 使用 java.net.http.HttpClient 将请求转发到真实后端服务\n\n");
 
         if (existingSourceCode != null && !existingSourceCode.isBlank()) {
             prompt.append("参考现有代码（请在此基础上改进优化）：\n");
@@ -403,34 +477,7 @@ public class AiService {
         }
 
         prompt.append("重要：只返回纯 Java 源代码，不要包含 markdown 代码块标记（```java 或 ```），不要包含任何解释文字。");
-
-        String promptStr = prompt.toString();
-        log.debug("AI 代码模板 Prompt: {}", promptStr);
-
-        try {
-            String responseJson = callAiApi(config, promptStr);
-            log.info("AI 代码模板 API 响应长度: {}", responseJson != null ? responseJson.length() : 0);
-
-            String content = extractTextContent(responseJson);
-            log.info("AI 代码模板原始响应长度: {}", content != null ? content.length() : 0);
-
-            // 清理 markdown 代码块标记
-            content = cleanCodeBlock(content);
-            log.info("AI 代码模板清理后长度: {}", content != null ? content.length() : 0);
-
-            // 自动补充缺失的必要 import
-            content = fixImports(content, effectiveType);
-            log.info("AI 代码模板补充 import 后长度: {}", content != null ? content.length() : 0);
-
-            // 自动修复类型转换问题（getParams() 返回 Map<String, Object>，直接调用 String 方法会编译失败）
-            content = fixTypeConversions(content);
-            log.info("AI 代码模板类型修复后长度: {}", content != null ? content.length() : 0);
-
-            return content;
-        } catch (Exception e) {
-            log.error("AI 生成代码模板失败: {}", e.getMessage(), e);
-            throw new RuntimeException("AI 生成代码模板失败: " + e.getMessage(), e);
-        }
+        return prompt.toString();
     }
 
     /**
@@ -959,6 +1006,79 @@ public class AiService {
     }
 
     /**
+     * 通用流式 AI 调用（通过提示词生成，SSE 逐 token 返回）
+     * 复用于邮件模板、代码模板、接口描述等生成场景，避免超时问题
+     *
+     * @param prompt 提示词
+     * @param systemPrompt 系统提示词（可为null）
+     * @return 逐行 SSE 数据的 BufferedReader，调用方负责关闭
+     */
+    public java.io.BufferedReader callAiApiStream(String prompt, String systemPrompt) throws Exception {
+        AiConfig config = aiConfigService.getEnabledConfig();
+        if (config == null) {
+            throw new RuntimeException("未配置 AI 服务或未启用，请先在 AI 设置中配置并启用");
+        }
+
+        List<Map<String, String>> messages = new ArrayList<>();
+        Map<String, String> sysMsg = new LinkedHashMap<>();
+        sysMsg.put("role", "system");
+        sysMsg.put("content", systemPrompt != null ? systemPrompt : "你是一个专业的 API Mock 数据生成助手，只返回要求的 JSON 格式数据，不返回任何额外内容。");
+        messages.add(sysMsg);
+
+        Map<String, String> userMsg = new LinkedHashMap<>();
+        userMsg.put("role", "user");
+        userMsg.put("content", prompt);
+        messages.add(userMsg);
+
+        return doStreamRequest(config, messages);
+    }
+
+    /**
+     * 执行流式请求（公共逻辑）
+     */
+    private java.io.BufferedReader doStreamRequest(AiConfig config, List<Map<String, String>> messages) throws Exception {
+        String chatUrl = buildChatUrl(config.getApiUrl());
+        String model = getEffectiveModel(config);
+        Map<String, Object> requestBody = buildChatRequestBody(config, model, messages, true);
+
+        java.net.URL url = new java.net.URL(chatUrl);
+        java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setDoOutput(true);
+        conn.setConnectTimeout(10000);
+        int streamReadTimeout = config.getTimeout() != null && config.getTimeout() > 0 ? config.getTimeout() : 900;
+        conn.setReadTimeout(streamReadTimeout * 1000);
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setRequestProperty("Authorization", "Bearer " + config.getApiKey());
+        conn.setRequestProperty("Accept", "text/event-stream");
+
+        String reqBodyJson = objectMapper.writeValueAsString(requestBody);
+        log.info("AI Stream 请求: url={}, model={}, messagesCount={}", chatUrl, model, messages.size());
+        try (java.io.OutputStream os = conn.getOutputStream()) {
+            os.write(reqBodyJson.getBytes(StandardCharsets.UTF_8));
+            os.flush();
+        }
+
+        int status = conn.getResponseCode();
+        if (status < 200 || status >= 300) {
+            String errorBody = "";
+            try (InputStream errStream = conn.getErrorStream()) {
+                if (errStream != null) {
+                    errorBody = new BufferedReader(new InputStreamReader(errStream, StandardCharsets.UTF_8))
+                            .lines().collect(Collectors.joining("\n"));
+                }
+            }
+            conn.disconnect();
+            log.error("AI Stream API 返回非 2xx 状态码: {}, body: {}", status,
+                    errorBody.length() > 500 ? errorBody.substring(0, 500) : errorBody);
+            throw new RuntimeException("AI API 返回错误: HTTP " + status +
+                    (errorBody.isEmpty() ? "" : " - " + errorBody));
+        }
+
+        return new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+    }
+
+    /**
      * 流式 AI 对话（SSE 逐 token 返回，实时加载）
      *
      * @param messages 对话消息列表
@@ -969,53 +1089,8 @@ public class AiService {
         if (config == null) {
             throw new RuntimeException("未配置 AI 服务或未启用，请先在 AI 设置中配置并启用");
         }
-
-        String apiUrl = config.getApiUrl();
-        String chatUrl = buildChatUrl(apiUrl);
-        String model = getEffectiveModel(config);
-
-        // stream: true 请求体
-        Map<String, Object> requestBody = buildChatRequestBody(config, model, messages, true);
-
-        // 构建 HttpURLConnection（不通过 RestTemplate，直接用原生连接以流式读取）
-        java.net.URL url = new java.net.URL(chatUrl);
-        java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
-        conn.setRequestMethod("POST");
-        conn.setDoOutput(true);
-        conn.setConnectTimeout(10000);
-        // 流式读取超时设为 5 分钟
-        conn.setReadTimeout((int) java.time.Duration.ofMinutes(5).toMillis());
-        conn.setRequestProperty("Content-Type", "application/json");
-        conn.setRequestProperty("Authorization", "Bearer " + config.getApiKey());
-        conn.setRequestProperty("Accept", "text/event-stream");
-
-        // 写入请求体
-        String reqBodyJson = objectMapper.writeValueAsString(requestBody);
-        log.info("AI Chat Stream 请求: url={}, model={}, messagesCount={}", chatUrl, model, messages.size());
-        try (java.io.OutputStream os = conn.getOutputStream()) {
-            os.write(reqBodyJson.getBytes(StandardCharsets.UTF_8));
-            os.flush();
-        }
-
-        int status = conn.getResponseCode();
-        if (status < 200 || status >= 300) {
-            // 读取错误响应
-            String errorBody = "";
-            try (InputStream errStream = conn.getErrorStream()) {
-                if (errStream != null) {
-                    errorBody = new BufferedReader(new InputStreamReader(errStream, StandardCharsets.UTF_8))
-                            .lines().collect(Collectors.joining("\n"));
-                }
-            }
-            conn.disconnect();
-            log.error("AI Chat Stream API 返回非 2xx 状态码: {}, body: {}", status,
-                    errorBody.length() > 500 ? errorBody.substring(0, 500) : errorBody);
-            throw new RuntimeException("AI Chat Stream API 返回错误: HTTP " + status +
-                    (errorBody.isEmpty() ? "" : " - " + errorBody));
-        }
-
-        // 返回流式 BufferedReader，调用方负责关闭
-        return new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+        log.info("AI Chat Stream 请求: model={}, messagesCount={}", getEffectiveModel(config), messages.size());
+        return doStreamRequest(config, messages);
     }
 
     /**

@@ -223,18 +223,55 @@
     </el-dialog>
 
     <!-- 导入结果对话框 -->
-    <el-dialog v-model="importResultVisible" :title="$t('project.importResultTitle')" width="520px">
+    <el-dialog v-model="importResultVisible" :title="$t('project.importResultTitle')" width="580px">
       <div class="import-result">
         <div class="result-summary">
           <div class="result-item success">
             <el-icon><CircleCheckFilled /></el-icon>
             <span>{{ $t('project.importSuccessCount', { count: importResult.success }) }}</span>
           </div>
+          <div v-if="importResult.skipped > 0" class="result-item skipped">
+            <el-icon><RemoveFilled /></el-icon>
+            <span>{{ $t('project.importSkippedCount', { count: importResult.skipped }) }}</span>
+          </div>
           <div class="result-item failed" v-if="importResult.failed > 0">
             <el-icon><CircleCloseFilled /></el-icon>
             <span>{{ $t('project.importFailedCount', { count: importResult.failed }) }}</span>
           </div>
         </div>
+
+        <!-- 冲突提示 -->
+        <div v-if="importResult.conflicts && importResult.conflicts.length > 0" class="result-conflicts">
+          <h4>{{ $t('project.importConflictTitle', { count: importResult.conflicts.length }) }}</h4>
+          <p class="conflict-hint">{{ $t('project.importConflictHint') }}</p>
+          <div class="conflict-table">
+            <div class="conflict-header">
+              <el-checkbox v-model="conflictSelectAll" @change="handleConflictSelectAll">
+                {{ $t('project.importConflictSelectAll') }}
+              </el-checkbox>
+            </div>
+            <div v-for="(conflict, idx) in importResult.conflicts" :key="idx" class="conflict-row">
+              <el-checkbox v-model="conflictSelected[idx]" class="conflict-checkbox" />
+              <div class="conflict-info">
+                <div class="conflict-path">
+                  <span class="error-method">{{ conflict.method }}</span>
+                  <span class="error-path">{{ conflict.path }}</span>
+                </div>
+                <div class="conflict-diff">
+                  <div class="conflict-col">
+                    <span class="conflict-label">{{ $t('project.importConflictExisting') }}</span>
+                    <span class="conflict-val">{{ conflict.existingName }}</span>
+                  </div>
+                  <div class="conflict-col">
+                    <span class="conflict-label">{{ $t('project.importConflictNew') }}</span>
+                    <span class="conflict-val new-val">{{ conflict.newName }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div v-if="importResult.errors && importResult.errors.length > 0" class="result-errors">
           <h4>{{ $t('project.importErrorList') }}</h4>
           <div v-for="(err, idx) in importResult.errors" :key="idx" class="error-item">
@@ -245,6 +282,14 @@
         </div>
       </div>
       <template #footer>
+        <el-button
+          v-if="importResult.conflicts && importResult.conflicts.length > 0"
+          type="warning"
+          :loading="conflictResolving"
+          @click="handleConflictResolve"
+        >
+          {{ conflictResolving ? $t('project.importConflictOverwriting') : $t('project.importConflictOverwrite') }}
+        </el-button>
         <el-button type="primary" @click="onImportDone">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
@@ -307,7 +352,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete, Search, ArrowDown, UploadFilled, Link, CircleCheckFilled, CircleCloseFilled } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Search, ArrowDown, UploadFilled, Link, CircleCheckFilled, CircleCloseFilled, RemoveFilled } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { formatTime, loadDateFormat } from '@/utils/dateFormat'
 
@@ -736,8 +781,15 @@ const importResult = reactive({
   total: 0,
   success: 0,
   failed: 0,
-  errors: []
+  skipped: 0,
+  errors: [],
+  conflicts: []
 })
+
+// 冲突处理
+const conflictSelected = ref([])
+const conflictSelectAll = ref(false)
+const conflictResolving = ref(false)
 
 const handleImportSwagger = (row) => {
   currentImportProject.value = row
@@ -747,7 +799,9 @@ const handleImportSwagger = (row) => {
   importResult.total = 0
   importResult.success = 0
   importResult.failed = 0
+  importResult.skipped = 0
   importResult.errors = []
+  importResult.conflicts = []
   importDialogVisible.value = true
 }
 
@@ -790,6 +844,7 @@ const importFromFile = async () => {
 
     if (response.code === 200) {
       Object.assign(importResult, response.data)
+      initConflictSelection()
       importDialogVisible.value = false
       importResultVisible.value = true
     } else {
@@ -814,6 +869,7 @@ const importFromUrl = async () => {
 
     if (response.code === 200) {
       Object.assign(importResult, response.data)
+      initConflictSelection()
       importDialogVisible.value = false
       importResultVisible.value = true
     } else {
@@ -843,6 +899,62 @@ const handleImportDialogClose = () => {
 
 const handleAddMemberDialogClose = () => {
   memberFormRef.value?.resetFields()
+}
+
+// ====== 冲突解决 ======
+const initConflictSelection = () => {
+  if (importResult.conflicts && importResult.conflicts.length > 0) {
+    conflictSelected.value = new Array(importResult.conflicts.length).fill(false)
+    conflictSelectAll.value = false
+  } else {
+    conflictSelected.value = []
+    conflictSelectAll.value = false
+  }
+}
+
+const handleConflictSelectAll = (val) => {
+  if (importResult.conflicts) {
+    conflictSelected.value = new Array(importResult.conflicts.length).fill(val)
+  }
+}
+
+const handleConflictResolve = async () => {
+  const selectedConflicts = importResult.conflicts.filter((_, idx) => conflictSelected.value[idx])
+  if (selectedConflicts.length === 0) {
+    ElMessage.warning(t('project.importConflictNoSelect'))
+    return
+  }
+
+  conflictResolving.value = true
+  try {
+    const requests = selectedConflicts.map(c => ({
+      existingApiId: c.existingApiId,
+      newName: c.newName,
+      newDescription: c.newDescription,
+      newResponseBody: c.newResponseBody
+    }))
+
+    const response = await request({
+      url: `/projects/${currentImportProject.value.id}/import-conflicts/resolve`,
+      method: 'post',
+      data: requests
+    })
+
+    if (response.code === 200) {
+      const resolved = response.data?.resolved || 0
+      ElMessage.success(t('project.importConflictResolved', { count: resolved }))
+      // 从冲突列表中移除已解决的项
+      importResult.conflicts = importResult.conflicts.filter((_, idx) => !conflictSelected.value[idx])
+      initConflictSelection()
+    } else {
+      ElMessage.error(response.message || t('project.importConflictResolveFailed'))
+    }
+  } catch (error) {
+    console.error('冲突解决失败:', error)
+    ElMessage.error(t('project.importConflictResolveFailed'))
+  } finally {
+    conflictResolving.value = false
+  }
 }
 
 const canEditProject = (project) => {
@@ -967,6 +1079,10 @@ onMounted(async () => {
   color: #67c23a;
 }
 
+.result-item.skipped {
+  color: #909399;
+}
+
 .result-item.failed {
   color: #f56c6c;
 }
@@ -1024,6 +1140,98 @@ onMounted(async () => {
   color: #f56c6c;
   flex-shrink: 0;
   font-size: 12px;
+}
+
+/* 冲突处理 */
+.result-conflicts {
+  margin-bottom: 16px;
+}
+
+.result-conflicts h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: #e6a23c;
+}
+
+.conflict-hint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.5;
+}
+
+.conflict-table {
+  background: #fef9e7;
+  border: 1px solid #faecd8;
+  border-radius: 8px;
+  padding: 12px 14px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.conflict-header {
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #faecd8;
+}
+
+.conflict-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f5e6cc;
+}
+
+.conflict-row:last-child {
+  border-bottom: none;
+}
+
+.conflict-checkbox {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.conflict-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.conflict-path {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.conflict-diff {
+  display: flex;
+  gap: 20px;
+  font-size: 12px;
+}
+
+.conflict-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.conflict-label {
+  color: #b0b0b0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.conflict-val {
+  color: #606266;
+  word-break: break-all;
+}
+
+.conflict-val.new-val {
+  color: #409eff;
+  font-weight: 500;
 }
 </style>
 

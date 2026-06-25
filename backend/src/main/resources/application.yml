@@ -41,7 +41,7 @@ spring:
     caffeine:
       spec: maximumSize=10000,expireAfterWrite=10m
 
-# Swagger配置（已关闭）
+# Swagger配置（已关闭，流式SSE端点已加@Hidden注解避免类型扫描报错）
 springdoc:
   api-docs:
     enabled: false

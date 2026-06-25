@@ -220,7 +220,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Edit, Delete, InfoFilled, View, MagicStick } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import request from '@/utils/request'
-import { generateEmailTemplate } from '@/api/ai'
+import { generateEmailTemplateStream } from '@/api/ai'
 
 const { t } = useI18n()
 
@@ -258,7 +258,7 @@ const pagination = reactive({
 const aiSubjectLoading = ref(false)
 const aiTemplateLoading = ref(false)
 
-// AI 生成邮件主题
+// AI 生成邮件主题（流式）
 const handleAiGenerateSubject = async () => {
   if (!form.name || !form.name.trim()) {
     ElMessage.warning(t('emailTemplate.nameRequired'))
@@ -267,30 +267,29 @@ const handleAiGenerateSubject = async () => {
 
   aiSubjectLoading.value = true
   try {
-    const response = await generateEmailTemplate({
+    const fullText = await generateEmailTemplateStream({
       templateType: form.type,
       templateName: form.name.trim(),
       existingSubject: form.subject || undefined,
       existingContent: form.content || undefined
     })
 
-    if (response.code === 200 && response.data) {
-      if (response.data.subject) {
-        form.subject = response.data.subject
-      }
-      ElMessage.success(t('ai.emailSubjectGenerated'))
-    } else {
-      ElMessage.error(response.message || t('ai.generateFailed'))
+    // 解析流式返回的 JSON
+    const cleaned = cleanMarkdownJson(fullText)
+    const parsed = JSON.parse(cleaned)
+    if (parsed.subject) {
+      form.subject = parsed.subject
     }
+    ElMessage.success(t('ai.emailSubjectGenerated'))
   } catch (error) {
     console.error('AI 生成主题失败:', error)
-    ElMessage.error(t('ai.generateFailed'))
+    ElMessage.error(error.message || t('ai.generateFailed'))
   } finally {
     aiSubjectLoading.value = false
   }
 }
 
-// AI 生成完整邮件模板
+// AI 生成完整邮件模板（流式）
 const handleAiGenerateTemplate = async () => {
   if (!form.name || !form.name.trim()) {
     ElMessage.warning(t('emailTemplate.nameRequired'))
@@ -299,30 +298,43 @@ const handleAiGenerateTemplate = async () => {
 
   aiTemplateLoading.value = true
   try {
-    const response = await generateEmailTemplate({
+    const fullText = await generateEmailTemplateStream({
       templateType: form.type,
       templateName: form.name.trim(),
       existingSubject: form.subject || undefined,
       existingContent: form.content || undefined
     })
 
-    if (response.code === 200 && response.data) {
-      if (response.data.subject) {
-        form.subject = response.data.subject
-      }
-      if (response.data.content) {
-        form.content = response.data.content
-      }
-      ElMessage.success(t('ai.emailTemplateGenerated'))
-    } else {
-      ElMessage.error(response.message || t('ai.generateFailed'))
+    // 解析流式返回的 JSON
+    const cleaned = cleanMarkdownJson(fullText)
+    const parsed = JSON.parse(cleaned)
+    if (parsed.subject) {
+      form.subject = parsed.subject
     }
+    if (parsed.content) {
+      form.content = parsed.content
+    }
+    ElMessage.success(t('ai.emailTemplateGenerated'))
   } catch (error) {
     console.error('AI 生成邮件模板失败:', error)
-    ElMessage.error(t('ai.generateFailed'))
+    ElMessage.error(error.message || t('ai.generateFailed'))
   } finally {
     aiTemplateLoading.value = false
   }
+}
+
+// 清理 markdown 代码块标记
+function cleanMarkdownJson(text) {
+  let cleaned = text.trim()
+  cleaned = cleaned.replace(/^```(?:json)?\s*\n?/i, '')
+  cleaned = cleaned.replace(/\n?\s*```$/i, '')
+  // 提取 { 到 } 之间的内容
+  const startIdx = cleaned.indexOf('{')
+  const endIdx = cleaned.lastIndexOf('}')
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    cleaned = cleaned.substring(startIdx, endIdx + 1)
+  }
+  return cleaned
 }
 
 // 获取模板列表（支持分页和搜索）

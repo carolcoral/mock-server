@@ -657,7 +657,7 @@ import request from '@/utils/request'
 import { useRoute } from 'vue-router'
 import { getAccessibleProjects, getAllAccessibleProjects } from '@/api/project'
 import { getEnabledTemplatesByProjectId } from '@/api/codeTemplate'
-import { generateMockResponse, generateApiDescription } from '@/api/ai'
+import { generateMockResponse, generateApiDescriptionStream } from '@/api/ai'
 import { defineAsyncComponent } from 'vue'
 
 const MonacoEditor = defineAsyncComponent(() => import('@/components/MonacoEditor.vue'))
@@ -1175,7 +1175,7 @@ const handleAddResponse = () => {
   responseFormDialogVisible.value = true
 }
 
-// AI 生成接口描述
+// AI 生成接口描述（流式）
 const handleAiGenerateDescription = async () => {
   if (!form.name || !form.path) {
     ElMessage.warning(t('ai.fillNamePathFirst'))
@@ -1184,21 +1184,21 @@ const handleAiGenerateDescription = async () => {
 
   aiDescLoading.value = true
   try {
-    const response = await generateApiDescription({
+    const fullText = await generateApiDescriptionStream({
       apiMethod: form.method,
       apiPath: form.path,
       apiName: form.name
     })
 
-    if (response.code === 200 && response.data) {
-      form.description = response.data
+    if (fullText && fullText.trim()) {
+      form.description = fullText.trim()
       ElMessage.success(t('ai.descriptionGenerated'))
     } else {
-      ElMessage.error(response.message || t('ai.generateDescriptionFailed'))
+      ElMessage.error(t('ai.generateDescriptionFailed'))
     }
   } catch (error) {
     console.error('AI 生成描述失败:', error)
-    const msg = error?.response?.data?.message || error?.message || t('ai.generateDescriptionFailed')
+    const msg = error?.message || t('ai.generateDescriptionFailed')
     ElMessage.error(msg)
   } finally {
     aiDescLoading.value = false

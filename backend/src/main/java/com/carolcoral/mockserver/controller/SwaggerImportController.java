@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -79,6 +80,33 @@ public class SwaggerImportController {
         } catch (Exception e) {
             log.error("从 URL 导入 Swagger 失败", e);
             return ApiResponse.error("导入失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 解决导入冲突：用新导入接口信息覆盖已有接口
+     */
+    @PostMapping("/{projectId}/import-conflicts/resolve")
+    public ApiResponse<Map<String, Object>> resolveImportConflicts(
+            @PathVariable Long projectId,
+            @RequestBody List<SwaggerImportService.ResolveConflictRequest> requests,
+            HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("userId");
+        if (userId == null) {
+            userId = 1L;
+        }
+
+        if (requests == null || requests.isEmpty()) {
+            return ApiResponse.error("冲突列表不能为空");
+        }
+
+        try {
+            int resolved = swaggerImportService.resolveConflicts(projectId, requests);
+            log.info("冲突解决完成: projectId={}, userId={}, resolved={}", projectId, userId, resolved);
+            return ApiResponse.success(Map.of("resolved", resolved));
+        } catch (Exception e) {
+            log.error("解决导入冲突失败", e);
+            return ApiResponse.error("冲突解决失败: " + e.getMessage());
         }
     }
 }

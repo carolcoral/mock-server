@@ -238,7 +238,7 @@ import {
   batchDeleteTemplates,
   validateTemplateSourceCode
 } from '@/api/codeTemplate'
-import { generateCodeTemplate } from '@/api/ai'
+import { generateCodeTemplateStream } from '@/api/ai'
 import { defineAsyncComponent } from 'vue'
 
 const MonacoEditor = defineAsyncComponent(() => import('@/components/MonacoEditor.vue'))
@@ -561,7 +561,7 @@ public class MyCustomTransformer implements CustomResponseTransformer {
 }`
 }
 
-// AI 智能生成代码模板
+// AI 智能生成代码模板（流式）
 const handleAiGenerateCode = async () => {
   if (!form.name || !form.name.trim()) {
     ElMessage.warning(t('codeTemplate.nameRequired'))
@@ -571,7 +571,7 @@ const handleAiGenerateCode = async () => {
   aiCodeLoading.value = true
   validationResult.value = null
   try {
-    const response = await generateCodeTemplate({
+    const fullText = await generateCodeTemplateStream({
       apiMethod: 'POST',
       apiPath: '/api/' + form.name.trim().toLowerCase().replace(/\s+/g, '-'),
       apiName: form.name.trim(),
@@ -580,42 +580,27 @@ const handleAiGenerateCode = async () => {
       existingSourceCode: form.sourceCode || undefined
     })
 
-    console.log('[AI CodeTemplate] response:', response)
-    console.log('[AI CodeTemplate] response.code:', response.code, 'type:', typeof response.code)
-    console.log('[AI CodeTemplate] response.data type:', typeof response.data, 'length:', response.data ? response.data.length : 0)
+    // 清理 markdown 代码块标记
+    let sourceCode = fullText
+    sourceCode = sourceCode.replace(/^```(?:java)?\s*\n?/i, '')
+    sourceCode = sourceCode.replace(/\n?\s*```$/i, '')
 
-    if (response.code === 200 && response.data) {
-      // 先设置 reactive form.sourceCode（用于表单验证和提交）
-      form.sourceCode = response.data
-      console.log('[AI CodeTemplate] form.sourceCode set, length:', form.sourceCode.length)
-      // 直接通过 Monaco Editor 实例设置内容，确保编辑器显示更新
+    if (sourceCode && sourceCode.trim()) {
+      form.sourceCode = sourceCode
       if (monacoEditorRef.value) {
         const editorInstance = monacoEditorRef.value.getEditor()
         if (editorInstance) {
-          editorInstance.setValue(response.data)
-          console.log('[AI CodeTemplate] editor.setValue() called successfully')
-        } else {
-          console.warn('[AI CodeTemplate] monacoEditorRef.getEditor() returned null')
+          editorInstance.setValue(sourceCode)
         }
-      } else {
-        console.warn('[AI CodeTemplate] monacoEditorRef is null')
       }
       ElMessage.success(t('ai.codeTemplateGenerated'))
-      // 自动触发编译验证
       setTimeout(() => validateTemplateCode(), 300)
     } else {
-      console.error('[AI CodeTemplate] failed: code=', response.code, 'data=', response.data, 'message=', response.message)
-      ElMessage.error(response.message || t('ai.generateFailed'))
+      ElMessage.error(t('ai.generateFailed'))
     }
   } catch (error) {
     console.error('AI 生成代码模板失败:', error)
-    console.error('AI 生成代码模板失败 - 错误详情:', {
-      message: error?.message,
-      response: error?.response?.data,
-      status: error?.response?.status,
-      stack: error?.stack
-    })
-    ElMessage.error(t('ai.generateFailed'))
+    ElMessage.error(error.message || t('ai.generateFailed'))
   } finally {
     aiCodeLoading.value = false
   }

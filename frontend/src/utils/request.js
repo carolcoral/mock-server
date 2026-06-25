@@ -12,10 +12,10 @@ import { useUserStore } from '@/stores/user'
 const savedTimeout = localStorage.getItem('axiosTimeout')
 const defaultTimeout = savedTimeout ? parseInt(savedTimeout) : 30000
 
-// 获取 AI 请求超时（由 AiSettings.vue 保存，默认 120 秒）
+// 获取 AI 请求超时（由 AiSettings.vue 保存，默认 15 分钟）
 function getAiTimeout() {
   const saved = localStorage.getItem('aiTimeout')
-  return saved ? parseInt(saved) : 120000
+  return saved ? parseInt(saved) : 900000
 }
 
 // 创建axios实例
@@ -35,6 +35,7 @@ service.interceptors.request.use(
     }
 
     // AI 相关接口动态读取用户在 AI 设置中配置的超时时间（实时全局生效）
+    // 注意：流式 SSE 接口使用原生 fetch()，不走 axios，不受此影响
     if (config.url && (
       config.url.includes('/ai/generate-') ||
       config.url.includes('/ai/chat') ||

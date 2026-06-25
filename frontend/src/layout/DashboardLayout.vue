@@ -775,6 +775,21 @@ const destroySidebarCanvas = () => {
   }
 }
 
+// 同步 AI 超时配置到 localStorage（供 request.js 拦截器动态读取）
+async function syncAiTimeout() {
+  try {
+    const res = await request.get('/ai-config')
+    if (res.code === 200 && res.data) {
+      const enabled = res.data.find(c => c.enabled)
+      if (enabled && enabled.timeout) {
+        localStorage.setItem('aiTimeout', enabled.timeout * 1000)
+      }
+    }
+  } catch (e) {
+    // 静默失败，使用 request.js 中的默认值
+  }
+}
+
 // 页面加载时获取数据
 onMounted(() => {
   // 刷新权限（从后端获取最新权限，覆盖 localStorage 缓存）
@@ -782,6 +797,7 @@ onMounted(() => {
   fetchVersion()
   fetchFooterConfig()
   checkAndSyncSiteUrl()
+  syncAiTimeout()  // 同步 AI 超时配置，确保所有 AI 生成功能使用正确的超时时间
   window.addEventListener('footer-config-updated', handleFooterConfigUpdated)
   // 延迟初始化 canvas，等 DOM 渲染完成
   setTimeout(() => initSidebarCanvas(), 100)

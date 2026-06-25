@@ -10,6 +10,7 @@ import com.carolcoral.mockserver.dto.ApiResponse;
 import com.carolcoral.mockserver.entity.User;
 import com.carolcoral.mockserver.repository.UserRepository;
 import com.carolcoral.mockserver.service.AiService;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -135,67 +136,63 @@ public class AiMockController {
     }
 
     /**
-     * AI 生成接口描述
+     * AI 生成接口描述（流式 SSE）
      */
-    @Operation(summary = "AI 智能生成接口描述")
-    @PostMapping("/generate-description")
-    public ApiResponse<String> generateDescription(@RequestBody Map<String, String> params,
-                                                   HttpServletRequest request) {
+    @Hidden
+    @Operation(summary = "AI 智能生成接口描述（流式）", description = "通过 SSE 实时推送生成结果，避免长时间等待和超时")
+    @PostMapping("/generate-description/stream")
+    public void generateDescriptionStream(@RequestBody Map<String, String> params,
+                                           HttpServletRequest request,
+                                           HttpServletResponse response) {
         String apiMethod = params.get("apiMethod");
         String apiPath = params.get("apiPath");
         String apiName = params.get("apiName");
 
         if (apiMethod == null || apiMethod.isBlank()) {
-            return ApiResponse.error("请提供接口请求方法 (apiMethod)");
+            writeStreamError(response, "请提供接口请求方法 (apiMethod)");
+            return;
         }
         if (apiPath == null || apiPath.isBlank()) {
-            return ApiResponse.error("请提供接口路径 (apiPath)");
+            writeStreamError(response, "请提供接口路径 (apiPath)");
+            return;
         }
 
-        try {
-            String description = aiService.generateApiDescription(apiMethod, apiPath, apiName);
-            logAiCall("generate-description", true, null);
-            return ApiResponse.success(description);
-        } catch (RuntimeException e) {
-            logAiCall("generate-description", false, e.getMessage());
-            return ApiResponse.error(e.getMessage());
-        }
+        executeStreamRequest(response, "generate-description-stream",
+                () -> aiService.generateApiDescriptionStream(apiMethod, apiPath, apiName));
     }
 
     /**
-     * AI 生成邮件模板
+     * AI 生成邮件模板（流式 SSE）
      */
-    @Operation(summary = "AI 智能生成邮件模板")
-    @PostMapping("/generate-email-template")
-    public ApiResponse<Map<String, String>> generateEmailTemplate(@RequestBody Map<String, String> params,
-                                                                   HttpServletRequest request) {
+    @Hidden
+    @Operation(summary = "AI 智能生成邮件模板（流式）", description = "通过 SSE 实时推送生成结果，避免长时间等待和超时")
+    @PostMapping("/generate-email-template/stream")
+    public void generateEmailTemplateStream(@RequestBody Map<String, String> params,
+                                             HttpServletRequest request,
+                                             HttpServletResponse response) {
         String templateType = params.get("templateType");
         String templateName = params.get("templateName");
         String existingSubject = params.get("existingSubject");
         String existingContent = params.get("existingContent");
 
         if (templateType == null || templateType.isBlank()) {
-            return ApiResponse.error("请提供模板类型 (templateType)");
+            writeStreamError(response, "请提供模板类型 (templateType)");
+            return;
         }
 
-        try {
-            Map<String, String> result = aiService.generateEmailTemplate(
-                    templateType, templateName, existingSubject, existingContent);
-            logAiCall("generate-email-template", true, null);
-            return ApiResponse.success(result);
-        } catch (RuntimeException e) {
-            logAiCall("generate-email-template", false, e.getMessage());
-            return ApiResponse.error(e.getMessage());
-        }
+        executeStreamRequest(response, "generate-email-template-stream",
+                () -> aiService.generateEmailTemplateStream(templateType, templateName, existingSubject, existingContent));
     }
 
     /**
-     * AI 生成代码模板
+     * AI 生成代码模板（流式 SSE）
      */
-    @Operation(summary = "AI 智能生成代码模板")
-    @PostMapping("/generate-code-template")
-    public ApiResponse<String> generateCodeTemplate(@RequestBody Map<String, Object> params,
-                                                     HttpServletRequest request) {
+    @Hidden
+    @Operation(summary = "AI 智能生成代码模板（流式）", description = "通过 SSE 实时推送生成结果，避免长时间等待和超时")
+    @PostMapping("/generate-code-template/stream")
+    public void generateCodeTemplateStream(@RequestBody Map<String, Object> params,
+                                            HttpServletRequest request,
+                                            HttpServletResponse response) {
         String apiMethod = (String) params.get("apiMethod");
         String apiPath = (String) params.get("apiPath");
         String apiName = (String) params.get("apiName");
@@ -203,16 +200,84 @@ public class AiMockController {
         String transformerType = (String) params.get("transformerType");
         String existingSourceCode = (String) params.get("existingSourceCode");
 
+        executeStreamRequest(response, "generate-code-template-stream",
+                () -> aiService.generateCodeTemplateStream(apiMethod, apiPath, apiName, description, transformerType, existingSourceCode));
+    }
+
+    // ==================== SSE 工具方法 ====================
+
+    @FunctionalInterface
+    private interface StreamSupplier {
+        BufferedReader get() throws Exception;
+    }
+
+    private void executeStreamRequest(HttpServletResponse response, String apiType, StreamSupplier supplier) {
+        PrintWriter writer = null;
+        BufferedReader reader = null;
         try {
-            String sourceCode = aiService.generateCodeTemplate(
-                    apiMethod, apiPath, apiName, description, transformerType, existingSourceCode);
-            log.info("AI 代码模板生成成功，源码长度: {}", sourceCode != null ? sourceCode.length() : 0);
-            logAiCall("generate-code-template", true, null);
-            return ApiResponse.success(sourceCode);
+            writer = initSseResponse(response);
+            reader = supplier.get();
+            streamToClient(writer, reader);
+            logAiCall(apiType, true, null);
         } catch (RuntimeException e) {
-            log.error("AI 代码模板生成失败: {}", e.getMessage());
-            logAiCall("generate-code-template", false, e.getMessage());
-            return ApiResponse.error(e.getMessage());
+            log.error("AI 流式生成失败 [{}]: {}", apiType, e.getMessage());
+            logAiCall(apiType, false, e.getMessage());
+            writeError(writer, e.getMessage());
+        } catch (Exception e) {
+            log.error("AI 流式生成失败 [{}]: {}", apiType, e.getMessage(), e);
+            logAiCall(apiType, false, e.getMessage());
+            writeError(writer, e.getMessage());
+        } finally {
+            closeStreams(reader, writer);
+        }
+    }
+
+    private PrintWriter initSseResponse(HttpServletResponse response) throws IOException {
+        response.setContentType("text/event-stream");
+        response.setCharacterEncoding("UTF-8");
+        response.setHeader("Cache-Control", "no-cache");
+        response.setHeader("Connection", "keep-alive");
+        response.setHeader("X-Accel-Buffering", "no");
+        return response.getWriter();
+    }
+
+    private void writeStreamError(HttpServletResponse response, String message) {
+        try {
+            response.setContentType("text/event-stream");
+            response.setCharacterEncoding("UTF-8");
+            PrintWriter pw = response.getWriter();
+            pw.write("data: [ERROR] " + message + "\n\n");
+            pw.flush();
+            pw.close();
+        } catch (Exception ignored) {}
+    }
+
+    private void writeError(PrintWriter writer, String message) {
+        if (writer != null) {
+            try {
+                writer.write("data: [ERROR] " + message + "\n\n");
+                writer.flush();
+            } catch (Exception ignored) {}
+        }
+    }
+
+    private void streamToClient(PrintWriter writer, BufferedReader reader) throws IOException {
+        String line;
+        while ((line = reader.readLine()) != null) {
+            writer.write(line + "\n");
+            writer.flush();
+            if (line.contains("[DONE]")) {
+                break;
+            }
+        }
+    }
+
+    private void closeStreams(BufferedReader reader, PrintWriter writer) {
+        if (reader != null) {
+            try { reader.close(); } catch (IOException ignored) {}
+        }
+        if (writer != null) {
+            try { writer.close(); } catch (Exception ignored) {}
         }
     }
 
@@ -266,6 +331,7 @@ public class AiMockController {
      * AI 流式对话接口（SSE）
      * 实时逐 token 推送 AI 回复，避免长时间等待和超时
      */
+    @Hidden
     @Operation(summary = "AI 流式对话（SSE）", description = "流式 AI 对话，通过 SSE 实时推送每个 token")
     @PostMapping("/chat/stream")
     public void chatStream(@RequestBody Map<String, Object> params,

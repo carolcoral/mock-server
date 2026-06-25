@@ -38,7 +38,9 @@ export default defineConfig(({ mode }) => {
           target: `http://localhost:${serverPort}`,
           changeOrigin: true,
           secure: false,
-          rewrite: (path) => path.replace(/^\/api/, '/api')
+          rewrite: (path) => path.replace(/^\/api/, '/api'),
+          timeout: 600000,       // 代理请求超时 10 分钟，适应 AI 生成场景
+          proxyTimeout: 600000   // 代理响应超时 10 分钟
         },
         // Bing 每日图片代理 → 后端 Spring Boot Controller（开发/生产统一）
         '/bing-hp': {
