@@ -185,16 +185,22 @@ public class StartupConfig implements CommandLineRunner {
 
     /**
      * 初始化示例项目
+     * <p>
+     * 仅在数据库无任何项目数据时（首次启动）创建默认测试项目。
+     * 如果数据库已有项目（包括升级后用户已删除 test 项目的情况），则跳过创建，
+     * 避免每次升级都重建已删除的系统默认测试项目。
+     * </p>
      */
     @Operation(summary = "初始化示例项目")
     private void initExampleProject() {
         try {
-            // 检查test项目是否已存在
-            String projectCode = "test";
-            if (projectRepository.existsByCode(projectCode)) {
-                log.info("test项目已存在: {}", projectCode);
+            // 检查数据库中是否已有任何项目，有则说明非首次启动，跳过示例数据创建
+            if (projectRepository.count() > 0) {
+                log.info("数据库已有项目数据，跳过测试项目创建（项目总数: {}）", projectRepository.count());
                 return;
             }
+
+            String projectCode = "test";
 
             // 获取管理员用户
             User admin = userRepository.findByUsername(adminUsername).orElse(null);
