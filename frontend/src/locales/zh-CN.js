@@ -48,7 +48,8 @@ export default {
     settings: '系统设置',
     statistics: '数据统计',
     aiSettings: 'AI 设置',
-    aiChat: 'AI 对话'
+    aiChat: 'AI 对话',
+    permissionManagement: '权限管理'
   },
 
   // 用户相关
@@ -433,8 +434,10 @@ export default {
     role: '角色',
     joinTime: '加入时间',
     creator: '创建者',
-    admin: '管理员',
-    member: '普通成员',
+    admin: '项目管理员',
+    member: '成员用户',
+    projectAdmin: '项目管理员',
+    projectMember: '成员用户',
     modifyRole: '修改角色',
     remove: '移除',
     noOperation: '不可操作',
@@ -453,8 +456,8 @@ export default {
     removeSuccess: '移除成功',
     removeFailed: '移除失败',
     modifyRoleTitle: '修改 {name} 的角色',
-    modifyRolePrompt: '请选择新的角色',
-    modifyRoleHint: '请输入 ADMIN 或 MEMBER',
+    modifyRolePrompt: '请从下拉列表选择角色',
+    modifyRoleHint: '请选择项目管理员或成员用户',
     confirmRemove: '确认将 {name} 从项目中移除吗？',
     // Swagger 导入
     importSwagger: '导入 Swagger',
@@ -938,6 +941,63 @@ export default {
     preview: '预览',
     editContent: '编辑',
     previewHtml: 'HTML 预览效果'
+  },
+
+  // 权限管理
+  permission: {
+    title: '权限管理',
+    roleManagement: '角色管理',
+    permissionManagement: '权限管理',
+    // 角色管理
+    role: {
+      title: '角色管理',
+      createRole: '创建角色',
+      editRole: '编辑角色',
+      deleteRole: '删除角色',
+      roleName: '角色名称',
+      roleCode: '角色编码',
+      description: '角色描述',
+      isDefault: '默认角色',
+      isDefaultHint: '设为注册用户默认角色',
+      defaultTag: '默认',
+      createdAt: '创建时间',
+      actions: '操作',
+      edit: '编辑',
+      delete: '删除',
+      setDefault: '设为默认',
+      namePlaceholder: '请输入角色名称',
+      codePlaceholder: '请输入角色编码，如 ROLE_EDITOR',
+      descriptionPlaceholder: '请输入角色描述',
+      nameRequired: '请输入角色名称',
+      codeRequired: '请输入角色编码',
+      codeFormat: '角色编码只能包含大写字母、数字和下划线',
+      confirmDelete: '确认删除角色 {name} 吗？删除后该角色下的用户将失去对应权限。',
+      deleteSuccess: '删除成功',
+      deleteFailed: '删除失败',
+      createSuccess: '创建成功',
+      editSuccess: '编辑成功',
+      createFailed: '创建失败',
+      editFailed: '编辑失败',
+      fetchFailed: '获取角色列表失败',
+      setDefaultSuccess: '已设为默认角色',
+      setDefaultFailed: '设置默认角色失败',
+      cannotDeleteAdmin: '不能删除系统管理员角色'
+    },
+    // 权限分配
+    permission: {
+      title: '权限管理',
+      selectRole: '选择角色',
+      selectRolePlaceholder: '请选择一个角色',
+      selectRoleHint: '选择角色后为其分配权限',
+      savePermissions: '保存权限',
+      groupAll: '全选',
+      permissionsCount: '已选择 {count} 项权限',
+      saveSuccess: '权限保存成功',
+      saveFailed: '权限保存失败',
+      fetchFailed: '获取权限列表失败',
+      pageAccess: '页面访问',
+      buttonOperation: '按钮操作'
+    }
   },
 
   // AI 对话

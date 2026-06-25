@@ -219,8 +219,8 @@
           </div>
         </el-form-item>
 
-        <!-- 自定义响应处理器 - 已隐藏 -->
-        <template v-if="false">
+        <!-- 自定义响应处理器（仅编辑时显示） -->
+        <template v-if="isEdit">
         <el-divider content-position="left">
           <span style="font-size: 14px; font-weight: 600; color: #303133;">{{ $t('api.customHandlerTitle') }}</span>
         </el-divider>

@@ -22,63 +22,79 @@
         active-text-color="#409EFF"
         router
       >
-        <!-- 仪表盘 - 一级菜单 -->
-        <el-menu-item index="/dashboard">
+        <!-- 仪表盘 - 一级菜单（根据权限显示） -->
+        <el-menu-item index="/dashboard" v-if="userStore.hasPermission('dashboard:view')">
           <el-icon><HomeFilled /></el-icon>
           <span>{{ $t('nav.home') }}</span>
         </el-menu-item>
 
-        <!-- 业务管理 - 可折叠分组 -->
-        <el-sub-menu index="sub-business">
+        <!-- 业务管理 - 可折叠分组（根据权限显示） -->
+        <el-sub-menu index="sub-business" v-if="userStore.hasAnyPermission(['project:view', 'api:view', 'code-template:view'])">
           <template #title>
             <el-icon><Monitor /></el-icon>
             <span>{{ $t('nav.businessManagement') }}</span>
           </template>
-          <el-menu-item index="/projects">
+          <el-menu-item index="/projects" v-if="userStore.hasPermission('project:view')">
             <el-icon><Folder /></el-icon>
             <span>{{ $t('nav.projects') }}</span>
           </el-menu-item>
-          <el-menu-item index="/apis">
+          <el-menu-item index="/apis" v-if="userStore.hasPermission('api:view')">
             <el-icon><Connection /></el-icon>
             <span>{{ $t('nav.apis') }}</span>
           </el-menu-item>
-          <el-menu-item index="/code-templates">
+          <el-menu-item index="/code-templates" v-if="userStore.hasPermission('code-template:view')">
             <el-icon><Document /></el-icon>
             <span>{{ $t('nav.codeTemplates') }}</span>
           </el-menu-item>
         </el-sub-menu>
 
-        <!-- AI 对话 - 一级菜单 -->
-        <el-menu-item index="/ai-chat">
+        <!-- AI 对话 - 一级菜单（根据权限显示） -->
+        <el-menu-item index="/ai-chat" v-if="userStore.hasPermission('ai-chat:view')">
           <el-icon><ChatDotSquare /></el-icon>
           <span>{{ $t('nav.aiChat') }}</span>
         </el-menu-item>
 
-        <!-- 数据统计 - 一级菜单 -->
-        <el-menu-item index="/statistics">
+        <!-- 数据统计 - 一级菜单（根据权限显示） -->
+        <el-menu-item index="/statistics" v-if="userStore.hasPermission('statistics:view')">
           <el-icon><DataAnalysis /></el-icon>
           <span>{{ $t('nav.statistics') }}</span>
         </el-menu-item>
 
-        <!-- 系统管理 - 仅管理员可见的可折叠分组 -->
-        <el-sub-menu index="sub-system" v-if="userStore.isAdmin">
+        <!-- 权限管理 - 根据权限显示 -->
+        <el-sub-menu index="sub-permission" v-if="userStore.hasAnyPermission(['user:view', 'role:view', 'permission:view'])">
+          <template #title>
+            <el-icon><Lock /></el-icon>
+            <span>{{ $t('nav.permissionManagement') }}</span>
+          </template>
+          <el-menu-item index="/users" v-if="userStore.hasPermission('user:view')">
+            <el-icon><User /></el-icon>
+            <span>{{ $t('nav.userManagement') }}</span>
+          </el-menu-item>
+          <el-menu-item index="/roles" v-if="userStore.hasPermission('role:view')">
+            <el-icon><Avatar /></el-icon>
+            <span>{{ $t('permission.roleManagement') }}</span>
+          </el-menu-item>
+          <el-menu-item index="/permissions" v-if="userStore.hasPermission('permission:view')">
+            <el-icon><Key /></el-icon>
+            <span>{{ $t('permission.permissionManagement') }}</span>
+          </el-menu-item>
+        </el-sub-menu>
+
+        <!-- 系统管理 - 根据权限显示 -->
+        <el-sub-menu index="sub-system" v-if="userStore.hasAnyPermission(['email-template:view', 'ai-settings:view', 'settings:view'])">
           <template #title>
             <el-icon><Tools /></el-icon>
             <span>{{ $t('nav.systemManagement') }}</span>
           </template>
-          <el-menu-item index="/email-templates">
+          <el-menu-item index="/email-templates" v-if="userStore.hasPermission('email-template:view')">
             <el-icon><Message /></el-icon>
             <span>{{ $t('nav.emailTemplates') }}</span>
           </el-menu-item>
-          <el-menu-item index="/users">
-            <el-icon><User /></el-icon>
-            <span>{{ $t('nav.userManagement') }}</span>
-          </el-menu-item>
-          <el-menu-item index="/ai-settings">
+          <el-menu-item index="/ai-settings" v-if="userStore.hasPermission('ai-settings:view')">
             <el-icon><Cpu /></el-icon>
             <span>{{ $t('nav.aiSettings') }}</span>
           </el-menu-item>
-          <el-menu-item index="/settings">
+          <el-menu-item index="/settings" v-if="userStore.hasPermission('settings:view')">
             <el-icon><Setting /></el-icon>
             <span>{{ $t('nav.settings') }}</span>
           </el-menu-item>
@@ -268,7 +284,10 @@ import {
   Monitor,
   Tools,
   Cpu,
-  ChatDotSquare
+  ChatDotSquare,
+  Lock,
+  Avatar,
+  Key
 } from '@element-plus/icons-vue'
 
 const { t } = useI18n()
@@ -289,7 +308,10 @@ const defaultOpeneds = computed(() => {
   if (['/projects', '/apis', '/code-templates'].some(p => path === p || path.startsWith(p + '/'))) {
     opened.push('sub-business')
   }
-  if (['/email-templates', '/users', '/ai-settings', '/settings'].some(p => path === p || path.startsWith(p + '/'))) {
+  if (['/users', '/roles', '/permissions'].some(p => path === p || path.startsWith(p + '/'))) {
+    opened.push('sub-permission')
+  }
+  if (['/email-templates', '/ai-settings', '/settings'].some(p => path === p || path.startsWith(p + '/'))) {
     opened.push('sub-system')
   }
   return opened
@@ -749,6 +771,8 @@ const destroySidebarCanvas = () => {
 
 // 页面加载时获取数据
 onMounted(() => {
+  // 刷新权限（从后端获取最新权限，覆盖 localStorage 缓存）
+  userStore.refreshPermissions()
   fetchVersion()
   fetchFooterConfig()
   checkAndSyncSiteUrl()

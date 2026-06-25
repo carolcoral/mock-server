@@ -32,31 +32,34 @@ import java.util.Map;
 @Tag(name = "AI配置", description = "AI 服务商配置管理接口")
 @RestController
 @RequestMapping("/api/ai-config")
-@PreAuthorize("hasRole('ADMIN')")
 public class AiConfigController {
 
     @Autowired
     private AiConfigService aiConfigService;
 
     @Operation(summary = "获取预设服务商列表")
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/preset-providers")
     public ApiResponse<Map<String, Map<String, String>>> getPresetProviders() {
         return ApiResponse.success(aiConfigService.getPresetProviders());
     }
 
     @Operation(summary = "获取所有 AI 配置")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('ai-settings:view')")
     @GetMapping
     public ApiResponse<java.util.List<AiConfig>> getAllConfigs() {
         return ApiResponse.success(aiConfigService.getAllConfigs());
     }
 
     @Operation(summary = "保存或更新 AI 配置")
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ApiResponse<AiConfig> saveConfig(@RequestBody AiConfig config) {
         return ApiResponse.success(aiConfigService.saveConfig(config));
     }
 
     @Operation(summary = "切换启用状态")
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}/toggle")
     public ApiResponse<AiConfig> toggleEnabled(@PathVariable Long id) {
         AiConfig config = aiConfigService.getById(id);
@@ -77,6 +80,7 @@ public class AiConfigController {
     }
 
     @Operation(summary = "按服务商标识获取配置")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('ai-settings:view')")
     @GetMapping("/{provider}")
     public ApiResponse<AiConfig> getByProvider(@PathVariable String provider) {
         AiConfig config = aiConfigService.getByProvider(provider);
@@ -87,6 +91,7 @@ public class AiConfigController {
     }
 
     @Operation(summary = "连通性验证 - 测试 AI 服务商配置是否可用")
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/test-connectivity")
     public ApiResponse<Map<String, Object>> testConnectivity(@RequestBody Map<String, String> params) {
         String apiUrl = params.get("apiUrl");

@@ -39,6 +39,9 @@ public class LoginResponse {
     @Schema(description = "过期时间（毫秒）", example = "86400000")
     private Long expiresIn;
 
+    @Schema(description = "用户权限编码列表", example = "[\"ai-chat:view\", \"statistics:view\"]")
+    private java.util.List<String> permissions;
+
     /**
      * 默认构造器
      */
@@ -48,7 +51,7 @@ public class LoginResponse {
     /**
      * 全参构造器
      */
-    public LoginResponse(String token, String tokenType, Long userId, String username, String email, String role, String language, Long expiresIn) {
+    public LoginResponse(String token, String tokenType, Long userId, String username, String email, String role, String language, Long expiresIn, java.util.List<String> permissions) {
         this.token = token;
         this.tokenType = tokenType;
         this.userId = userId;
@@ -57,6 +60,7 @@ public class LoginResponse {
         this.role = role;
         this.language = language;
         this.expiresIn = expiresIn;
+        this.permissions = permissions;
     }
 
     /**
@@ -78,6 +82,7 @@ public class LoginResponse {
         private String role;
         private String language;
         private Long expiresIn;
+        private java.util.List<String> permissions;
 
         public LoginResponseBuilder token(String token) {
             this.token = token;
@@ -119,8 +124,13 @@ public class LoginResponse {
             return this;
         }
 
+        public LoginResponseBuilder permissions(java.util.List<String> permissions) {
+            this.permissions = permissions;
+            return this;
+        }
+
         public LoginResponse build() {
-            return new LoginResponse(token, tokenType, userId, username, email, role, language, expiresIn);
+            return new LoginResponse(token, tokenType, userId, username, email, role, language, expiresIn, permissions);
         }
     }
 
@@ -187,5 +197,13 @@ public class LoginResponse {
 
     public void setExpiresIn(Long expiresIn) {
         this.expiresIn = expiresIn;
+    }
+
+    public java.util.List<String> getPermissions() {
+        return permissions;
+    }
+
+    public void setPermissions(java.util.List<String> permissions) {
+        this.permissions = permissions;
     }
 }

@@ -9,9 +9,9 @@ package com.carolcoral.mockserver.filter;
 import com.carolcoral.mockserver.dto.ApiResponse;
 import com.carolcoral.mockserver.entity.User;
 import com.carolcoral.mockserver.repository.UserRepository;
+import com.carolcoral.mockserver.service.CustomUserDetailsService;
 import com.carolcoral.mockserver.util.JwtTokenUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.cdimascio.dotenv.Dotenv;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.FilterChain;
@@ -44,16 +44,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
      */
     public JwtAuthenticationFilter(JwtTokenUtil jwtTokenUtil,
         UserRepository userRepository,
-        ObjectMapper objectMapper) {
+        ObjectMapper objectMapper,
+        CustomUserDetailsService customUserDetailsService) {
         this.jwtTokenUtil = jwtTokenUtil;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
+        this.customUserDetailsService = customUserDetailsService;
     }
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
-    private static final String SWAGGER_AUTO_LOGIN_PATH = "/auth/swagger-auto-login";
-    private static final String API_SWAGGER_AUTO_LOGIN_PATH = "/api/auth/swagger-auto-login";
     private static final String MOCK_PATH_PREFIX = "/mock/";
     private static final String MOCK_SERVER_PATH_PREFIX = "/mock-server/";
     private static final String AUTH_LOGIN_PATH = "/auth/login";
@@ -65,6 +65,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtTokenUtil jwtTokenUtil;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+    private final CustomUserDetailsService customUserDetailsService;
 
     @Override
     @Operation(summary = "执行JWT认证过滤")
@@ -81,15 +82,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // Swagger自动登录接口（前端已登录用户调用，支持带/不带 /api 前缀）
-        if (SWAGGER_AUTO_LOGIN_PATH.equals(requestUri) || SWAGGER_AUTO_LOGIN_PATH.equals(servletPath) ||
-            API_SWAGGER_AUTO_LOGIN_PATH.equals(requestUri) || API_SWAGGER_AUTO_LOGIN_PATH.equals(servletPath)) {
-            handleSwaggerAutoLogin(request, response);
-            return;
-        }
-
-
-
         // Mock接口路径 - 不需要认证
         if (servletPath.startsWith(MOCK_PATH_PREFIX) || requestUri.startsWith(MOCK_PATH_PREFIX)) {
             filterChain.doFilter(request, response);
@@ -98,52 +90,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // Mock Server接口路径 - 不需要认证
         if (servletPath.startsWith(MOCK_SERVER_PATH_PREFIX) || requestUri.startsWith(MOCK_SERVER_PATH_PREFIX)) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        // Swagger 静态资源 - 直接放行（CSS/JS/图片等）
-        if (isSwaggerStaticPath(requestUri) || isSwaggerStaticPath(servletPath)) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        // Swagger 页面入口和 API 文档 - 需要 ADMIN 认证（支持 URL ?token= 参数）
-        if (isSwaggerAuthPath(requestUri) || isSwaggerAuthPath(servletPath)) {
-            String token = getTokenFromRequest(request);
-            if (StringUtils.hasText(token) && jwtTokenUtil.validateToken(token)) {
-                String username = jwtTokenUtil.getUsernameFromToken(token);
-                Long userId = jwtTokenUtil.getUserIdFromToken(token);
-                String role = jwtTokenUtil.getUserRoleFromToken(token);
-
-                if (username != null && userId != null && role != null && "ADMIN".equals(role)) {
-                    UserDetails userDetails = userRepository.findByUsername(username).orElse(null);
-                    if (userDetails != null) {
-                        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                                userDetails, null, userDetails.getAuthorities());
-                        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                        SecurityContextHolder.getContext().setAuthentication(authentication);
-                        request.setAttribute("userId", userId);
-                        request.setAttribute("userRole", User.UserRole.valueOf(role));
-                        log.debug("Swagger访问认证成功: username={}, role={}", username, role);
-                    }
-                } else {
-                    log.warn("Swagger访问被拒绝（非管理员）: username={}, role={}", username, role);
-                    writeJsonResponse(response, HttpServletResponse.SC_FORBIDDEN,
-                            ApiResponse.error("权限不足，仅系统管理员可访问Swagger接口文档"));
-                    return;
-                }
-            } else {
-                // 无有效 token，返回 401 触发 Swagger UI 弹出登录框
-                if (!StringUtils.hasText(token)) {
-                    log.info("Swagger访问未提供token: {}", requestUri);
-                } else {
-                    log.warn("Swagger访问token无效: {}", requestUri);
-                }
-                writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
-                        ApiResponse.unauthorized());
-                return;
-            }
             filterChain.doFilter(request, response);
             return;
         }
@@ -161,6 +107,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     UserDetails userDetails = userRepository.findByUsername(username).orElse(null);
 
                     if (userDetails != null && jwtTokenUtil.validateToken(token, userDetails)) {
+                        // 加载动态权限（从 t_role_permission + t_permission）
+                        if (userDetails instanceof User) {
+                            customUserDetailsService.loadPermissions((User) userDetails);
+                        }
                         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                                 userDetails, null, userDetails.getAuthorities());
                         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
@@ -237,7 +187,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             requestUri.equals("/changelog") ||
             requestUri.equals("/email-templates") ||
             requestUri.equals("/ai-settings") ||
-            requestUri.equals("/ai-chat")) {
+            requestUri.equals("/ai-chat") ||
+            requestUri.equals("/roles") ||
+            requestUri.equals("/permissions")) {
             return true;
         }
 
@@ -262,95 +214,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /**
-     * 处理Swagger自动登录（已登录用户调用）
-     */
-    private void handleSwaggerAutoLogin(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        try {
-            // 从请求头获取前端传递的JWT token
-            String authorizationHeader = request.getHeader(AUTHORIZATION_HEADER);
-            if (authorizationHeader == null || !authorizationHeader.startsWith(BEARER_PREFIX)) {
-                writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
-                        ApiResponse.error("未提供有效的认证令牌"));
-                return;
-            }
-            
-            String userToken = authorizationHeader.substring(BEARER_PREFIX.length());
-            
-            // 验证用户token是否有效
-            if (!jwtTokenUtil.validateToken(userToken)) {
-                writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
-                        ApiResponse.error("用户令牌无效或已过期"));
-                return;
-            }
-            
-            // 获取用户信息
-            String username = jwtTokenUtil.getUsernameFromToken(userToken);
-            Long userId = jwtTokenUtil.getUserIdFromToken(userToken);
-            String role = jwtTokenUtil.getUserRoleFromToken(userToken);
-            
-            if (username == null || userId == null) {
-                writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
-                        ApiResponse.error("无法从令牌中获取用户信息"));
-                return;
-            }
-            
-            // 检查是否为管理员
-            if (!"ADMIN".equals(role)) {
-                log.warn("非管理员用户尝试获取Swagger访问令牌: user={}, role={}", username, role);
-                writeJsonResponse(response, HttpServletResponse.SC_FORBIDDEN,
-                        ApiResponse.error("权限不足，仅系统管理员可访问Swagger接口文档"));
-                return;
-            }
-            
-            // 使用当前登录用户的信息生成Swagger专用token
-            UserDetails userDetails = userRepository.findByUsername(username).orElse(null);
-            if (userDetails == null) {
-                writeJsonResponse(response, HttpServletResponse.SC_UNAUTHORIZED,
-                        ApiResponse.error("用户不存在"));
-                return;
-            }
-            
-            String swaggerToken = jwtTokenUtil.generateToken(userDetails, userId, role);
-            
-            log.info("Swagger自动登录成功: user={}, role={}", username, role);
-            
-            ApiResponse<com.carolcoral.mockserver.dto.LoginResponse> successResponse = ApiResponse.success(
-                    com.carolcoral.mockserver.dto.LoginResponse.builder()
-                            .token(swaggerToken)
-                            .tokenType("Bearer")
-                            .username(username)
-                            .role(role)
-                            .build()
-            );
-            
-            writeJsonResponse(response, HttpServletResponse.SC_OK, successResponse);
-            
-        } catch (Exception e) {
-            log.error("Swagger自动登录失败: {}", e.getMessage(), e);
-            writeJsonResponse(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                    ApiResponse.error("Swagger自动登录失败：" + e.getMessage()));
-        }
-    }
-
-    /**
-     * 判断是否是Swagger静态资源路径（CSS/JS/图片，公开访问）
-     */
-    private boolean isSwaggerStaticPath(String requestUri) {
-        return requestUri.contains("/swagger-ui/") ||
-               requestUri.contains("/swagger-resources") ||
-               requestUri.contains("/webjars");
-    }
-
-    /**
-     * 判断是否是Swagger需要认证的路径（页面入口 + API文档数据）
-     */
-    private boolean isSwaggerAuthPath(String requestUri) {
-        return requestUri.contains("/v3/api-docs") ||
-               requestUri.equals("/swagger-ui.html");
-    }
-
-
-
     /**
      * 从请求中获取令牌
      *

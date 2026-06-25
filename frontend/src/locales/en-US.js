@@ -48,7 +48,8 @@ export default {
     settings: 'System Settings',
     statistics: 'Statistics',
     aiSettings: 'AI Settings',
-    aiChat: 'AI Chat'
+    aiChat: 'AI Chat',
+    permissionManagement: 'Permissions'
   },
 
   // User
@@ -433,8 +434,10 @@ export default {
     role: 'Role',
     joinTime: 'Join Time',
     creator: 'Creator',
-    admin: 'Admin',
-    member: 'Member',
+    admin: 'Project Admin',
+    member: 'Member User',
+    projectAdmin: 'Project Admin',
+    projectMember: 'Member User',
     modifyRole: 'Modify Role',
     remove: 'Remove',
     noOperation: 'Not Available',
@@ -453,8 +456,8 @@ export default {
     removeSuccess: 'Remove successful',
     removeFailed: 'Remove failed',
     modifyRoleTitle: 'Modify role of {name}',
-    modifyRolePrompt: 'Please select new role',
-    modifyRoleHint: 'Please enter ADMIN or MEMBER',
+    modifyRolePrompt: 'Please select role from dropdown',
+    modifyRoleHint: 'Please select Project Admin or Member User',
     confirmRemove: 'Confirm removing {name} from the project?',
     // Swagger Import
     importSwagger: 'Import Swagger',
@@ -938,6 +941,61 @@ export default {
     preview: 'Preview',
     editContent: 'Edit',
     previewHtml: 'HTML Preview'
+  },
+
+  // Permissions
+  permission: {
+    title: 'Permissions',
+    roleManagement: 'Role Management',
+    permissionManagement: 'Permission Management',
+    role: {
+      title: 'Role Management',
+      createRole: 'Create Role',
+      editRole: 'Edit Role',
+      deleteRole: 'Delete Role',
+      roleName: 'Role Name',
+      roleCode: 'Role Code',
+      description: 'Description',
+      isDefault: 'Default Role',
+      isDefaultHint: 'Set as default role for new users',
+      defaultTag: 'Default',
+      createdAt: 'Created At',
+      actions: 'Actions',
+      edit: 'Edit',
+      delete: 'Delete',
+      setDefault: 'Set Default',
+      namePlaceholder: 'Enter role name',
+      codePlaceholder: 'Enter role code, e.g. ROLE_EDITOR',
+      descriptionPlaceholder: 'Enter role description',
+      nameRequired: 'Please enter role name',
+      codeRequired: 'Please enter role code',
+      codeFormat: 'Role code can only contain uppercase letters, numbers and underscores',
+      confirmDelete: 'Are you sure you want to delete role {name}? Users with this role will lose corresponding permissions.',
+      deleteSuccess: 'Deleted successfully',
+      deleteFailed: 'Delete failed',
+      createSuccess: 'Created successfully',
+      editSuccess: 'Updated successfully',
+      createFailed: 'Create failed',
+      editFailed: 'Update failed',
+      fetchFailed: 'Failed to fetch role list',
+      setDefaultSuccess: 'Set as default role',
+      setDefaultFailed: 'Failed to set default role',
+      cannotDeleteAdmin: 'Cannot delete system admin role'
+    },
+    permission: {
+      title: 'Permission Management',
+      selectRole: 'Select Role',
+      selectRolePlaceholder: 'Please select a role',
+      selectRoleHint: 'Select a role to assign permissions',
+      savePermissions: 'Save Permissions',
+      groupAll: 'Select All',
+      permissionsCount: '{count} permissions selected',
+      saveSuccess: 'Permissions saved successfully',
+      saveFailed: 'Failed to save permissions',
+      fetchFailed: 'Failed to fetch permissions',
+      pageAccess: 'Page Access',
+      buttonOperation: 'Button Operation'
+    }
   },
 
   // AI Chat

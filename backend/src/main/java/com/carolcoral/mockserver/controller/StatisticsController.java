@@ -34,10 +34,10 @@ import java.util.Map;
  *
  * @author carolcoral
  */
-@Tag(name = "统计管理", description = "系统统计数据相关接口，仅管理员可访问")
+@Tag(name = "统计管理", description = "系统统计数据相关接口，需 statistics:view 权限")
 @RestController
 @RequestMapping("/api/statistics")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasRole('ADMIN') or hasAuthority('statistics:view')")
 public class StatisticsController {
     private static final Logger log = LoggerFactory.getLogger(StatisticsController.class);
 
@@ -54,27 +54,35 @@ public class StatisticsController {
      * @param granularity 粒度：daily 或 hourly
      * @return 时间序列数据
      */
-    @Operation(summary = "获取请求频率统计", description = "按天或按小时统计接口请求次数")
+    @Operation(summary = "获取请求频率统计", description = "按年/月/日/小时统计请求频率")
     @GetMapping("/request-frequency")
     public ApiResponse<Map<String, Object>> getRequestFrequency(
-            @Parameter(description = "统计天数", example = "7") @RequestParam(defaultValue = "7") int days,
-            @Parameter(description = "粒度：daily(按天) / hourly(按小时)", example = "daily") @RequestParam(defaultValue = "daily") String granularity) {
+            @Parameter(description = "统计天数（仅 daily 粒度使用）", example = "7") @RequestParam(defaultValue = "7") int days,
+            @Parameter(description = "粒度：yearly(按年) / monthly(按月) / daily(按日) / hourly(按小时)", example = "daily")
+            @RequestParam(defaultValue = "daily") String granularity) {
 
         try {
             LocalDateTime startTime;
             if ("hourly".equals(granularity)) {
-                // 按小时统计时最多查最近24小时
                 startTime = LocalDateTime.now().minusHours(24);
+            } else if ("yearly".equals(granularity)) {
+                startTime = LocalDateTime.now().minusYears(5).with(java.time.temporal.TemporalAdjusters.firstDayOfYear()).with(LocalTime.MIN);
+            } else if ("monthly".equals(granularity)) {
+                startTime = LocalDateTime.now().minusMonths(12).withDayOfMonth(1).with(LocalTime.MIN);
             } else {
                 startTime = LocalDateTime.now().minusDays(days).with(LocalTime.MIN);
             }
 
-            // SQLite 中 LocalDateTime 存储为毫秒时间戳，需除以 1000 并用 'unixepoch' 修饰符
+            // SQLite 中 request_time 存储为 epoch 毫秒
             long startTimeMillis = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
 
             String groupBy;
             if ("hourly".equals(granularity)) {
                 groupBy = "strftime('%Y-%m-%d %H:00', r.request_time / 1000, 'unixepoch')";
+            } else if ("yearly".equals(granularity)) {
+                groupBy = "strftime('%Y', r.request_time / 1000, 'unixepoch')";
+            } else if ("monthly".equals(granularity)) {
+                groupBy = "strftime('%Y-%m', r.request_time / 1000, 'unixepoch')";
             } else {
                 groupBy = "strftime('%Y-%m-%d', r.request_time / 1000, 'unixepoch')";
             }
@@ -112,45 +120,123 @@ public class StatisticsController {
     }
 
     /**
-     * 获取来源IP统计（TOP N）
+     * 获取来源IP统计（多折线图数据）
      *
      * @param days 统计天数
-     * @return IP统计数据
+     * @param granularity 粒度：yearly / monthly / daily
+     * @return 按时间+IP分组的多折线图数据
      */
-    @Operation(summary = "获取来源IP统计", description = "统计请求来源IP的TOP排名")
+    @Operation(summary = "获取来源IP统计", description = "按时间维度统计各来源IP的请求量趋势")
     @GetMapping("/source-ips")
     public ApiResponse<Map<String, Object>> getSourceIps(
-            @Parameter(description = "统计天数", example = "7") @RequestParam(defaultValue = "7") int days) {
+            @Parameter(description = "统计天数", example = "7") @RequestParam(defaultValue = "7") int days,
+            @Parameter(description = "粒度：yearly(按年) / monthly(按月) / daily(按日)", example = "daily")
+            @RequestParam(defaultValue = "daily") String granularity) {
 
         try {
             LocalDateTime startTime = LocalDateTime.now().minusDays(days).with(LocalTime.MIN);
             long startTimeMillis = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
 
-            String sql = "SELECT r.request_ip as ip, COUNT(*) as cnt " +
+            // 按粒度选择时间格式化（SQLite strftime）
+            String timeFormat;
+            if ("yearly".equals(granularity)) {
+                timeFormat = "%Y";
+            } else if ("monthly".equals(granularity)) {
+                timeFormat = "%Y-%m";
+            } else {
+                // daily (default)
+                timeFormat = "%Y-%m-%d";
+            }
+
+            // 获取 TOP IP（总体调用量最高的前15个IP）
+            String topIpSql = "SELECT r.request_ip, COUNT(*) as cnt " +
                     "FROM t_request_log r " +
                     "WHERE r.request_time >= :startTime AND r.request_ip IS NOT NULL AND r.request_ip != '' " +
                     "GROUP BY r.request_ip " +
                     "ORDER BY cnt DESC " +
-                    "LIMIT 20";
-
-            Query query = entityManager.createNativeQuery(sql);
-            query.setParameter("startTime", startTimeMillis);
-
-            List<Object[]> rows = query.getResultList();
-            List<String> labels = new ArrayList<>();
-            List<Long> values = new ArrayList<>();
-
-            for (Object[] row : rows) {
-                if (row[0] != null) {
-                    labels.add(String.valueOf(row[0]));
-                    values.add(((Number) row[1]).longValue());
-                }
+                    "LIMIT 15";
+            Query topIpQuery = entityManager.createNativeQuery(topIpSql);
+            topIpQuery.setParameter("startTime", startTimeMillis);
+            List<Object[]> topIpRows = topIpQuery.getResultList();
+            List<String> topIps = new ArrayList<>();
+            for (Object[] row : topIpRows) {
+                topIps.add(String.valueOf(row[0]));
             }
 
-            Map<String, Object> result = new HashMap<>();
-            result.put("labels", labels);
-            result.put("values", values);
-            result.put("totalIps", labels.size());
+            // 无数据时直接返回空
+            if (topIps.isEmpty()) {
+                Map<String, Object> result = new LinkedHashMap<>();
+                result.put("granularity", granularity);
+                result.put("timeLabels", java.util.Collections.emptyList());
+                result.put("ipSeries", java.util.Collections.emptyList());
+                result.put("totalData", java.util.Collections.emptyList());
+                return ApiResponse.success(result);
+            }
+
+            // 查询 TOP IP 按时间段分组的调用量
+            String statsSql = "SELECT r.request_ip, strftime('" + timeFormat + "', r.request_time / 1000, 'unixepoch') as timeKey, COUNT(*) as cnt " +
+                    "FROM t_request_log r " +
+                    "WHERE r.request_time >= :startTime AND r.request_ip IS NOT NULL AND r.request_ip != '' " +
+                    "AND r.request_ip IN :topIps " +
+                    "GROUP BY r.request_ip, timeKey " +
+                    "ORDER BY timeKey ASC, cnt DESC";
+            Query statsQuery = entityManager.createNativeQuery(statsSql);
+            statsQuery.setParameter("startTime", startTimeMillis);
+            statsQuery.setParameter("topIps", topIps);
+            List<Object[]> statsRows = statsQuery.getResultList();
+
+            // 构建时间标签集合（有序）
+            java.util.Set<String> timeKeySet = new java.util.LinkedHashSet<>();
+            for (Object[] row : statsRows) {
+                if (row[1] != null) {
+                    timeKeySet.add(String.valueOf(row[1]));
+                }
+            }
+            List<String> timeLabels = new ArrayList<>(timeKeySet);
+
+            // 构建 ip -> (timeKey -> count) 映射
+            Map<String, Map<String, Long>> ipTimeCount = new LinkedHashMap<>();
+            for (Object[] row : statsRows) {
+                String ip = row[0] != null ? String.valueOf(row[0]) : "unknown";
+                String timeKey = row[1] != null ? String.valueOf(row[1]) : "";
+                long count = ((Number) row[2]).longValue();
+                ipTimeCount.computeIfAbsent(ip, k -> new LinkedHashMap<>()).put(timeKey, count);
+            }
+
+            // 构建每个 IP 的序列数据（无调用默认0）
+            List<Map<String, Object>> ipSeries = new ArrayList<>();
+            for (String ip : topIps) {
+                Map<String, Long> timeMap = ipTimeCount.getOrDefault(ip, new LinkedHashMap<>());
+                List<Long> data = new ArrayList<>();
+                for (String tk : timeLabels) {
+                    data.add(timeMap.getOrDefault(tk, 0L));
+                }
+                Map<String, Object> series = new LinkedHashMap<>();
+                series.put("ip", ip);
+                series.put("data", data);
+                ipSeries.add(series);
+            }
+
+            // 计算汇总
+            List<Long> totalData = new ArrayList<>();
+            for (String tk : timeLabels) {
+                long sum = 0L;
+                for (Map<String, Object> series : ipSeries) {
+                    @SuppressWarnings("unchecked")
+                    List<Long> data = (List<Long>) series.get("data");
+                    int idx = timeLabels.indexOf(tk);
+                    if (idx >= 0 && idx < data.size()) {
+                        sum += data.get(idx);
+                    }
+                }
+                totalData.add(sum);
+            }
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("granularity", granularity);
+            result.put("timeLabels", timeLabels);
+            result.put("ipSeries", ipSeries);
+            result.put("totalData", totalData);
 
             return ApiResponse.success(result);
         } catch (Exception e) {
@@ -168,40 +254,78 @@ public class StatisticsController {
     @Operation(summary = "获取新增趋势统计", description = "统计项目、接口的每日新增数量")
     @GetMapping("/creation-trend")
     public ApiResponse<Map<String, Object>> getCreationTrend(
-            @Parameter(description = "统计天数", example = "30") @RequestParam(defaultValue = "30") int days) {
+            @Parameter(description = "统计天数", example = "30") @RequestParam(defaultValue = "30") int days,
+            @Parameter(description = "粒度：yearly(按年) / monthly(按月) / daily(按日)", example = "daily")
+            @RequestParam(defaultValue = "daily") String granularity) {
 
         try {
-            LocalDateTime startTime = LocalDateTime.now().minusDays(days).with(LocalTime.MIN);
+            // 按粒度选择时间格式
+            String timeFormat;
+            java.time.format.DateTimeFormatter labelFormat;
+            if ("yearly".equals(granularity)) {
+                timeFormat = "%Y";
+                labelFormat = java.time.format.DateTimeFormatter.ofPattern("yyyy");
+            } else if ("monthly".equals(granularity)) {
+                timeFormat = "%Y-%m";
+                labelFormat = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM");
+            } else {
+                // daily (default)
+                timeFormat = "%Y-%m-%d";
+                labelFormat = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            }
 
-            // 查询项目每日新增
-            String projectSql = "SELECT DATE(p.create_time) as dt, COUNT(*) as cnt " +
+            // 根据粒度调整统计范围：日=30天，月=12月，年=5年
+            int rangeCount = "yearly".equals(granularity) ? 5 : "monthly".equals(granularity) ? 12 : days;
+
+            LocalDateTime startTime;
+            if ("yearly".equals(granularity)) {
+                startTime = LocalDateTime.now().minusYears(rangeCount).with(java.time.temporal.TemporalAdjusters.firstDayOfYear()).with(LocalTime.MIN);
+            } else if ("monthly".equals(granularity)) {
+                startTime = LocalDateTime.now().minusMonths(rangeCount).withDayOfMonth(1).with(LocalTime.MIN);
+            } else {
+                startTime = LocalDateTime.now().minusDays(rangeCount).with(LocalTime.MIN);
+            }
+            long startTimeMillis = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+
+            // 查询项目新增（create_time 存储为 epoch 毫秒）
+            String projectSql = "SELECT strftime('" + timeFormat + "', p.create_time / 1000, 'unixepoch') as dt, COUNT(*) as cnt " +
                     "FROM t_project p " +
                     "WHERE p.create_time >= :startTime " +
                     "GROUP BY dt ORDER BY dt ASC";
             Query projectQuery = entityManager.createNativeQuery(projectSql);
-            projectQuery.setParameter("startTime", startTime);
+            projectQuery.setParameter("startTime", startTimeMillis);
             List<Object[]> projectRows = projectQuery.getResultList();
 
-            // 查询接口每日新增
-            String apiSql = "SELECT DATE(a.create_time) as dt, COUNT(*) as cnt " +
+            // 查询接口新增（create_time 存储为 epoch 毫秒）
+            String apiSql = "SELECT strftime('" + timeFormat + "', a.create_time / 1000, 'unixepoch') as dt, COUNT(*) as cnt " +
                     "FROM t_mock_api a " +
                     "WHERE a.create_time >= :startTime " +
                     "GROUP BY dt ORDER BY dt ASC";
             Query apiQuery = entityManager.createNativeQuery(apiSql);
-            apiQuery.setParameter("startTime", startTime);
+            apiQuery.setParameter("startTime", startTimeMillis);
             List<Object[]> apiRows = apiQuery.getResultList();
 
-            // 构建完整日期范围
+            // 构建完整时间范围标签
             List<String> labels = new ArrayList<>();
             List<Long> projectValues = new ArrayList<>();
             List<Long> apiValues = new ArrayList<>();
 
-            LocalDate today = LocalDate.now();
-            for (int i = days - 1; i >= 0; i--) {
-                LocalDate date = today.minusDays(i);
-                String dateStr = date.toString();
-                labels.add(dateStr);
+            java.time.temporal.Temporal today = "yearly".equals(granularity)
+                    ? LocalDate.now().with(java.time.temporal.TemporalAdjusters.firstDayOfYear())
+                    : "monthly".equals(granularity)
+                    ? LocalDate.now().withDayOfMonth(1)
+                    : LocalDate.now();
 
+            for (int i = rangeCount - 1; i >= 0; i--) {
+                String dateStr;
+                if ("yearly".equals(granularity)) {
+                    dateStr = ((LocalDate) today).minusYears(i).format(labelFormat);
+                } else if ("monthly".equals(granularity)) {
+                    dateStr = ((LocalDate) today).minusMonths(i).format(labelFormat);
+                } else {
+                    dateStr = ((LocalDate) today).minusDays(i).format(labelFormat);
+                }
+                labels.add(dateStr);
                 projectValues.add(findCount(projectRows, dateStr));
                 apiValues.add(findCount(apiRows, dateStr));
             }

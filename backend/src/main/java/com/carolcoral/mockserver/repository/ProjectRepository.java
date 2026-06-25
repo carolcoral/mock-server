@@ -80,14 +80,14 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
 
     /**
      * 查询用户有权限访问的项目
-     * 包括用户创建的项目和用户作为成员的项目
+     * 仅包括用户在项目成员表中的项目（项目管理员或成员用户角色）
      *
      * @param userId 用户ID
      * @return 项目列表
      */
     @Operation(summary = "查询用户有权限访问的项目")
     @Query("SELECT DISTINCT p FROM Project p " +
-            "WHERE p.createUserId = :userId OR p.id IN (" +
+            "WHERE p.id IN (" +
             "  SELECT pm.projectId FROM ProjectMember pm " +
             "  WHERE pm.userId = :userId" +
             ")")

@@ -364,16 +364,12 @@ public class CustomCodeTemplateService {
     }
 
     /**
-     * 获取用户有权限访问的项目ID列表
+     * 获取用户有权限访问的项目ID列表（仅通过项目成员表判断）
      */
     private List<Long> getAccessibleProjectIds(Long userId) {
         List<Long> projectIds = new ArrayList<>();
 
-        // 用户创建的项目
-        List<Project> ownedProjects = projectRepository.findByCreateUserId(userId);
-        projectIds.addAll(ownedProjects.stream().map(Project::getId).collect(Collectors.toList()));
-
-        // 用户作为成员的项目
+        // 用户作为成员的项目（项目管理员或成员用户）
         List<ProjectMember> memberships = projectMemberRepository.findByUserId(userId);
         projectIds.addAll(memberships.stream().map(ProjectMember::getProjectId).collect(Collectors.toList()));
 
@@ -399,13 +395,10 @@ public class CustomCodeTemplateService {
     }
 
     /**
-     * 检查用户是否是项目管理员（创建者或管理员）
+     * 检查用户是否是项目管理员
      */
     private boolean hasProjectAdminPermission(Long projectId, Long userId) {
         return projectMemberRepository
-                .findByProjectIdAndUserIdAndRole(projectId, userId, ProjectMember.MemberRole.CREATOR)
-                .isPresent() ||
-               projectMemberRepository
                 .findByProjectIdAndUserIdAndRole(projectId, userId, ProjectMember.MemberRole.ADMIN)
                 .isPresent();
     }

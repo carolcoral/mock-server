@@ -17,14 +17,19 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * 用户实体类
@@ -84,6 +89,20 @@ public class User implements UserDetails {
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
     private UserRole role = UserRole.USER;
+
+    /**
+     * 角色ID（关联t_role表，v2.3.0新增）
+     */
+    @Schema(description = "角色ID")
+    @Column
+    private Long roleId;
+
+    /**
+     * 权限编码集合（非持久化字段，由 UserDetailsService 动态加载）
+     */
+    @Schema(description = "权限编码列表")
+    @Transient
+    private Set<String> permissions;
 
     /**
      * 是否启用，默认为true
@@ -262,6 +281,24 @@ public class User implements UserDetails {
     }
 
     /**
+     * 获取角色ID
+     *
+     * @return 角色ID
+     */
+    public Long getRoleId() {
+        return roleId;
+    }
+
+    /**
+     * 设置角色ID
+     *
+     * @param roleId 角色ID
+     */
+    public void setRoleId(Long roleId) {
+        this.roleId = roleId;
+    }
+
+    /**
      * 获取创建时间
      *
      * @return 创建时间
@@ -300,13 +337,36 @@ public class User implements UserDetails {
     // ==================== UserDetails 接口实现 ====================
 
     /**
-     * 获取用户权限集合
+     * 获取用户权限集合（包含角色 + 动态权限码）
      *
      * @return 权限集合
      */
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role.name()));
+        List<GrantedAuthority> authorities = new ArrayList<>();
+        // 添加角色权限
+        authorities.add(new SimpleGrantedAuthority("ROLE_" + role.name()));
+        // 添加动态权限码（从 t_role_permission + t_permission 加载）
+        if (permissions != null) {
+            for (String perm : permissions) {
+                authorities.add(new SimpleGrantedAuthority(perm));
+            }
+        }
+        return authorities;
+    }
+
+    /**
+     * 获取权限编码集合
+     */
+    public Set<String> getPermissions() {
+        return permissions;
+    }
+
+    /**
+     * 设置权限编码集合
+     */
+    public void setPermissions(Set<String> permissions) {
+        this.permissions = permissions;
     }
 
     /**

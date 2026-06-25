@@ -41,14 +41,12 @@ spring:
     caffeine:
       spec: maximumSize=10000,expireAfterWrite=10m
 
-# Swagger配置
+# Swagger配置（已关闭）
 springdoc:
   api-docs:
-    path: /v3/api-docs
+    enabled: false
   swagger-ui:
-    path: /swagger-ui.html
-    operations-sorter: method
-    tags-sorter: alpha
+    enabled: false
 
 # JWT配置（HS512算法需要至少512位=64字节的密钥）
 jwt:

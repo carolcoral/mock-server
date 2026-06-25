@@ -43,43 +43,43 @@ const routes = [
         path: '',
         name: 'Home',
         component: () => import('@/views/Home.vue'),
-        meta: { requiresAuth: true }
+        meta: { requiresAuth: true, requiredPermission: 'dashboard:view' }
       },
       {
         path: '/projects',
         name: 'Projects',
         component: () => import('@/views/Projects.vue'),
-        meta: { requiresAuth: true }
+        meta: { requiresAuth: true, requiredPermission: 'project:view' }
       },
       {
         path: '/projects/:projectId/apis',
         name: 'ProjectApis',
         component: () => import('@/views/ProjectApis.vue'),
-        meta: { requiresAuth: true }
+        meta: { requiresAuth: true, requiredPermission: 'project:view' }
       },
       {
         path: '/apis',
         name: 'Apis',
         component: () => import('@/views/Apis.vue'),
-        meta: { requiresAuth: true }
+        meta: { requiresAuth: true, requiredPermission: 'api:view' }
       },
       {
         path: '/users',
         name: 'Users',
         component: () => import('@/views/Users.vue'),
-        meta: { requiresAuth: true }
+        meta: { requiresAuth: true, requiredPermission: 'user:view' }
       },
       {
         path: '/settings',
         name: 'Settings',
         component: () => import('@/views/Settings.vue'),
-        meta: { requiresAuth: true }
+        meta: { requiresAuth: true, requiredPermission: 'settings:view' }
       },
       {
         path: '/statistics',
         name: 'Statistics',
         component: () => import('@/views/Statistics.vue'),
-        meta: { requiresAuth: true }
+        meta: { requiresAuth: true, requiredPermission: 'statistics:view' }
       },
       {
         path: '/profile',
@@ -91,7 +91,7 @@ const routes = [
         path: '/code-templates',
         name: 'CodeTemplates',
         component: () => import('@/views/CodeTemplates.vue'),
-        meta: { requiresAuth: true }
+        meta: { requiresAuth: true, requiredPermission: 'code-template:view' }
       },
       {
         path: '/guide',
@@ -103,19 +103,31 @@ const routes = [
         path: '/email-templates',
         name: 'EmailTemplates',
         component: () => import('@/views/EmailTemplates.vue'),
-        meta: { requiresAuth: true }
+        meta: { requiresAuth: true, requiredPermission: 'email-template:view' }
       },
       {
         path: '/ai-settings',
         name: 'AiSettings',
         component: () => import('@/views/AiSettings.vue'),
-        meta: { requiresAuth: true }
+        meta: { requiresAuth: true, requiredPermission: 'ai-settings:view' }
       },
       {
         path: '/ai-chat',
         name: 'AiChat',
         component: () => import('@/views/AiChat.vue'),
-        meta: { requiresAuth: true }
+        meta: { requiresAuth: true, requiredPermission: 'ai-chat:view' }
+      },
+      {
+        path: '/roles',
+        name: 'Roles',
+        component: () => import('@/views/Roles.vue'),
+        meta: { requiresAuth: true, requiredPermission: 'role:view' }
+      },
+      {
+        path: '/permissions',
+        name: 'Permissions',
+        component: () => import('@/views/Permissions.vue'),
+        meta: { requiresAuth: true, requiredPermission: 'permission:view' }
       }
     ]
   }
@@ -130,6 +142,23 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const userStore = useUserStore()
   
+  // 获取用户有权限访问的第一个路由，作为重定向兜底
+  const getFallbackRoute = () => {
+    if (userStore.hasPermission('dashboard:view')) return '/dashboard'
+    if (userStore.hasPermission('project:view')) return '/projects'
+    if (userStore.hasPermission('api:view')) return '/apis'
+    if (userStore.hasPermission('code-template:view')) return '/code-templates'
+    if (userStore.hasPermission('statistics:view')) return '/statistics'
+    if (userStore.hasPermission('user:view')) return '/users'
+    if (userStore.hasPermission('role:view')) return '/roles'
+    if (userStore.hasPermission('permission:view')) return '/permissions'
+    if (userStore.hasPermission('email-template:view')) return '/email-templates'
+    if (userStore.hasPermission('ai-settings:view')) return '/ai-settings'
+    if (userStore.hasPermission('ai-chat:view')) return '/ai-chat'
+    // 终极兜底：个人信息页无需权限
+    return '/profile'
+  }
+  
   // 检查是否需要认证
   if (to.meta.requiresAuth) {
     if (!userStore.isLoggedIn) {
@@ -139,14 +168,20 @@ router.beforeEach((to, from, next) => {
     
     // 检查是否需要管理员权限
     if (to.meta.requiresAdmin && !userStore.isAdmin) {
-      next('/dashboard')
+      next(getFallbackRoute())
+      return
+    }
+
+    // 检查是否需要特定权限
+    if (to.meta.requiredPermission && !userStore.hasPermission(to.meta.requiredPermission)) {
+      next(getFallbackRoute())
       return
     }
   }
   
   // 如果已登录，不允许访问登录页和注册页
   if ((to.path === '/login' || to.path === '/register') && userStore.isLoggedIn) {
-    next('/dashboard')
+    next(getFallbackRoute())
     return
   }
   

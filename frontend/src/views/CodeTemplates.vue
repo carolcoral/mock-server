@@ -796,7 +796,7 @@ const canEditTemplate = (template) => {
   const projectId = template.project?.id
   if (!projectId) return false
   const role = projectRoleMap.value[projectId]
-  return role === 'CREATOR' || role === 'ADMIN'
+  return role === 'ADMIN' || role === 'CREATOR'
 }
 
 onMounted(async () => {

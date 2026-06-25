@@ -146,9 +146,8 @@
         </el-table-column>
         <el-table-column prop="role" :label="$t('project.role')" width="120" align="center">
           <template #default="{ row }">
-            <el-tag v-if="row.role === 'CREATOR'" type="danger" size="small">{{ $t('project.creator') }}</el-tag>
-            <el-tag v-else-if="row.role === 'ADMIN'" type="warning" size="small">{{ $t('project.admin') }}</el-tag>
-            <el-tag v-else type="info" size="small">{{ $t('project.member') }}</el-tag>
+            <el-tag v-if="row.role === 'ADMIN' || row.role === 'CREATOR'" type="warning" size="small">{{ $t('project.projectAdmin') }}</el-tag>
+            <el-tag v-else type="info" size="small">{{ $t('project.projectMember') }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column :label="$t('project.joinTime')" width="200">
@@ -158,8 +157,7 @@
         </el-table-column>
         <el-table-column :label="$t('project.actions')" width="100" align="center">
           <template #default="{ row }">
-            <template v-if="row.role !== 'CREATOR'">
-              <el-dropdown trigger="click" @command="(cmd) => handleMemberActionCommand(cmd, row)">
+            <el-dropdown trigger="click" @command="(cmd) => handleMemberActionCommand(cmd, row)">
                 <el-button type="primary" link>
                   {{ $t('common.more') }}<el-icon class="el-icon--right"><ArrowDown /></el-icon>
                 </el-button>
@@ -170,8 +168,6 @@
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
-            </template>
-            <span v-else style="color: #909399; font-size: 12px;">{{ $t('project.noOperation') }}</span>
           </template>
         </el-table-column>
       </el-table>
@@ -247,6 +243,22 @@
       </template>
     </el-dialog>
 
+    <!-- 修改角色对话框 -->
+    <el-dialog v-model="roleChangeDialogVisible" :title="roleChangeDialogTitle" width="420px" @close="handleRoleChangeDialogClose">
+      <el-form label-width="80px">
+        <el-form-item :label="$t('project.role')">
+          <el-select v-model="roleChangeForm.role" :placeholder="$t('project.selectRole')" style="width: 100%;">
+            <el-option :label="$t('project.projectAdmin')" value="ADMIN" />
+            <el-option :label="$t('project.projectMember')" value="MEMBER" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="roleChangeDialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="roleChangeLoading" @click="handleRoleChangeSubmit">{{ $t('common.confirm') }}</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="addMemberDialogVisible" :title="addMemberDialogTitle" width="500px" style="max-width: 50%;" @close="handleAddMemberDialogClose">
       <el-form ref="memberFormRef" :model="memberForm" :rules="memberRules" label-width="80px">
         <el-form-item :label="$t('project.selectUser')" prop="userId">
@@ -270,8 +282,8 @@
         </el-form-item>
         <el-form-item :label="$t('project.role')" prop="role">
           <el-select v-model="memberForm.role" :placeholder="$t('project.selectRole')" style="width: 100%;">
-            <el-option :label="$t('project.admin')" value="ADMIN" />
-            <el-option :label="$t('project.member')" value="MEMBER" />
+            <el-option :label="$t('project.projectAdmin')" value="ADMIN" />
+            <el-option :label="$t('project.projectMember')" value="MEMBER" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -535,6 +547,46 @@ const memberRules = computed(() => ({
   ]
 }))
 
+// ====== 修改角色对话框 ======
+const roleChangeDialogVisible = ref(false)
+const roleChangeDialogTitle = ref('')
+const roleChangeLoading = ref(false)
+const currentRoleChangeMember = ref(null)
+const roleChangeForm = reactive({
+  role: 'MEMBER'
+})
+
+const handleRoleChangeDialogClose = () => {
+  currentRoleChangeMember.value = null
+}
+
+const handleRoleChangeSubmit = async () => {
+  if (!currentRoleChangeMember.value) return
+  const member = currentRoleChangeMember.value
+  roleChangeLoading.value = true
+
+  try {
+    const response = await request({
+      url: `/project-members/${currentProject.value.id}/users/${member.userId}`,
+      method: 'put',
+      params: { role: roleChangeForm.role }
+    })
+
+    if (response.code === 200) {
+      ElMessage.success(t('project.roleUpdated'))
+      roleChangeDialogVisible.value = false
+      fetchProjectMembers(currentProject.value.id)
+    } else {
+      ElMessage.error(t('project.roleUpdateFailed'))
+    }
+  } catch (error) {
+    console.error('修改角色失败:', error)
+    ElMessage.error(t('project.roleUpdateFailed'))
+  } finally {
+    roleChangeLoading.value = false
+  }
+}
+
 const handleManageMembers = async (row) => {
   currentProject.value = row
   memberDialogVisible.value = true
@@ -618,39 +670,11 @@ const handleMemberSubmit = async () => {
 }
 
 const handleUpdateMemberRole = async (member) => {
-  try {
-    const userName = member.username || `${t('project.username')}${member.userId}`
-
-    const { value } = await ElMessageBox.prompt(
-      t('project.modifyRolePrompt'),
-      t('project.modifyRoleTitle', { name: userName }),
-      {
-        confirmButtonText: t('common.confirm'),
-        cancelButtonText: t('common.cancel'),
-        inputPattern: /^(ADMIN|MEMBER)$/,
-        inputErrorMessage: t('project.modifyRoleHint'),
-        inputValue: member.role === 'ADMIN' ? 'ADMIN' : 'MEMBER'
-      }
-    )
-
-    const response = await request({
-      url: `/project-members/${currentProject.value.id}/users/${member.userId}`,
-      method: 'put',
-      params: { role: value }
-    })
-
-    if (response.code === 200) {
-      ElMessage.success(t('project.roleUpdated'))
-      fetchProjectMembers(currentProject.value.id)
-    } else {
-      ElMessage.error(t('project.roleUpdateFailed'))
-    }
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('修改角色失败:', error)
-      ElMessage.error(t('project.roleUpdateFailed'))
-    }
-  }
+  const userName = member.username || `${t('project.username')}${member.userId}`
+  currentRoleChangeMember.value = member
+  roleChangeForm.role = member.role === 'ADMIN' ? 'ADMIN' : 'MEMBER'
+  roleChangeDialogTitle.value = t('project.modifyRoleTitle', { name: userName })
+  roleChangeDialogVisible.value = true
 }
 
 const handleRemoveMember = async (member) => {
@@ -818,19 +842,19 @@ const handleAddMemberDialogClose = () => {
 const canEditProject = (project) => {
   if (isAdmin.value) return true
   const role = project.userRole
-  return role === 'CREATOR' || role === 'ADMIN'
+  return role === 'ADMIN' || role === 'CREATOR'
 }
 
 const canManageMembers = (project) => {
   if (isAdmin.value) return true
   const role = project.userRole
-  return role === 'CREATOR' || role === 'ADMIN'
+  return role === 'ADMIN' || role === 'CREATOR'
 }
 
 const canDeleteProject = (project) => {
   if (isAdmin.value) return true
   const role = project.userRole
-  return role === 'CREATOR'
+  return role === 'ADMIN' || role === 'CREATOR'
 }
 
 onMounted(async () => {

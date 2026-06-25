@@ -13,6 +13,7 @@ import com.carolcoral.mockserver.dto.RegisterRequest;
 import com.carolcoral.mockserver.repository.EmailConfigRepository;
 import com.carolcoral.mockserver.repository.UserRepository;
 import com.carolcoral.mockserver.service.EmailService;
+import com.carolcoral.mockserver.service.PermissionService;
 import com.carolcoral.mockserver.service.SystemConfigService;
 import com.carolcoral.mockserver.service.UserService;
 import com.carolcoral.mockserver.util.JwtTokenUtil;
@@ -24,6 +25,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -49,13 +51,15 @@ public class AuthController {
         SystemConfigService systemConfigService,
         EmailService emailService,
         EmailConfigRepository emailConfigRepository,
-        UserRepository userRepository) {
+        UserRepository userRepository,
+        PermissionService permissionService) {
         this.userService = userService;
         this.jwtTokenUtil = jwtTokenUtil;
         this.systemConfigService = systemConfigService;
         this.emailService = emailService;
         this.emailConfigRepository = emailConfigRepository;
         this.userRepository = userRepository;
+        this.permissionService = permissionService;
     }
 
     private final UserService userService;
@@ -64,6 +68,7 @@ public class AuthController {
     private final EmailService emailService;
     private final EmailConfigRepository emailConfigRepository;
     private final UserRepository userRepository;
+    private final PermissionService permissionService;
 
     /**
      * 用户登录
@@ -251,6 +256,37 @@ public class AuthController {
         } catch (Exception e) {
             log.error("Swagger访问权限验证失败: {}", e.getMessage());
             return ApiResponse.error("验证失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取当前登录用户的权限编码列表
+     *
+     * @return 权限编码列表
+     */
+    @Operation(summary = "获取当前用户权限", description = "返回当前登录用户的所有权限编码，用于前端菜单和按钮控制")
+    @GetMapping("/permissions")
+    public ApiResponse<List<String>> getCurrentUserPermissions() {
+        try {
+            org.springframework.security.core.Authentication authentication =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ApiResponse.error("用户未登录");
+            }
+
+            Object principal = authentication.getPrincipal();
+            if (principal instanceof com.carolcoral.mockserver.entity.User) {
+                com.carolcoral.mockserver.entity.User user = (com.carolcoral.mockserver.entity.User) principal;
+                java.util.Set<String> perms = permissionService.getUserPermissionCodes(
+                        java.util.Collections.singletonList(user.getRoleId()));
+                return ApiResponse.success(new ArrayList<>(perms));
+            }
+
+            return ApiResponse.success(java.util.Collections.emptyList());
+        } catch (Exception e) {
+            log.error("获取用户权限失败: {}", e.getMessage(), e);
+            return ApiResponse.error("获取权限失败");
         }
     }
 

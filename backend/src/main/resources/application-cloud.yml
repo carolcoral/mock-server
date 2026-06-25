@@ -72,19 +72,12 @@ jwt:
   # 令牌前缀
   token-prefix: Bearer
 
-# Swagger 配置
+# Swagger 配置（已关闭）
 springdoc:
   api-docs:
-    path: /v3/api-docs
-    enabled: true
+    enabled: false
   swagger-ui:
-    path: /swagger-ui.html
-    operations-sorter: method
-    tags-sorter: alpha
-    enabled: true
-  
-  # 生产环境可以禁用Swagger
-  # enabled: ${SWAGGER_ENABLED:true}
+    enabled: false
 
 # Mock Server 配置
 mock:

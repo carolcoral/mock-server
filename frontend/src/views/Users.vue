@@ -17,9 +17,13 @@
           <el-input v-model="searchForm.email" :placeholder="$t('userManagement.searchByEmail')" clearable @clear="handleSearch" />
         </el-col>
         <el-col :span="5">
-          <el-select v-model="searchForm.role" :placeholder="$t('userManagement.searchByRole')" clearable @change="handleSearch" style="width: 100%">
-            <el-option :label="$t('userManagement.admin')" value="ADMIN" />
-            <el-option :label="$t('userManagement.normalUser')" value="USER" />
+          <el-select v-model="searchForm.roleId" :placeholder="$t('userManagement.searchByRole')" clearable @change="handleSearch" style="width: 100%">
+            <el-option
+              v-for="r in roleOptions"
+              :key="r.id"
+              :label="r.name"
+              :value="r.id"
+            />
           </el-select>
         </el-col>
         <el-col :span="4">
@@ -46,10 +50,10 @@
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="username" :label="$t('userManagement.username')" min-width="120" />
         <el-table-column prop="email" :label="$t('userManagement.email')" min-width="180" />
-        <el-table-column prop="role" :label="$t('userManagement.role')" width="100" align="center">
+        <el-table-column prop="role" :label="$t('userManagement.role')" width="120" align="center">
           <template #default="{ row }">
             <el-tag :type="row.role === 'ADMIN' ? 'danger' : 'primary'">
-              {{ row.role === 'ADMIN' ? $t('userManagement.admin') : $t('userManagement.normalUser') }}
+              {{ getRoleName(row.roleId, row.role) || row.role }}
             </el-tag>
           </template>
         </el-table-column>
@@ -102,8 +106,12 @@
         </el-form-item>
         <el-form-item :label="$t('userManagement.role')" prop="role">
           <el-select v-model="form.role" :placeholder="$t('userManagement.rolePlaceholder')" style="width: 100%">
-            <el-option :label="$t('userManagement.admin')" value="ADMIN" />
-            <el-option :label="$t('userManagement.normalUser')" value="USER" />
+            <el-option
+              v-for="r in roleOptions"
+              :key="r.code"
+              :label="r.name"
+              :value="r.code"
+            />
           </el-select>
         </el-form-item>
         <el-form-item :label="$t('userManagement.status')" prop="enabled">
@@ -132,10 +140,13 @@ const userStore = useUserStore()
 
 const isAdmin = computed(() => userStore.isAdmin)
 
+// 从API获取的角色列表（含自定义角色，搜索和编辑共用）
+const roleOptions = ref([])
+
 const searchForm = reactive({
   username: '',
   email: '',
-  role: '',
+  roleId: null,
   enabled: null
 })
 
@@ -160,6 +171,7 @@ const form = reactive({
   email: '',
   password: '',
   role: 'USER',
+  roleId: null,
   enabled: true
 })
 
@@ -217,7 +229,7 @@ const fetchUsers = async () => {
     }
     if (searchForm.username) params.username = searchForm.username
     if (searchForm.email) params.email = searchForm.email
-    if (searchForm.role) params.role = searchForm.role
+    if (searchForm.roleId) params.roleId = searchForm.roleId
     if (searchForm.enabled !== null && searchForm.enabled !== '') params.enabled = searchForm.enabled
 
     const response = await request({
@@ -247,7 +259,7 @@ const handleSearch = () => {
 const handleReset = () => {
   searchForm.username = ''
   searchForm.email = ''
-  searchForm.role = ''
+  searchForm.roleId = null
   searchForm.enabled = null
   handleSearch()
 }
@@ -269,7 +281,9 @@ const handleCreate = () => {
   form.username = ''
   form.email = ''
   form.password = ''
-  form.role = 'USER'
+  // 使用角色编码匹配下拉选项（提交时自动转为后端枚举值）
+  form.role = 'ROLE_USER'
+  form.roleId = null
   form.enabled = true
   dialogVisible.value = true
 }
@@ -286,7 +300,10 @@ const handleEdit = (row) => {
   form.username = row.username
   form.email = row.email
   form.password = ''
-  form.role = row.role
+  // 根据 roleId 查找对应的 Role.code，匹配下拉选项；找不到则用旧枚举值兜底
+  const matchedRole = roleOptions.value.find(r => r.id === row.roleId)
+  form.role = matchedRole ? matchedRole.code : ('ROLE_' + row.role)
+  form.roleId = row.roleId
   form.enabled = row.enabled
   dialogVisible.value = true
 }
@@ -338,6 +355,15 @@ const handleSubmit = async () => {
     if (isEdit.value && !submitData.password) {
       delete submitData.password
     }
+    // 将角色编码(如 ROLE_USER / ROLE_AI_CHAT)映射到后端 UserRole 枚举:
+    // ROLE_ADMIN → ADMIN，其余 → USER（自定义角色通过 roleId 区分权限）
+    const selectedRole = roleOptions.value.find(r => r.code === form.role)
+    if (selectedRole) {
+      submitData.role = (selectedRole.code === 'ROLE_ADMIN') ? 'ADMIN' : 'USER'
+      submitData.roleId = selectedRole.id
+    } else if (submitData.role && submitData.role.startsWith('ROLE_')) {
+      submitData.role = submitData.role.substring(5)
+    }
 
     const response = isEdit.value
       ? await request({
@@ -370,8 +396,31 @@ const handleDialogClose = () => {
   formRef.value?.resetFields()
 }
 
+// 获取可用角色列表（包含自定义角色，通过 roleId 分配细粒度权限）
+const fetchRoles = async () => {
+  try {
+    const response = await request.get('/users/roles')
+    if (response.code === 200) {
+      roleOptions.value = response.data || []
+    }
+  } catch (error) {
+    console.error('获取角色列表失败:', error)
+  }
+}
+
+// 根据角色ID/编码获取角色名称：优先 roleId（自定义角色），兜底 roleCode（基础角色）
+const getRoleName = (roleId, roleCode) => {
+  if (roleId) {
+    const role = roleOptions.value.find(r => r.id === roleId)
+    if (role) return role.name
+  }
+  const role = roleOptions.value.find(r => r.code === roleCode || r.code === 'ROLE_' + roleCode)
+  return role ? role.name : null
+}
+
 onMounted(async () => {
   await loadDateFormat()
+  await fetchRoles()
   fetchUsers()
 })
 </script>

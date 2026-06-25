@@ -135,38 +135,31 @@ public class SecurityConfig {
                                 "/changelog",
                                 "/email-templates",
                                 "/ai-settings",
-                                "/ai-chat"
+                                "/ai-chat",
+                                "/roles",
+                                "/permissions"
                         ).permitAll()
-                        // Swagger 静态资源 - 公开访问（页面加载 CSS/JS 需要）
-                        .requestMatchers(
-                                "/api/swagger-resources/**",
-                                "/api/webjars/**",
-                                "/api/swagger-ui/**",
-                                // Swagger 静态资源（不带 /api 前缀，springdoc 默认路径）
-                                "/swagger-resources/**",
-                                "/webjars/**",
-                                "/swagger-ui/**"
-                        ).permitAll()
-                        // Swagger 页面入口和 API 文档数据 - 需要管理员权限
-                        .requestMatchers(
-                                "/api/v3/api-docs/**",
-                                "/api/swagger-ui.html",
-                                // Swagger 路径（不带 /api 前缀，springdoc 默认路径）
-                                "/v3/api-docs/**",
-                                "/swagger-ui.html"
-                        ).hasRole("ADMIN")
-                        // 系统配置读写接口 - 需要管理员权限
+                        // 角色管理接口 - 需要认证（细粒度权限由 @PreAuthorize 控制）
+                        .requestMatchers("/api/roles/**").authenticated()
+                        // 权限管理接口 - 需要认证（细粒度权限由 @PreAuthorize 控制）
+                        .requestMatchers("/api/permissions/**").authenticated()
+                        // 系统配置读写接口 - 需要认证（细粒度权限由 @PreAuthorize 控制）
                         .requestMatchers(
                                 "/api/system-config/language",
                                 "/api/system-config/date-format",
                                 "/api/system-config/registration"
-                        ).hasRole("ADMIN")
-                        // 邮箱配置接口 - 需要管理员权限
-                        .requestMatchers("/api/email-config/**").hasRole("ADMIN")
-                        // 邮件模板管理接口 - 需要管理员权限
-                        .requestMatchers("/api/email-templates/**").hasRole("ADMIN")
-                        // AI配置接口 - 需要管理员权限
-                        .requestMatchers("/api/ai-config/**").hasRole("ADMIN")
+                        ).authenticated()
+                        // 邮箱配置接口 - 需要认证（细粒度权限由 @PreAuthorize 控制）
+                        .requestMatchers("/api/email-config/**").authenticated()
+                        // 邮件模板管理接口 - 需要认证（细粒度权限由 @PreAuthorize 控制）
+                        .requestMatchers("/api/email-templates/**").authenticated()
+                        // AI配置读取接口 - 所有认证用户可访问（AI Chat 页面需要）
+                        .requestMatchers(
+                                "/api/ai-config/enabled",
+                                "/api/ai-config/preset-providers"
+                        ).authenticated()
+                        // AI配置管理接口 - 需要认证（细粒度权限由 @PreAuthorize 控制）
+                        .requestMatchers("/api/ai-config/**").authenticated()
                         // AI功能接口 - 需要认证（所有登录用户均可使用）
                         .requestMatchers("/api/ai/**").authenticated()
                         // 用户信息接口 - 需要认证

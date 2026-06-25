@@ -79,12 +79,12 @@ public class ProjectService {
             // 保存项目
             Project savedProject = projectRepository.save(project);
 
-            // 创建创建者成员记录
-            ProjectMember creatorMember = new ProjectMember();
-            creatorMember.setProjectId(savedProject.getId());
-            creatorMember.setUserId(userId);
-            creatorMember.setRole(ProjectMember.MemberRole.CREATOR);
-            projectMemberRepository.save(creatorMember);
+            // 创建者默认为项目管理员
+            ProjectMember adminMember = new ProjectMember();
+            adminMember.setProjectId(savedProject.getId());
+            adminMember.setUserId(userId);
+            adminMember.setRole(ProjectMember.MemberRole.ADMIN);
+            projectMemberRepository.save(adminMember);
 
             // 缓存项目
             cacheUtil.cacheProject(savedProject);
@@ -294,11 +294,15 @@ public class ProjectService {
 
             List<Long> accessibleProjectIds;
             if (userRole == User.UserRole.ADMIN) {
-                // 管理员：获取所有项目ID（用于过滤）
+                // 管理员：不限制项目
                 accessibleProjectIds = null; // null 表示不限制
             } else {
                 List<Project> accessibleProjects = projectRepository.findAccessibleProjectsByUserId(userId);
                 accessibleProjectIds = accessibleProjects.stream().map(Project::getId).collect(Collectors.toList());
+                // 用户没有任何可访问的项目，直接返回空结果
+                if (accessibleProjectIds.isEmpty()) {
+                    return ApiResponse.success(new PageResult<>());
+                }
             }
 
             Specification<Project> spec = buildAccessibleProjectSpec(accessibleProjectIds, name, code, enabled);
@@ -307,7 +311,7 @@ public class ProjectService {
 
             // 转换为带角色的DTO
             List<ProjectWithRoleDTO> dtos = result.getContent().stream().map(project -> {
-                String role = project.getCreateUserId().equals(userId) ? "CREATOR" : 
+                String role = project.getCreateUserId().equals(userId) ? "ADMIN" : 
                     (userRole == User.UserRole.ADMIN ? "ADMIN" : determineUserRole(project, userId));
                 return ProjectWithRoleDTO.fromProject(project, role);
             }).collect(Collectors.toList());
@@ -346,8 +350,13 @@ public class ProjectService {
     private Specification<Project> buildAccessibleProjectSpec(List<Long> projectIds, String name, String code, Boolean enabled) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
-            if (projectIds != null && !projectIds.isEmpty()) {
-                predicates.add(root.get("id").in(projectIds));
+            if (projectIds != null) {
+                if (projectIds.isEmpty()) {
+                    // 空列表 = 用户无权限访问任何项目，添加永假条件
+                    predicates.add(cb.disjunction());
+                } else {
+                    predicates.add(root.get("id").in(projectIds));
+                }
             }
             if (name != null && !name.isBlank()) {
                 predicates.add(cb.like(cb.lower(root.get("name")), "%" + name.toLowerCase() + "%"));
@@ -413,17 +422,17 @@ public class ProjectService {
             List<ProjectWithRoleDTO> projectWithRoles = new ArrayList<>();
 
             if (userRole == User.UserRole.ADMIN) {
-                // 管理员可以访问所有项目，角色为ADMIN
+                // 管理员可以访问所有项目，角色为ADMIN（自己创建的项目也显示为项目管理员）
                 projects = projectRepository.findAll();
                 for (Project project : projects) {
-                    String role = project.getCreateUserId().equals(userId) ? "CREATOR" : "ADMIN";
+                    String role = "ADMIN";
                     projectWithRoles.add(ProjectWithRoleDTO.fromProject(project, role));
                 }
             } else {
-                // 普通用户只能访问自己是创建者或管理员的项目
+                // 普通用户只能访问自己有管理员或成员角色的项目
                 projects = projectRepository.findAccessibleProjectsByUserId(userId);
                 for (Project project : projects) {
-                    String role = project.getCreateUserId().equals(userId) ? "CREATOR" : determineUserRole(project, userId);
+                    String role = determineUserRole(project, userId);
                     projectWithRoles.add(ProjectWithRoleDTO.fromProject(project, role));
                 }
             }
@@ -445,7 +454,7 @@ public class ProjectService {
      */
     private String determineUserRole(Project project, Long userId) {
         if (project.getCreateUserId().equals(userId)) {
-            return "CREATOR";
+            return "ADMIN";
         }
         
         Optional<ProjectMember> member = projectMemberRepository.findByProjectIdAndUserId(project.getId(), userId);
@@ -547,11 +556,6 @@ public class ProjectService {
 
             ProjectMember member = memberOpt.get();
 
-            // 不允许移除创建者
-            if (member.getRole() == ProjectMember.MemberRole.CREATOR) {
-                return ApiResponse.error("不能移除项目创建者");
-            }
-
             // 删除成员记录
             projectMemberRepository.deleteById(member.getId());
 
@@ -565,7 +569,7 @@ public class ProjectService {
     }
 
     /**
-     * 检查用户是否有项目权限（创建者或管理员）
+     * 检查用户是否有项目权限（项目管理员）
      *
      * @param projectId 项目ID
      * @param userId    用户ID
@@ -573,9 +577,6 @@ public class ProjectService {
      */
     private boolean hasProjectPermission(Long projectId, Long userId) {
         return projectMemberRepository
-                .findByProjectIdAndUserIdAndRole(projectId, userId, ProjectMember.MemberRole.CREATOR)
-                .isPresent() ||
-               projectMemberRepository
                 .findByProjectIdAndUserIdAndRole(projectId, userId, ProjectMember.MemberRole.ADMIN)
                 .isPresent();
     }

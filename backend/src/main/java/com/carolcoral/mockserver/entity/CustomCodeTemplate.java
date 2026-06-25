@@ -75,7 +75,7 @@ public class CustomCodeTemplate {
     @Schema(description = "所属项目（系统模板为null，表示全局可用）")
     @ManyToOne
     @JoinColumn(name = "project_id")
-    @JsonIgnoreProperties({"mockApis"})
+    @JsonIgnoreProperties({"mockApis", "hibernateLazyInitializer", "handler"})
     private Project project;
 
     /**

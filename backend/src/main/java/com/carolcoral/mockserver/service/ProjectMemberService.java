@@ -150,11 +150,6 @@ public class ProjectMemberService {
 
             ProjectMember member = memberOpt.get();
 
-            // 不允许移除创建者
-            if (member.getRole() == ProjectMember.MemberRole.CREATOR) {
-                return ApiResponse.error("不能移除项目创建者");
-            }
-
             projectMemberRepository.delete(member);
             log.info("移除项目成员成功: 项目={}, 用户={}", projectId, userId);
             return ApiResponse.success();
@@ -241,9 +236,6 @@ public class ProjectMemberService {
     @Operation(summary = "判断用户是否是项目管理员")
     public boolean isProjectAdmin(Long projectId, Long userId) {
         return projectMemberRepository
-                .findByProjectIdAndUserIdAndRole(projectId, userId, ProjectMember.MemberRole.CREATOR)
-                .isPresent() ||
-               projectMemberRepository
                 .findByProjectIdAndUserIdAndRole(projectId, userId, ProjectMember.MemberRole.ADMIN)
                 .isPresent();
     }

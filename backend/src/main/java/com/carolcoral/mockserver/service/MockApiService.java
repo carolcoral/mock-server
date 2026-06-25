@@ -441,12 +441,37 @@ public class MockApiService {
     }
 
     /**
-     * 分页搜索指定项目下的接口
+     * 分页搜索指定项目下的接口（需校验用户是否有权限访问该项目）
      */
     @Operation(summary = "分页搜索项目接口")
     public ApiResponse<PageResult<MockApi>> searchMockApisByProject(Long projectId, String name, String path,
             MockApi.HttpMethod method, Boolean enabled, int page, int size) {
         try {
+            // 权限校验：检查当前用户是否有权限访问该项目
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || auth.getName().equals("anonymousUser")) {
+                return ApiResponse.error("未登录，无法查看项目接口");
+            }
+
+            Optional<User> userOpt = userRepository.findByUsername(auth.getName());
+            if (!userOpt.isPresent()) {
+                return ApiResponse.error("用户不存在");
+            }
+
+            User user = userOpt.get();
+
+            // 管理员可以查看所有项目的接口
+            if (user.getRole() != User.UserRole.ADMIN) {
+                List<Long> accessibleProjectIds = projectRepository.findAccessibleProjectsByUserId(user.getId())
+                        .stream()
+                        .map(Project::getId)
+                        .collect(Collectors.toList());
+
+                if (!accessibleProjectIds.contains(projectId)) {
+                    return ApiResponse.error("没有权限访问该项目的接口");
+                }
+            }
+
             Specification<MockApi> spec = buildMockApiSpec(name, path, method, projectId, enabled, null);
             PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createTime"));
             Page<MockApi> result = mockApiRepository.findAll(spec, pageRequest);

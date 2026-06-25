@@ -10,9 +10,12 @@ import com.carolcoral.mockserver.dto.ApiResponse;
 import com.carolcoral.mockserver.dto.LoginRequest;
 import com.carolcoral.mockserver.dto.LoginResponse;
 import com.carolcoral.mockserver.dto.PageResult;
+import com.carolcoral.mockserver.entity.Role;
 import com.carolcoral.mockserver.entity.User;
+import com.carolcoral.mockserver.repository.RoleRepository;
 import com.carolcoral.mockserver.repository.UserRepository;
 import com.carolcoral.mockserver.util.JwtTokenUtil;
+import com.carolcoral.mockserver.service.PermissionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -28,6 +31,7 @@ import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * 用户服务类
@@ -43,17 +47,22 @@ public class UserService {
      * 构造器
      */
     public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, 
-                       JwtTokenUtil jwtTokenUtil, EmailService emailService) {
+                       JwtTokenUtil jwtTokenUtil, EmailService emailService,
+                       RoleRepository roleRepository, PermissionService permissionService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenUtil = jwtTokenUtil;
         this.emailService = emailService;
+        this.roleRepository = roleRepository;
+        this.permissionService = permissionService;
     }
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenUtil jwtTokenUtil;
     private final EmailService emailService;
+    private final RoleRepository roleRepository;
+    private final PermissionService permissionService;
 
     /**
      * 用户登录
@@ -91,6 +100,14 @@ public class UserService {
             // 生成JWT令牌
             String token = jwtTokenUtil.generateToken(user, user.getId(), user.getRole().name());
 
+            // 获取用户权限列表
+            List<String> permList = new ArrayList<>();
+            if (user.getRoleId() != null) {
+                Set<String> permCodes = permissionService.getUserPermissionCodes(
+                        java.util.Collections.singletonList(user.getRoleId()));
+                permList = new ArrayList<>(permCodes);
+            }
+
             LoginResponse loginResponse = LoginResponse.builder()
                     .token(token)
                     .tokenType("Bearer")
@@ -99,6 +116,7 @@ public class UserService {
                     .email(user.getEmail())
                     .role(user.getRole().name())
                     .language(user.getLanguage())
+                    .permissions(permList)
                     .expiresIn(jwtTokenUtil.getExpiration())
                     .build();
 
@@ -169,6 +187,11 @@ public class UserService {
             if (user.getRole() == null) {
                 user.setRole(User.UserRole.USER);
             }
+            
+            // 如果未指定 roleId，根据角色获取默认角色ID
+            if (user.getRoleId() == null) {
+                resolveRoleId(user);
+            }
 
             User savedUser = userRepository.save(user);
             log.info("创建用户成功: {}", savedUser.getUsername());
@@ -205,6 +228,9 @@ public class UserService {
             }
             if (user.getRole() != null) {
                 existingUser.setRole(user.getRole());
+            }
+            if (user.getRoleId() != null) {
+                existingUser.setRoleId(user.getRoleId());
             }
             if (user.getEnabled() != null) {
                 existingUser.setEnabled(user.getEnabled());
@@ -386,8 +412,8 @@ public class UserService {
      * 分页搜索用户（支持多条件过滤）
      */
     @Operation(summary = "分页搜索用户")
-    public ApiResponse<PageResult<User>> searchUsers(String username, String email, User.UserRole role,
-            Boolean enabled, int page, int size) {
+    public ApiResponse<PageResult<User>> searchUsers(String username, String email, Long roleId,
+            User.UserRole role, Boolean enabled, int page, int size) {
         try {
             Specification<User> spec = (root, query, cb) -> {
                 List<Predicate> predicates = new ArrayList<>();
@@ -396,6 +422,9 @@ public class UserService {
                 }
                 if (email != null && !email.isBlank()) {
                     predicates.add(cb.like(cb.lower(root.get("email")), "%" + email.toLowerCase() + "%"));
+                }
+                if (roleId != null) {
+                    predicates.add(cb.equal(root.get("roleId"), roleId));
                 }
                 if (role != null) {
                     predicates.add(cb.equal(root.get("role"), role));
@@ -593,6 +622,37 @@ public class UserService {
         } catch (Exception e) {
             log.error("重置密码失败: {}", e.getMessage());
             return ApiResponse.error("重置密码失败");
+        }
+    }
+
+    /**
+     * 获取所有可用角色（供前端下拉选择）
+     */
+    public ApiResponse<List<Role>> getAvailableRoles() {
+        try {
+            List<Role> roles = roleRepository.findAll();
+            return ApiResponse.success(roles);
+        } catch (Exception e) {
+            log.error("获取角色列表失败: {}", e.getMessage(), e);
+            return ApiResponse.error("获取角色列表失败");
+        }
+    }
+
+    /**
+     * 根据用户的 UserRole 枚举解析对应的 roleId
+     */
+    private void resolveRoleId(User user) {
+        User.UserRole userRole = user.getRole();
+        if (userRole == User.UserRole.ADMIN) {
+            roleRepository.findByCode("ROLE_ADMIN").ifPresent(r -> user.setRoleId(r.getId()));
+        } else {
+            // 普通用户：使用默认角色，如果没有默认角色则回退到 ROLE_USER
+            Optional<Role> defaultRole = roleRepository.findByIsDefaultTrue();
+            if (defaultRole.isPresent()) {
+                user.setRoleId(defaultRole.get().getId());
+            } else {
+                roleRepository.findByCode("ROLE_USER").ifPresent(r -> user.setRoleId(r.getId()));
+            }
         }
     }
 }

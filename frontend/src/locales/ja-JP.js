@@ -48,7 +48,8 @@ export default {
     settings: 'システム設定',
     statistics: '統計データ',
     aiSettings: 'AI 設定',
-    aiChat: 'AI 会話'
+    aiChat: 'AI 会話',
+    permissionManagement: '権限管理'
   },
 
   // ユーザー関連
@@ -433,8 +434,10 @@ export default {
     role: '役割',
     joinTime: '参加時間',
     creator: '作成者',
-    admin: '管理者',
-    member: '一般メンバー',
+    admin: 'プロジェクト管理者',
+    member: 'メンバーユーザー',
+    projectAdmin: 'プロジェクト管理者',
+    projectMember: 'メンバーユーザー',
     modifyRole: '役割を変更',
     remove: '削除',
     noOperation: '操作不可',
@@ -453,8 +456,8 @@ export default {
     removeSuccess: '削除成功',
     removeFailed: '削除失敗',
     modifyRoleTitle: '{name} の役割を変更',
-    modifyRolePrompt: '新しい役割を選択してください',
-    modifyRoleHint: 'ADMIN または MEMBER を入力してください',
+    modifyRolePrompt: 'ドロップダウンから役割を選択してください',
+    modifyRoleHint: 'プロジェクト管理者またはメンバーユーザーを選択してください',
     confirmRemove: '{name} をプロジェクトから削除してもよろしいですか？',
     // Swagger インポート
     importSwagger: 'Swagger インポート',
@@ -938,6 +941,61 @@ export default {
     preview: 'プレビュー',
     editContent: '編集',
     previewHtml: 'HTMLプレビュー'
+  },
+
+  // 権限管理
+  permission: {
+    title: '権限管理',
+    roleManagement: 'ロール管理',
+    permissionManagement: '権限管理',
+    role: {
+      title: 'ロール管理',
+      createRole: 'ロール作成',
+      editRole: 'ロール編集',
+      deleteRole: 'ロール削除',
+      roleName: 'ロール名',
+      roleCode: 'ロールコード',
+      description: '説明',
+      isDefault: 'デフォルトロール',
+      isDefaultHint: '新規登録ユーザーのデフォルトロールに設定',
+      defaultTag: 'デフォルト',
+      createdAt: '作成日時',
+      actions: '操作',
+      edit: '編集',
+      delete: '削除',
+      setDefault: 'デフォルトに設定',
+      namePlaceholder: 'ロール名を入力',
+      codePlaceholder: 'ロールコードを入力（例: ROLE_EDITOR）',
+      descriptionPlaceholder: 'ロールの説明を入力',
+      nameRequired: 'ロール名を入力してください',
+      codeRequired: 'ロールコードを入力してください',
+      codeFormat: 'ロールコードは大文字、数字、アンダースコアのみ使用可能です',
+      confirmDelete: 'ロール「{name}」を削除してもよろしいですか？このロールを持つユーザーは対応する権限を失います。',
+      deleteSuccess: '削除成功',
+      deleteFailed: '削除失敗',
+      createSuccess: '作成成功',
+      editSuccess: '更新成功',
+      createFailed: '作成失敗',
+      editFailed: '更新失敗',
+      fetchFailed: 'ロールリストの取得に失敗しました',
+      setDefaultSuccess: 'デフォルトロールに設定しました',
+      setDefaultFailed: 'デフォルトロールの設定に失敗しました',
+      cannotDeleteAdmin: 'システム管理者ロールは削除できません'
+    },
+    permission: {
+      title: '権限管理',
+      selectRole: 'ロールを選択',
+      selectRolePlaceholder: 'ロールを選択してください',
+      selectRoleHint: '権限を割り当てるロールを選択してください',
+      savePermissions: '権限を保存',
+      groupAll: '全て選択',
+      permissionsCount: '{count}件の権限を選択中',
+      saveSuccess: '権限を保存しました',
+      saveFailed: '権限の保存に失敗しました',
+      fetchFailed: '権限リストの取得に失敗しました',
+      pageAccess: 'ページアクセス',
+      buttonOperation: 'ボタン操作'
+    }
   },
 
   // AI 会話

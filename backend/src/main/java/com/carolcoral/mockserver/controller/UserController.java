@@ -48,7 +48,7 @@ public class UserController {
      * @return 创建的用户
      */
     @Operation(summary = "创建用户", description = "创建新用户，需要管理员权限")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('user:create')")
     @PostMapping
     public ApiResponse<User> createUser(@Parameter(description = "用户信息") @Valid @RequestBody User user) {
         log.info("创建用户请求: {}", user.getUsername());
@@ -63,7 +63,7 @@ public class UserController {
      * @return 更新的用户
      */
     @Operation(summary = "管理员更新用户", description = "管理员更新用户信息，需要管理员权限")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('user:edit')")
     @PutMapping("/{userId}")
     public ApiResponse<User> updateUser(
             @Parameter(description = "用户ID") @PathVariable Long userId,
@@ -117,11 +117,23 @@ public class UserController {
      * @return 删除结果
      */
     @Operation(summary = "删除用户", description = "删除用户，需要管理员权限")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('user:delete')")
     @DeleteMapping("/{userId}")
     public ApiResponse<Void> deleteUser(@Parameter(description = "用户ID", example = "1") @PathVariable Long userId) {
         log.info("删除用户请求: {}", userId);
         return userService.deleteUser(userId);
+    }
+
+    /**
+     * 获取可用角色列表（供用户管理前端下拉选择）
+     *
+     * @return 角色列表
+     */
+    @Operation(summary = "获取可用角色列表", description = "获取系统中所有角色，用于用户管理页面的角色下拉选择")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('user:view')")
+    @GetMapping("/roles")
+    public ApiResponse<java.util.List<com.carolcoral.mockserver.entity.Role>> getAvailableRoles() {
+        return userService.getAvailableRoles();
     }
 
     /**
@@ -179,18 +191,19 @@ public class UserController {
      * @return 分页结果
      */
     @Operation(summary = "查询所有用户", description = "查询所有用户列表，支持分页和搜索，需要管理员权限")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('user:view')")
     @GetMapping
     public ApiResponse<com.carolcoral.mockserver.dto.PageResult<User>> getAllUsers(
             @Parameter(description = "用户名（模糊搜索）") @RequestParam(required = false) String username,
             @Parameter(description = "邮箱（模糊搜索）") @RequestParam(required = false) String email,
-            @Parameter(description = "角色") @RequestParam(required = false) User.UserRole role,
+            @Parameter(description = "角色ID（通过roleId匹配自定义角色）") @RequestParam(required = false) Long roleId,
+            @Parameter(description = "基础角色枚举（USER/ADMIN）") @RequestParam(required = false) User.UserRole role,
             @Parameter(description = "启用状态") @RequestParam(required = false) Boolean enabled,
             @Parameter(description = "页码（从0开始）") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "每页大小") @RequestParam(defaultValue = "10") int size) {
-        log.info("查询所有用户请求: username={}, email={}, role={}, enabled={}, page={}, size={}",
-            username, email, role, enabled, page, size);
-        return userService.searchUsers(username, email, role, enabled, page, size);
+        log.info("查询所有用户请求: username={}, email={}, roleId={}, role={}, enabled={}, page={}, size={}",
+            username, email, roleId, role, enabled, page, size);
+        return userService.searchUsers(username, email, roleId, role, enabled, page, size);
     }
 
     /**

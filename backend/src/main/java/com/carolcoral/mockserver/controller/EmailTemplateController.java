@@ -51,7 +51,7 @@ public class EmailTemplateController {
      */
     @GetMapping
     @Operation(summary = "获取所有邮件模板")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('email-template:view')")
     public ApiResponse<PageResult<EmailTemplate>> getAllTemplates(
             @Parameter(description = "模板名称（模糊搜索）") @RequestParam(required = false) String name,
             @Parameter(description = "模板类型") @RequestParam(required = false) String type,
@@ -69,7 +69,7 @@ public class EmailTemplateController {
      */
     @GetMapping("/{id}")
     @Operation(summary = "根据ID获取邮件模板")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('email-template:view')")
     public ApiResponse<EmailTemplate> getTemplate(@PathVariable Long id) {
         return emailTemplateService.getTemplateById(id);
     }
@@ -82,7 +82,7 @@ public class EmailTemplateController {
      */
     @PostMapping
     @Operation(summary = "创建邮件模板")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('email-template:create')")
     public ApiResponse<EmailTemplate> createTemplate(@RequestBody EmailTemplate template) {
         return emailTemplateService.createTemplate(template);
     }
@@ -96,7 +96,7 @@ public class EmailTemplateController {
      */
     @PutMapping("/{id}")
     @Operation(summary = "更新邮件模板")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('email-template:edit')")
     public ApiResponse<EmailTemplate> updateTemplate(@PathVariable Long id, @RequestBody EmailTemplate template) {
         return emailTemplateService.updateTemplate(id, template);
     }
@@ -109,7 +109,7 @@ public class EmailTemplateController {
      */
     @DeleteMapping("/{id}")
     @Operation(summary = "删除邮件模板")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('email-template:delete')")
     public ApiResponse<Void> deleteTemplate(@PathVariable Long id) {
         return emailTemplateService.deleteTemplate(id);
     }

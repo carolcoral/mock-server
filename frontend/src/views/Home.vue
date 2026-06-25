@@ -86,10 +86,6 @@
                   </svg>
                   {{ $t('common.userGuide') || '使用说明' }}
                 </el-button>
-                <el-button v-if="isAdmin" type="primary" link @click="showSwagger">
-                  <el-icon><Document /></el-icon>
-                  {{ $t('home.swaggerDocs') }}
-                </el-button>
                 <el-button type="primary" link @click="$router.push('/changelog')">
                   <el-icon><Clock /></el-icon>
                   {{ $t('home.viewChangelog') }}
@@ -137,7 +133,6 @@ import {
   Connection,
   User,
   Position,
-  Document,
   DataLine,
   Clock
 } from '@element-plus/icons-vue'
@@ -190,45 +185,6 @@ const formatCount = (count) => {
   if (count > 9999) return '9999+'
   return count
 }
-
-  // 显示Swagger文档
-  const showSwagger = async () => {
-    const userStore = useUserStore()
-    if (!userStore.isLoggedIn) {
-      ElMessage.warning(t('home.swaggerLoginRequired'))
-      return
-    }
-    if (!userStore.isAdmin) {
-      ElMessage.warning(t('home.swaggerAdminRequired'))
-      return
-    }
-
-    try {
-      // 调用Swagger自动登录接口，获取携带管理员信息的专用token
-      const response = await request({
-        url: '/auth/swagger-auto-login',
-        method: 'post',
-        data: {}
-      })
-
-      if (response.code === 200) {
-        const swaggerToken = response.data.token
-        window.open(`/swagger-ui.html?token=${encodeURIComponent(swaggerToken)}`, '_blank')
-        ElMessage.success(t('home.swaggerRedirecting'))
-      } else {
-        ElMessage.error(t('home.swaggerLoginFailed'))
-      }
-    } catch (error) {
-      console.error('Swagger自动登录失败', error)
-      if (error.response && error.response.status === 401) {
-        ElMessage.error(t('home.loginExpired'))
-        userStore.logout()
-        window.location.href = '/login'
-      } else {
-        ElMessage.error(t('home.autoLoginFailed'))
-      }
-    }
-  }
 
 // README 使用说明
 const readmeLoading = ref(true)
