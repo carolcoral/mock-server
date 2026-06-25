@@ -1,3 +1,9 @@
+<!--
+* Copyright (c) 2026, XINDU.SITE，Author: LXW
+* All Rights Reserved.
+* XINDU.SITE CONFIDENTIAL
+-->
+
 <template>
   <div class="settings">
     <!-- 页面标题 -->
@@ -1276,7 +1282,7 @@ const saveFooterSettings = async () => {
 // 重置页脚设置
 const resetFooterSettings = () => {
   footerSettings.enableCopyright = true
-  footerSettings.copyright = '© 2026 carolcoral'
+  footerSettings.copyright = '© 2026 carolcoral，Author: LXW'
   footerSettings.enableFriendLink = true
   footerSettings.friendLinkUrl = 'https://xindu.site'
   footerSettings.friendLinkTitle = ''

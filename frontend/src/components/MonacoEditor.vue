@@ -1,3 +1,9 @@
+<!--
+* Copyright (c) 2026, XINDU.SITE，Author: LXW
+* All Rights Reserved.
+* XINDU.SITE CONFIDENTIAL
+-->
+
 <template>
   <div class="monaco-editor-wrapper" :style="{ height: editorHeight }">
     <div ref="editorContainer" class="monaco-editor-container"></div>

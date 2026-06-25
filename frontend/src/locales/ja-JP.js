@@ -1,3 +1,9 @@
+/*
+* Copyright (c) 2026, XINDU.SITE，Author: LXW
+* All Rights Reserved.
+* XINDU.SITE CONFIDENTIAL
+*/
+
 export default {
   // 共通
   common: {
@@ -266,7 +272,7 @@ export default {
     settingsReset: 'デフォルト値にリセットしました',
     footer: 'フッター設定',
     footerCopyright: '著作権表示',
-    footerCopyrightPlaceholder: '例：© 2026 carolcoral',
+    footerCopyrightPlaceholder: '例：© 2026 carolcoral，Author: LXW',
     footerFriendLink: 'フレンドリンク',
     footerBlogLink: 'ブログリンク',
     footerGithubLink: 'GitHubリンク',
@@ -769,25 +775,26 @@ export default {
     badge: 'API モックサーバー',
     title: 'Mock API を簡単構築',
     subtitle: 'インテリジェント・効率的・ゼロバックエンド',
-    description: 'Mock Server は、カスタムレスポンス、動的コード実行、AI 生成、Swagger インポート、リクエスト分析などをサポートする強力な API モックプラットフォームです。',
+    description: 'Mock Server は、カスタムレスポンス、動的コード実行、AI チャット＆生成、Swagger インポート、詳細な権限管理、リクエスト分析などをサポートする強力な API モックプラットフォームです。',
     cta: '今すぐ始める',
     login: 'ログイン',
     changelog: '変更履歴',
     featuresTitle: '主な機能',
+    featuresSubtitle: 'API 開発の全工程をカバーするワンストップソリューション',
     feature1Title: 'API モック',
     feature1Desc: 'RESTful パスパラメータ、クエリマッチング、カスタム HTTP メソッド、ステータスコード、ヘッダー、レスポンス。',
     feature2Title: '動的コード',
     feature2Desc: 'Java カスタムレスポンスハンドラ、コンパイル検証後即時反映。6 種類の変換タイプに対応。',
-    feature3Title: 'AI 生成',
-    feature3Desc: 'AI によるレスポンスデータ、コードテンプレート、メールテンプレート、API 説明のワンクリック生成。',
+    feature3Title: 'AI プラットフォーム',
+    feature3Desc: 'マルチモデル AI チャット（ストリーミング+Markdown）、レスポンス/コード/メール/説明のワンクリック生成、12+ LLM 対応。',
     feature4Title: 'Swagger インポート',
     feature4Desc: 'Swagger 2.0 および OpenAPI 3.x 形式のインポートをサポート。既存ドキュメントを即座にモック化。',
-    feature5Title: 'リクエスト分析',
-    feature5Desc: 'リクエスト頻度、送信元 IP TOP15、IOPS トレンドのリアルタイム監視とダッシュボード。',
+    feature5Title: 'データ分析',
+    feature5Desc: 'リクエスト頻度/送信元IP/AI呼出量/新規API — 年/月/日/時 4段階の粒度で多次元分析。',
     feature6Title: 'コードテンプレート',
     feature6Desc: '6 種のビルトインテンプレート：ラッピング、マスキング、フィールド変換、条件応答、ログ記録、HTTP 転送。',
-    feature7Title: 'チーム協業',
-    feature7Desc: 'マルチプロジェクト分離、ロールベースのアクセス制御、安全なチーム API 定義共有。',
+    feature7Title: '権限管理',
+    feature7Desc: 'RBAC ロール権限体系、ページ/ボタンレベル制御、カスタムロール、動的メニュー、30+ 詳細権限。',
     feature8Title: '多言語対応',
     feature8Desc: '中国語、英語、日本語を内蔵。ワンクリックで言語切替、グローバルチームに対応。',
     workflowTitle: 'クイックスタート',
@@ -800,11 +807,15 @@ export default {
     workflow4Title: '呼び出し開始',
     workflow4Desc: 'モック API が即座に利用可能、ランダム応答と遅延シミュレーション対応',
     aiTitle: 'AI 機能',
-    aiDesc: 'OpenAI 互換プロトコル対応。AI プロバイダーを自由に選択してワークフローを強化。',
-    aiCap1: 'AI レスポンス生成',
-    aiCap2: 'AI コードテンプレート生成',
-    aiCap3: 'AI メールテンプレート生成',
-    aiCap4: 'AI 説明文生成',
+    aiDesc: '12+ LLM プロバイダー · リアルタイムストリーミング · Markdown レンダリング · ワンクリック生成',
+    aiCap1: 'マルチターン AI チャット',
+    aiCap2: 'リアルタイムストリーミング',
+    aiCap3: 'Markdown レンダリング',
+    aiCap4: 'コードハイライト',
+    aiCap5: 'レスポンス生成',
+    aiCap6: 'コード生成',
+    aiCap7: 'メール生成',
+    aiCap8: '説明文生成',
     footer: '本ソフトウェアは著作権法および国際条約により保護されています。無断複製・改変・配布を禁止します。'
   },
 

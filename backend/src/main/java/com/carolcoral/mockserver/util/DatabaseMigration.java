@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2026, XINDU.SITE
+* Copyright (c) 2026, XINDU.SITE，Author: LXW
 * All Rights Reserved.
 * XINDU.SITE CONFIDENTIAL
 */
@@ -309,7 +309,7 @@ public class DatabaseMigration implements CommandLineRunner {
         }
 
         try {
-            // v2.2.0: 创建 AI 调用日志表（用于统计页面展示）
+            // v2.3.0: 创建 AI 调用日志表（用于统计页面展示）
             // 使用 CREATE TABLE IF NOT EXISTS，保留历史数据
             jdbcTemplate.execute("""
                 CREATE TABLE IF NOT EXISTS t_ai_call_log (

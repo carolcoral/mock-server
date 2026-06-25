@@ -1,3 +1,9 @@
+<!--
+* Copyright (c) 2026, XINDU.SITE，Author: LXW
+* All Rights Reserved.
+* XINDU.SITE CONFIDENTIAL
+-->
+
 <template>
   <el-dialog
     v-model="visible"
@@ -305,10 +311,21 @@
                 </div>
                 <div class="illus-body">
                   <h4>使用 AI 提升效率</h4>
-                  <p>Mock Server 集成了 AI 能力，可自动生成响应数据、代码模板和接口描述。</p>
+                  <p>Mock Server 集成 AI 对话与智能生成能力，支持 12+ 主流 LLM 服务商，让 AI 帮您自动生成响应数据、代码模板、邮件模板和接口描述。</p>
                 </div>
               </div>
               <div class="ai-features">
+                <div class="ai-feature-item">
+                  <div class="ai-f-icon" style="background: linear-gradient(135deg, #f6d365, #fda085);">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                  </div>
+                  <div class="ai-f-text">
+                    <strong>AI 智能对话</strong>
+                    <p>流式实时响应，Markdown 渲染 + 代码高亮，多轮上下文记忆，支持 12+ LLM 自由切换</p>
+                  </div>
+                </div>
                 <div class="ai-feature-item">
                   <div class="ai-f-icon" style="background: linear-gradient(135deg, #667eea, #764ba2);">
                     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -473,7 +490,7 @@ const steps = [
   { title: '导入/新增接口', subtitle: '添加 Mock API', summary: '通过 Swagger 导入或手动创建的方式添加接口。支持 RESTful 路径参数、多种 HTTP 方法和自定义响应处理器。' },
   { title: '配置响应数据', subtitle: '设置返回内容', summary: '为每个接口添加一个或多个响应，设置 HTTP 状态码、响应体、Content-Type、权重和响应延迟等属性。' },
   { title: '请求参数匹配', subtitle: '精确路由规则', summary: '通过配置请求参数匹配规则，实现同一接口根据不同请求参数返回不同的响应数据。' },
-  { title: 'AI 智能生成', subtitle: '提升开发效率', summary: '利用 AI 能力自动生成响应数据、Java 代码模板、邮件模板和接口描述，大幅提升效率。' },
+  { title: 'AI 智能对话与生成', subtitle: '提升开发效率', summary: '利用 AI 多轮对话、流式实时响应、智能生成能力自动生成响应数据、代码模板、邮件模板和接口描述，支持 12+ LLM，大幅提升效率。' },
   { title: '调用与监控', subtitle: '开始使用', summary: '配置完成后通过生成的路径直接调用 API，系统自动记录请求数据并提供多维度统计分析。' }
 ]
 

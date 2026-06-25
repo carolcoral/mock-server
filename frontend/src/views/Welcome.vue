@@ -1,3 +1,9 @@
+<!--
+* Copyright (c) 2026, XINDU.SITE，Author: LXW
+* All Rights Reserved.
+* XINDU.SITE CONFIDENTIAL
+-->
+
 <template>
   <div class="welcome-page">
     <!-- 背景装饰 -->
@@ -56,7 +62,7 @@
       <section class="features-section">
         <div class="section-header">
           <h2 class="section-title">{{ $t('welcome.featuresTitle') }}</h2>
-          <p class="section-subtitle">Mock Server 为 API 开发全流程提供一站式解决方案</p>
+          <p class="section-subtitle">{{ $t('welcome.featuresSubtitle') }}</p>
         </div>
         <div class="features-grid">
           <div class="feature-card" v-for="(feature, idx) in features" :key="idx" :style="{ '--delay': idx * 0.05 + 's' }">
@@ -104,10 +110,10 @@
             </svg>
             {{ $t('welcome.aiTitle') }}
           </h2>
-          <p class="section-subtitle">{{ $t('welcome.aiDesc') }}</p>
+          <p class="section-subtitle ai-subtitle">{{ $t('welcome.aiDesc') }}</p>
         </div>
         <div class="ai-caps-grid">
-          <div class="ai-cap-card" v-for="(cap, idx) in aiCaps" :key="idx">
+          <div class="ai-cap-card" v-for="(cap, idx) in aiCaps" :key="idx" :style="{ '--idx': idx }">
             <div class="ai-cap-icon">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"/>
@@ -250,7 +256,11 @@ const aiCaps = computed(() => [
   t('welcome.aiCap1'),
   t('welcome.aiCap2'),
   t('welcome.aiCap3'),
-  t('welcome.aiCap4')
+  t('welcome.aiCap4'),
+  t('welcome.aiCap5'),
+  t('welcome.aiCap6'),
+  t('welcome.aiCap7'),
+  t('welcome.aiCap8')
 ])
 </script>
 
@@ -734,15 +744,30 @@ const aiCaps = computed(() => [
 /* AI 能力矩阵 */
 .ai-section {
   padding: 48px 24px 56px;
-  max-width: 1000px;
+  max-width: 1080px;
   margin: 0 auto;
   width: 100%;
   box-sizing: border-box;
 }
 
+.ai-subtitle {
+  background: linear-gradient(135deg, rgba(246, 211, 101, 0.9), rgba(253, 160, 133, 0.9));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 500;
+}
+
 .ai-sparkle {
   color: #f6d365;
   flex-shrink: 0;
+  filter: drop-shadow(0 0 8px rgba(246, 211, 101, 0.4));
+  animation: sparklePulse 2s ease-in-out infinite;
+}
+
+@keyframes sparklePulse {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(246, 211, 101, 0.4)); }
+  50% { filter: drop-shadow(0 0 16px rgba(246, 211, 101, 0.7)); }
 }
 
 .ai-caps-grid {
@@ -759,8 +784,18 @@ const aiCaps = computed(() => [
   display: flex;
   align-items: center;
   gap: 10px;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: default;
+  opacity: 0;
+  animation: fadeInUp 0.5s ease forwards;
+  animation-delay: calc(var(--idx, 0) * 0.06s);
+}
+
+.ai-cap-card:hover {
+  background: rgba(102, 126, 234, 0.08);
+  border-color: rgba(246, 211, 101, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(246, 211, 101, 0.08);
 }
 
 .ai-cap-card:hover {

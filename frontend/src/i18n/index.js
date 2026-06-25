@@ -1,3 +1,9 @@
+/*
+* Copyright (c) 2026, XINDU.SITE，Author: LXW
+* All Rights Reserved.
+* XINDU.SITE CONFIDENTIAL
+*/
+
 import { createI18n } from 'vue-i18n'
 import zhCN from '../locales/zh-CN'
 import enUS from '../locales/en-US'

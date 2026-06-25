@@ -1,3 +1,9 @@
+/*
+* Copyright (c) 2026, XINDU.SITE，Author: LXW
+* All Rights Reserved.
+* XINDU.SITE CONFIDENTIAL
+*/
+
 export default {
   // 通用
   common: {
@@ -266,7 +272,7 @@ export default {
     settingsReset: '已重置为默认值',
     footer: '页脚设置',
     footerCopyright: '版权信息',
-    footerCopyrightPlaceholder: '例如：© 2026 carolcoral',
+    footerCopyrightPlaceholder: '例如：© 2026 carolcoral，Author: LXW',
     footerFriendLink: '友情链接',
     footerBlogLink: '博客链接',
     footerGithubLink: 'GitHub链接',
@@ -769,25 +775,26 @@ export default {
     badge: 'API 模拟服务器',
     title: '轻松构建 Mock API',
     subtitle: '智能、高效、零后端依赖',
-    description: 'Mock Server 是一款功能强大的 API 模拟平台，支持自定义响应、动态代码执行、AI 智能生成、Swagger 导入、请求统计分析等，助力前端开发与测试提效。',
+    description: 'Mock Server 是一款功能强大的 API 模拟平台，支持自定义响应、动态代码执行、AI 对话与智能生成、Swagger 导入、细粒度权限、请求统计分析等，助力前端开发与测试提效。',
     cta: '立即开始使用',
     login: '登录已有账号',
     changelog: '变更历史',
     featuresTitle: '核心特性',
+    featuresSubtitle: 'Mock Server 为 API 开发全流程提供一站式解决方案',
     feature1Title: '接口模拟',
     feature1Desc: '支持 RESTful 路径参数、查询参数匹配，自定义 HTTP 方法、状态码、响应头和响应体。',
     feature2Title: '动态代码',
     feature2Desc: 'Java 自定义响应处理器，编译验证即时生效，支持 6 种转换器类型满足不同场景。',
-    feature3Title: 'AI 智能生成',
-    feature3Desc: 'AI 一键生成响应数据、代码模板、邮件模板和接口描述，大幅提升效率。',
+    feature3Title: 'AI 智能平台',
+    feature3Desc: '多模型 AI 对话（流式 + Markdown）、一键生成响应数据/代码/邮件/描述，12+ LLM 服务商。',
     feature4Title: 'Swagger 导入',
     feature4Desc: '支持 Swagger 2.0 和 OpenAPI 3.x 格式导入，快速将已有文档转化为 Mock API。',
-    feature5Title: '请求统计',
-    feature5Desc: '实时监控请求频率、来源 IP TOP15、IOPS 趋势，提供多维度数据分析看板。',
+    feature5Title: '数据统计',
+    feature5Desc: '请求频率/来源IP/AI调用量/新增趋势多维度分析，年/月/日/时四档粒度切换。',
     feature6Title: '代码模板',
     feature6Desc: '系统预置 6 种模板（响应包装、数据脱敏、字段转换、条件响应、日志记录、HTTP 转发）。',
-    feature7Title: '团队协作',
-    feature7Desc: '多项目隔离管理，项目级成员权限控制，角色分离，安全共享接口定义。',
+    feature7Title: '权限管理',
+    feature7Desc: 'RBAC 角色权限体系，页面+按钮级控制，自定义角色，动态菜单显隐，30+ 细粒度权限。',
     feature8Title: '多语言支持',
     feature8Desc: '内置中文、English、日本語 三种语言，一键切换，满足国际化团队需求。',
     workflowTitle: '快速上手',
@@ -800,11 +807,15 @@ export default {
     workflow4Title: '开始调用',
     workflow4Desc: 'Mock API 即时可用，支持随机返回与延迟模拟',
     aiTitle: 'AI 能力矩阵',
-    aiDesc: '对接 OpenAI 兼容协议，自由选择 AI 服务商，多项能力全面提升开发效率',
-    aiCap1: 'AI 生成响应数据',
-    aiCap2: 'AI 生成代码模板',
-    aiCap3: 'AI 生成邮件模板',
-    aiCap4: 'AI 生成接口描述',
+    aiDesc: '12+ LLM 服务商自由切换 · 流式实时对话 · Markdown 渲染 · 一键智能生成',
+    aiCap1: '多轮 AI 对话',
+    aiCap2: '流式实时响应',
+    aiCap3: 'Markdown 渲染',
+    aiCap4: '代码语法高亮',
+    aiCap5: '生成响应数据',
+    aiCap6: '生成代码模板',
+    aiCap7: '生成邮件模板',
+    aiCap8: '生成接口描述',
     footer: '该软件受版权法和国际公约保护。未经授权，不得擅自复制、修改或分发。'
   },
 

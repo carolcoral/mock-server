@@ -1,3 +1,9 @@
+/*
+* Copyright (c) 2026, XINDU.SITE，Author: LXW
+* All Rights Reserved.
+* XINDU.SITE CONFIDENTIAL
+*/
+
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 import { login as loginApi } from '@/api/auth'

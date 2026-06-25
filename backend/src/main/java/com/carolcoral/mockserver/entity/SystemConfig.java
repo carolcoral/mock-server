@@ -1,5 +1,5 @@
 /**
-* Copyright (c) 2026, XINDU.SITE
+* Copyright (c) 2026, XINDU.SITE，Author: LXW
 * All Rights Reserved.
 * XINDU.SITE CONFIDENTIAL
 */
@@ -16,7 +16,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
 /**
-* Copyright (c) 2026, XINDU.SITE
+* Copyright (c) 2026, XINDU.SITE，Author: LXW
 * All Rights Reserved.
 * XINDU.SITE CONFIDENTIAL
 */

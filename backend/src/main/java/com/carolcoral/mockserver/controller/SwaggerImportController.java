@@ -1,3 +1,9 @@
+/**
+* Copyright (c) 2026, XINDU.SITE，Author: LXW
+* All Rights Reserved.
+* XINDU.SITE CONFIDENTIAL
+*/
+
 package com.carolcoral.mockserver.controller;
 
 import com.carolcoral.mockserver.dto.ApiResponse;

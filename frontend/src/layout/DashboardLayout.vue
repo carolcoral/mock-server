@@ -1,3 +1,9 @@
+<!--
+* Copyright (c) 2026, XINDU.SITE，Author: LXW
+* All Rights Reserved.
+* XINDU.SITE CONFIDENTIAL
+-->
+
 <template>
   <div class="dashboard-layout">
     <!-- 侧边栏 -->
@@ -149,7 +155,7 @@
       <el-footer v-if="hasFooterContent" class="footer" height="auto">
         <div class="footer-content">
           <div v-if="footerConfig.enableCopyright" class="footer-copyright">
-            <span>{{ footerConfig.copyright || '&copy; 2026 carolcoral' }}</span>
+            <span>{{ footerConfig.copyright || '&copy; 2026 carolcoral，Author: LXW' }}</span>
           </div>
           <div class="footer-links">
             <!-- 友情链接 -->

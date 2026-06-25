@@ -1,3 +1,9 @@
+/*
+* Copyright (c) 2026, XINDU.SITE，Author: LXW
+* All Rights Reserved.
+* XINDU.SITE CONFIDENTIAL
+*/
+
 export default {
   // Common
   common: {
@@ -266,7 +272,7 @@ export default {
     settingsReset: 'Reset to default values',
     footer: 'Footer Settings',
     footerCopyright: 'Copyright',
-    footerCopyrightPlaceholder: 'e.g., © 2026 carolcoral',
+    footerCopyrightPlaceholder: 'e.g., © 2026 carolcoral，Author: LXW',
     footerFriendLink: 'Friend Link',
     footerBlogLink: 'Blog Link',
     footerGithubLink: 'GitHub Link',
@@ -769,25 +775,26 @@ export default {
     badge: 'API Mock Server',
     title: 'Build Mock APIs Effortlessly',
     subtitle: 'Intelligent, Efficient, Zero Backend Dependency',
-    description: 'Mock Server is a powerful API mocking platform supporting custom responses, dynamic code execution, AI generation, Swagger import, request analytics, and more — boosting frontend development and testing efficiency.',
+    description: 'Mock Server is a powerful API mocking platform supporting custom responses, dynamic code execution, AI chat & generation, Swagger import, fine-grained RBAC, request analytics, and more — boosting frontend development and testing efficiency.',
     cta: 'Get Started',
     login: 'Sign In',
     changelog: 'Changelog',
     featuresTitle: 'Core Features',
+    featuresSubtitle: 'A comprehensive one-stop solution for the full API development lifecycle',
     feature1Title: 'API Mocking',
     feature1Desc: 'RESTful path params, query matching, custom HTTP methods, status codes, headers, and response bodies.',
     feature2Title: 'Dynamic Code',
     feature2Desc: 'Java custom response handlers with instant compile validation. 6 transformer types for various scenarios.',
-    feature3Title: 'AI Generation',
-    feature3Desc: 'One-click AI generation for response data, code templates, email templates, and API descriptions.',
+    feature3Title: 'AI Platform',
+    feature3Desc: 'Multi-model AI chat (streaming + Markdown), one-click generation of responses/code/emails/descriptions, 12+ LLM providers.',
     feature4Title: 'Swagger Import',
     feature4Desc: 'Import from Swagger 2.0 & OpenAPI 3.x formats. Turn existing API docs into mock APIs instantly.',
-    feature5Title: 'Request Analytics',
-    feature5Desc: 'Real-time monitoring: request frequency, source IP TOP15, IOPS trends with rich dashboards.',
+    feature5Title: 'Analytics',
+    feature5Desc: 'Request frequency, source IP, AI calls, new endpoints — multi-dimensional analysis with yearly/monthly/daily/hourly granularity.',
     feature6Title: 'Code Templates',
     feature6Desc: '6 built-in transformers: wrapping, masking, field transform, conditional response, logging, HTTP forward.',
-    feature7Title: 'Team Collaboration',
-    feature7Desc: 'Multi-project isolation, role-based access control, secure team-wide API definition sharing.',
+    feature7Title: 'RBAC Permissions',
+    feature7Desc: 'Role-based access control with page/button-level permissions, custom roles, dynamic menus, 30+ fine-grained permissions.',
     feature8Title: 'Multi-language',
     feature8Desc: 'Built-in Chinese, English, and Japanese. One-click language switching for global teams.',
     workflowTitle: 'Quick Start',
@@ -800,11 +807,15 @@ export default {
     workflow4Title: 'Start Calling',
     workflow4Desc: 'Mock APIs are instantly ready with random responses & delay simulation',
     aiTitle: 'AI Capabilities',
-    aiDesc: 'OpenAI-compatible protocol. Choose any AI provider to supercharge your workflow.',
-    aiCap1: 'AI Response Generation',
-    aiCap2: 'AI Code Template Generation',
-    aiCap3: 'AI Email Template Generation',
-    aiCap4: 'AI Description Generation',
+    aiDesc: '12+ LLM providers · Real-time streaming chat · Markdown rendering · One-click smart generation',
+    aiCap1: 'Multi-turn AI Chat',
+    aiCap2: 'Real-time Streaming',
+    aiCap3: 'Markdown Rendering',
+    aiCap4: 'Syntax Highlighting',
+    aiCap5: 'Response Generation',
+    aiCap6: 'Code Generation',
+    aiCap7: 'Email Generation',
+    aiCap8: 'Description Generation',
     footer: 'This software is protected by copyright laws and international treaties. Unauthorized reproduction or distribution is prohibited.'
   },
 

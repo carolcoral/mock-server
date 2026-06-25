@@ -1,5 +1,165 @@
 # 版本变更说明
 
+## v2.3.0 (2026-06-25)
+
+> 细粒度权限、AI 对话平台、多模型支持、统计增强与安全加固。
+
+### 🔐 细粒度权限控制 (RBAC)
+- **角色管理**：新增角色 CRUD 页面，支持自定义角色（名称/编码/描述），管理员与普通用户默认角色
+- **权限管理**：页面级 & 按钮级权限定义，涵盖项目管理、接口管理、代码模板、AI 对话、数据统计、邮件模板、用户管理、系统设置等模块
+- **角色权限分配**：每个角色可独立分配 30+ 项细粒度权限，管理员默认拥有全部权限
+- **用户角色绑定**：用户支持绑定自定义角色（`roleId`），登录时返回权限列表，前端菜单按权限动态显隐
+- 后端所有控制器 `@PreAuthorize` 从单一 `hasRole('ADMIN')` 升级为 `hasRole('ADMIN') or hasAuthority('xxx:action')`
+- 新增 `CustomUserDetailsService` 加载用户+权限信息
+
+### 🤖 AI 对话与智能平台
+- **AI 对话页面**：全新聊天界面，SSE 流式响应（逐 Token 实时渲染），Markdown 渲染 + 代码语法高亮，多轮对话上下文记忆，对话历史 localStorage 持久化
+- **智能建议**：对话框空态展示 4 个点击式引导建议，基于 README + CHANGELOG AI 动态生成
+- **多模型支持**：内置 12 家 LLM 服务商预设（OpenAI / Azure / Gemini / Claude / DeepSeek / 通义千问 / 智谱GLM / Moonshot / 百川 / MiniMax / 小米MiMo / 火山引擎豆包）+ 自定义 OpenAI 兼容接入
+- **AI 设置页**：渐变 Banner · 服务商下拉选择（预设/自定义标签）· API 配置表单（地址/密钥/模型/超时/MaxTokens/Temperature 滑块）· 连通性测试 + 延迟展示 · 启用/禁用开关
+- **AI 辅助生成**：一键生成响应数据、Java 代码模板（6 种转换器）、HTML 邮件模板、接口描述文档
+- **AI 调用统计**：多用户按年/月/日粒度展示 AI 调用趋势（多条折线 + 汇总线），成功率追踪
+- 对话历史支持一键复制助手回复、一键清空
+
+### 📊 统计功能增强
+- **请求频率**：新增年/月粒度，支持 yearly / monthly / daily / hourly 四档切换，折线图 + 面积渐变
+- **来源 IP**：从横向柱状图升级为多折线图，按年/月/日展示各 IP 调用趋势 + 汇总虚线
+- **新增趋势**：修复 epoch 毫秒时间戳 SQL 解析错误（`DATE()` → `strftime('%Y-%m-%d', col/1000, 'unixepoch')`），支持年/月/日粒度
+- 统计权限从 `ADMIN` 降级为 `statistics:view`，可分配给自定义角色
+
+### 🔒 安全加固
+- **Swagger 全面禁用**：前端入口移除，后端 `springdoc` 关闭，`JwtAuthenticationFilter` 移除 Swagger 自动登录逻辑
+- `SecurityConfig` 安全规则从硬编码 `hasRole('ADMIN')` 迁移为 `.authenticated()` + 细粒度 `@PreAuthorize` 控制
+- 用户删除操作在 `UserService` 中增加 `user:delete` 权限校验
+
+### 🎨 UI / UX
+- **使用说明引导对话框**：首页新增交互式使用引导（取代原 Swagger 入口按钮）
+- 角色管理 / 权限管理全新页面，管理员侧边栏可见
+- AI 设置页允许所有认证用户读取已启用的服务商列表（AI Chat 选择模型用）
+- **用户管理角色搜索**：从枚举 `USER/ADMIN` 改为 `roleId` 动态下拉，展示全部自定义角色
+- 版本号图标同步更新至 v2.3.0
+
+### 🐛 修复
+- 新增趋势统计因 `create_time` 存储为 epoch 毫秒导致始终为 0（已修复 SQL）
+- 项目创建者成员记录缺失导致部分权限校验异常（启动时自动补全迁移）
+- 已废弃的 `CREATOR` 角色统一迁移为 `ADMIN`
+
+### 📝 升级说明
+
+> ⚠️ **v2.2.0 → v2.3.0 数据库变更**：`DatabaseMigration` 启动时自动执行。若自动迁移失败，请手动执行以下 SQL：
+
+```sql
+-- ============================================
+-- 从 v2.2.0 升级到 v2.3.0
+-- ============================================
+
+-- 1. 创建角色表
+CREATE TABLE IF NOT EXISTS t_role (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    description VARCHAR(200),
+    is_default BOOLEAN NOT NULL DEFAULT 0,
+    create_time DATETIME NOT NULL,
+    update_time DATETIME NOT NULL
+);
+
+-- 2. 创建权限表
+CREATE TABLE IF NOT EXISTS t_permission (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(100) NOT NULL,
+    code VARCHAR(100) NOT NULL UNIQUE,
+    group_name VARCHAR(50) NOT NULL,
+    type VARCHAR(20) NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    create_time DATETIME NOT NULL,
+    update_time DATETIME NOT NULL
+);
+
+-- 3. 创建角色-权限关联表
+CREATE TABLE IF NOT EXISTS t_role_permission (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    role_id BIGINT NOT NULL,
+    permission_id BIGINT NOT NULL
+);
+
+-- 4. 用户表新增角色ID字段
+ALTER TABLE t_user ADD COLUMN role_id BIGINT;
+
+-- 5. 创建 AI 调用日志表
+CREATE TABLE IF NOT EXISTS t_ai_call_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id BIGINT NOT NULL,
+    username VARCHAR(100),
+    api_type VARCHAR(50) NOT NULL,
+    call_time DATETIME NOT NULL,
+    success BOOLEAN,
+    error_message VARCHAR(500)
+);
+CREATE INDEX IF NOT EXISTS idx_ai_call_time ON t_ai_call_log(call_time);
+CREATE INDEX IF NOT EXISTS idx_ai_call_username ON t_ai_call_log(username);
+
+-- 6. 插入默认角色
+INSERT OR IGNORE INTO t_role (id, name, code, description, is_default, create_time, update_time)
+VALUES (1, '管理员', 'ROLE_ADMIN', '系统管理员，拥有所有权限', 0, datetime('now'), datetime('now'));
+INSERT OR IGNORE INTO t_role (id, name, code, description, is_default, create_time, update_time)
+VALUES (2, '普通用户', 'ROLE_USER', '默认注册用户角色', 1, datetime('now'), datetime('now'));
+
+-- 7. 插入默认权限定义（仪表盘/项目管理/接口管理/代码模板/AI对话/数据统计/权限管理/邮件模板/用户管理/AI设置/系统设置）
+INSERT OR IGNORE INTO t_permission (name, code, group_name, type, sort_order, create_time, update_time) VALUES
+('仪表盘-页面访问', 'dashboard:view', '仪表盘', 'PAGE', 1, datetime('now'), datetime('now')),
+('项目管理-页面访问', 'project:view', '业务管理', 'PAGE', 10, datetime('now'), datetime('now')),
+('项目管理-创建', 'project:create', '业务管理', 'BUTTON', 11, datetime('now'), datetime('now')),
+('项目管理-编辑', 'project:edit', '业务管理', 'BUTTON', 12, datetime('now'), datetime('now')),
+('项目管理-删除', 'project:delete', '业务管理', 'BUTTON', 13, datetime('now'), datetime('now')),
+('接口管理-页面访问', 'api:view', '业务管理', 'PAGE', 20, datetime('now'), datetime('now')),
+('接口管理-创建', 'api:create', '业务管理', 'BUTTON', 21, datetime('now'), datetime('now')),
+('接口管理-编辑', 'api:edit', '业务管理', 'BUTTON', 22, datetime('now'), datetime('now')),
+('接口管理-删除', 'api:delete', '业务管理', 'BUTTON', 23, datetime('now'), datetime('now')),
+('代码模板-页面访问', 'code-template:view', '业务管理', 'PAGE', 30, datetime('now'), datetime('now')),
+('代码模板-创建', 'code-template:create', '业务管理', 'BUTTON', 31, datetime('now'), datetime('now')),
+('代码模板-编辑', 'code-template:edit', '业务管理', 'BUTTON', 32, datetime('now'), datetime('now')),
+('代码模板-删除', 'code-template:delete', '业务管理', 'BUTTON', 33, datetime('now'), datetime('now')),
+('AI对话-页面访问', 'ai-chat:view', 'AI对话', 'PAGE', 40, datetime('now'), datetime('now')),
+('数据统计-页面访问', 'statistics:view', '数据统计', 'PAGE', 50, datetime('now'), datetime('now')),
+('权限管理-页面访问', 'permission:view', '权限管理', 'PAGE', 60, datetime('now'), datetime('now')),
+('角色管理-页面访问', 'role:view', '权限管理', 'PAGE', 61, datetime('now'), datetime('now')),
+('角色管理-创建', 'role:create', '权限管理', 'BUTTON', 62, datetime('now'), datetime('now')),
+('角色管理-编辑', 'role:edit', '权限管理', 'BUTTON', 63, datetime('now'), datetime('now')),
+('角色管理-删除', 'role:delete', '权限管理', 'BUTTON', 64, datetime('now'), datetime('now')),
+('权限分配-编辑', 'permission:assign', '权限管理', 'BUTTON', 65, datetime('now'), datetime('now')),
+('邮件模板-页面访问', 'email-template:view', '系统管理', 'PAGE', 70, datetime('now'), datetime('now')),
+('邮件模板-创建', 'email-template:create', '系统管理', 'BUTTON', 71, datetime('now'), datetime('now')),
+('邮件模板-编辑', 'email-template:edit', '系统管理', 'BUTTON', 72, datetime('now'), datetime('now')),
+('邮件模板-删除', 'email-template:delete', '系统管理', 'BUTTON', 73, datetime('now'), datetime('now')),
+('用户管理-页面访问', 'user:view', '系统管理', 'PAGE', 80, datetime('now'), datetime('now')),
+('用户管理-创建', 'user:create', '系统管理', 'BUTTON', 81, datetime('now'), datetime('now')),
+('用户管理-编辑', 'user:edit', '系统管理', 'BUTTON', 82, datetime('now'), datetime('now')),
+('用户管理-删除', 'user:delete', '系统管理', 'BUTTON', 83, datetime('now'), datetime('now')),
+('AI设置-页面访问', 'ai-settings:view', '系统管理', 'PAGE', 90, datetime('now'), datetime('now')),
+('系统设置-页面访问', 'settings:view', '系统管理', 'PAGE', 100, datetime('now'), datetime('now'));
+
+-- 8. 管理员角色分配全部权限
+INSERT OR IGNORE INTO t_role_permission (role_id, permission_id)
+SELECT 1, id FROM t_permission;
+
+-- 9. 迁移现有用户的 role_id
+UPDATE t_user SET role_id = 1 WHERE role = 'ADMIN' AND role_id IS NULL;
+UPDATE t_user SET role_id = 2 WHERE role = 'USER' AND role_id IS NULL;
+
+-- 10. 补全项目创建者成员记录（若缺失）
+INSERT OR IGNORE INTO t_project_member (project_id, user_id, role, create_time, update_time)
+SELECT p.id, p.create_user_id, 1, datetime('now'), datetime('now')
+FROM t_project p
+WHERE p.create_user_id IS NOT NULL
+  AND NOT EXISTS (
+      SELECT 1 FROM t_project_member pm
+      WHERE pm.project_id = p.id AND pm.user_id = p.create_user_id
+  );
+```
+
+---
+
 ## v2.2.0 (2026-06-24)
 
 > AI 智能生成、服务端分页、Swagger 导入与页面美化。

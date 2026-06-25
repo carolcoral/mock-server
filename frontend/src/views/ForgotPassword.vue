@@ -1,3 +1,9 @@
+<!--
+* Copyright (c) 2026, XINDU.SITE，Author: LXW
+* All Rights Reserved.
+* XINDU.SITE CONFIDENTIAL
+-->
+
 <template>
   <div class="forgot-password-container" :style="{ backgroundImage: `url(${bgImage})` }">
     <div class="forgot-password-overlay"></div>
