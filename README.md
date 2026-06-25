@@ -8,7 +8,7 @@
 </p>
 
 <h1 align="center">Mock Server</h1>
-<p align="center"><b>Spring Boot + Vue 3 全功能 API 模拟平台</b></p>
+<p align="center">Spring Boot + Vue 3 全功能 API 模拟平台</p>
 
 <p align="center">
   HTTP / WebSocket Mock · 多项目隔离 · 细粒度权限 · 动态代码编译 · AI 对话与生成 · Swagger 导入 · 多语言国际化 · 邮件通知 · 系统监控
@@ -20,24 +20,24 @@
 
 | 模块 | 能力 |
 |------|------|
-| 🧩 **接口模拟** | 固定响应 / 条件匹配 / 随机权重 / Java 动态代码处理器 / 延迟模拟 / WebSocket Mock |
-| 🔐 **细粒度权限** | RBAC 角色权限体系，页面+按钮级权限控制，自定义角色，动态菜单显隐 |
-| 🤖 **AI 智能平台** | 多模型对话（流式 SSE + Markdown 渲染 + 上下文记忆）· 一键生成响应数据 / Java 代码 / 邮件模板 / 接口描述 · 12+ LLM 服务商 · 调用统计 |
-| 📥 **Swagger 导入** | 支持 Swagger 2.0 / OpenAPI 3.x，上传 JSON 或 URL 一键导入为 Mock API |
-| 📦 **项目管理** | 多项目隔离 · 成员权限分级（创建者 / 管理员 / 成员） |
-| 🧬 **代码模板** | Monaco Editor · 编译验证 · 项目级 + 系统级模板 · 热加载 · 6 种转换器 |
-| ✉️ **邮件系统** | SMTP 配置 · 模板管理（通用 / 验证码 / 告警）· HTML 实时预览 · 注册验证码 |
-| 🌍 **国际化** | 中文 / English / 日本語 · 全站实时切换 |
-| 📊 **监控面板** | 请求趋势 · 来源 IP 多折线 · AI 调用量 · 新增趋势 · IOPS · JVM 堆详情 · CPU/内存/磁盘 |
-| 📖 **使用说明** | 交互式引导页，6 步上手：创建项目 → 导入接口 → 配置响应 → 参数匹配 → AI 生成 → 调用监控 |
-| 🎨 **现代 UI** | 深色渐变侧边栏 · Canvas 动态线条 · 分组折叠菜单 · 收缩模式 · 全屏欢迎页 |
-| 🐳 **容器化** | Docker 多阶段构建 · 一键脚本 · 非 root 只读容器 |
+| 🧩 接口模拟 | 固定响应 / 条件匹配 / 随机权重 / Java 动态代码处理器 / 延迟模拟 / WebSocket Mock |
+| 🔐 细粒度权限 | RBAC 角色权限体系，页面+按钮级权限控制，自定义角色，动态菜单显隐 |
+| 🤖 AI 智能平台 | 多模型对话（流式 SSE + Markdown 渲染 + 上下文记忆）· 一键生成响应数据 / Java 代码 / 邮件模板 / 接口描述 · 12+ LLM 服务商 · 调用统计 |
+| 📥 Swagger 导入 | 支持 Swagger 2.0 / OpenAPI 3.x，上传 JSON 或 URL 一键导入为 Mock API |
+| 📦 项目管理 | 多项目隔离 · 成员权限分级（创建者 / 管理员 / 成员） |
+| 🧬 代码模板 | Monaco Editor · 编译验证 · 项目级 + 系统级模板 · 热加载 · 6 种转换器 |
+| ✉️ 邮件系统 | SMTP 配置 · 模板管理（通用 / 验证码 / 告警）· HTML 实时预览 · 注册验证码 |
+| 🌍 国际化 | 中文 / English / 日本語 · 全站实时切换 |
+| 📊 监控面板 | 请求趋势 · 来源 IP 多折线 · AI 调用量 · 新增趋势 · IOPS · JVM 堆详情 · CPU/内存/磁盘 |
+| 📖 使用说明 | 交互式引导页，6 步上手：创建项目 → 导入接口 → 配置响应 → 参数匹配 → AI 生成 → 调用监控 |
+| 🎨 现代 UI | 深色渐变侧边栏 · Canvas 动态线条 · 分组折叠菜单 · 收缩模式 · 全屏欢迎页 |
+| 🐳 容器化 | Docker 多阶段构建 · 一键脚本 · 非 root 只读容器 |
 
 ---
 
 ## 🚀 快速开始
 
-**环境要求**：JDK 21+ · Maven 3.6+ · Node.js 18+ · npm 9+
+环境要求：JDK 21+ · Maven 3.6+ · Node.js 18+ · npm 9+
 
 ```bash
 # 一键启动（自动构建前后端）
@@ -45,7 +45,7 @@ git clone https://github.com/carolcoral/mock-server.git && cd mock-server
 ./run.sh
 ```
 
-**访问地址**：`http://localhost:8080` | API：`/api`
+访问地址：`http://localhost:8080` | API：`/api`
 
 <details>
 <summary>📖 更多部署方式</summary>
@@ -73,7 +73,7 @@ cd docker && docker-compose up -d
 | 环境 | 用户名 | 密码 | 备注 |
 |------|--------|------|------|
 | 开发 | `admin` | `Admin@123` | 首次启动自动创建 |
-| 生产 | `$ADMIN_USERNAME` | `$ADMIN_PASSWORD` | **务必修改强密码** |
+| 生产 | `$ADMIN_USERNAME` | `$ADMIN_PASSWORD` | 务必修改强密码 |
 
 ```bash
 export ADMIN_USERNAME=admin
@@ -106,10 +106,10 @@ new WebSocket('ws://localhost:8080/api/ws/mock/{projectCode}/{path}')
 
 | 能力 | 说明 |
 |------|------|
-| 💬 **智能对话** | 多轮上下文记忆 · SSE 流式响应 · Markdown 渲染 + 代码高亮 · 对话历史持久化 · 智能建议引导 |
-| 🎨 **内容生成** | 一键生成响应数据 · Java 代码模板 · HTML 邮件模板 · 接口描述文档 |
-| 🔌 **多模型支持** | OpenAI · Azure · Gemini · Claude · DeepSeek · 通义千问 · 智谱GLM · Moonshot · 百川 · MiniMax · 小米MiMo · 火山引擎豆包 + 自定义兼容 |
-| 📊 **调用统计** | 多用户 AI 调用趋势折线图 · 年/月/日粒度 · 成功率监控 |
+| 💬 智能对话 | 多轮上下文记忆 · SSE 流式响应 · Markdown 渲染 + 代码高亮 · 对话历史持久化 · 智能建议引导 |
+| 🎨 内容生成 | 一键生成响应数据 · Java 代码模板 · HTML 邮件模板 · 接口描述文档 |
+| 🔌 多模型支持 | OpenAI · Azure · Gemini · Claude · DeepSeek · 通义千问 · 智谱GLM · Moonshot · 百川 · MiniMax · 小米MiMo · 火山引擎豆包 + 自定义兼容 |
+| 📊 调用统计 | 多用户 AI 调用趋势折线图 · 年/月/日粒度 · 成功率监控 |
 
 ---
 
@@ -185,6 +185,6 @@ Apache License 2.0 · Copyright © 2024-2026 carolcoral · Author: LXW
 
 ## 📧 联系
 
-**GitHub** [github.com/carolcoral](https://github.com/carolcoral) · **Email** lxw@cnkj.site
+GitHub [github.com/carolcoral](https://github.com/carolcoral) · Email lxw@cnkj.site
 
 <p align="center"><sub>Made with ❤️ by <a href="https://github.com/carolcoral">carolcoral</a></sub></p>

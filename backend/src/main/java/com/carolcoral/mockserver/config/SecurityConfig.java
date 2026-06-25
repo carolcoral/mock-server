@@ -104,6 +104,7 @@ public class SecurityConfig {
                                 "/USER_GUIDE.md",
                                 "/CHANGELOG.md",
                                 "/README.md",
+                                "/README-US.md",
                                 // 前端静态文件（图片、字体等）
                                 "/*.jpg",
                                 "/*.jpeg",

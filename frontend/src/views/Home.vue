@@ -145,7 +145,7 @@ import {
 import { marked } from 'marked'
 import GuideDialog from '@/components/GuideDialog.vue'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const userStore = useUserStore()
 const isAdmin = computed(() => userStore.isAdmin)
 const showGuide = ref(false)
@@ -197,13 +197,14 @@ const readmeLoading = ref(true)
 const readmeError = ref(false)
 const readmeRendered = ref('')
 
-// 获取 README.md 内容
+// 获取 README 内容（根据语言选择中文或英文版本）
 const fetchReadme = async () => {
   readmeLoading.value = true
   readmeError.value = false
   try {
-    const response = await fetch('/README.md', { cache: 'no-cache' })
-    if (!response.ok) throw new Error('Failed to fetch README.md')
+    const readmeFile = locale.value === 'zh-CN' ? '/README.md' : '/README-US.md'
+    const response = await fetch(readmeFile, { cache: 'no-cache' })
+    if (!response.ok) throw new Error('Failed to fetch README')
     const content = await response.text()
     readmeRendered.value = marked(content)
     readmeLoading.value = false

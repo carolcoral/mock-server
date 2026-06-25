@@ -24,7 +24,7 @@
             <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
             <line x1="12" y1="22.08" x2="12" y2="12"/>
           </svg>
-          <span>使用说明</span>
+          <span>{{ $t('guide.title') }}</span>
         </div>
         <div class="step-nav">
           <div
@@ -50,7 +50,7 @@
       <div class="guide-content">
         <div class="content-header">
           <div class="step-indicator">
-            <span class="step-badge">步骤 {{ currentStep + 1 }}/{{ steps.length }}</span>
+            <span class="step-badge">{{ $t('guide.stepIndicator', { current: currentStep + 1, total: steps.length }) }}</span>
             <h2>{{ steps[currentStep]?.title }}</h2>
           </div>
           <p class="step-summary">{{ steps[currentStep]?.summary }}</p>
@@ -68,8 +68,8 @@
                   </svg>
                 </div>
                 <div class="illus-body">
-                  <h4>创建您的第一个项目</h4>
-                  <p>项目是组织和管理 Mock API 的基本单元，您可以为不同的业务线或团队创建独立的项目空间。</p>
+                  <h4>{{ $t('guide.step1Heading') }}</h4>
+                  <p>{{ $t('guide.step1Desc') }}</p>
                 </div>
               </div>
               <div class="info-cards">
@@ -80,8 +80,8 @@
                     </svg>
                   </div>
                   <div class="info-card-text">
-                    <strong>项目名称</strong>
-                    <p>为项目起一个易于识别的名称，如"电商平台"或"用户中心"</p>
+                    <strong>{{ $t('guide.step1NameTitle') }}</strong>
+                    <p>{{ $t('guide.step1NameDesc') }}</p>
                   </div>
                 </div>
                 <div class="info-card">
@@ -91,8 +91,8 @@
                     </svg>
                   </div>
                   <div class="info-card-text">
-                    <strong>项目编码</strong>
-                    <p>设置唯一的英文标识，如 "ecommerce"，将用于 API 访问路径</p>
+                    <strong>{{ $t('guide.step1CodeTitle') }}</strong>
+                    <p>{{ $t('guide.step1CodeDesc') }}</p>
                   </div>
                 </div>
                 <div class="info-card">
@@ -102,8 +102,8 @@
                     </svg>
                   </div>
                   <div class="info-card-text">
-                    <strong>添加成员</strong>
-                    <p>在项目管理中点击"成员管理"，添加团队其他成员并分配角色权限</p>
+                    <strong>{{ $t('guide.step1MemberTitle') }}</strong>
+                    <p>{{ $t('guide.step1MemberDesc') }}</p>
                   </div>
                 </div>
               </div>
@@ -119,21 +119,21 @@
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
                       </svg>
                     </div>
-                    <h4>导入 Swagger</h4>
+                    <h4>{{ $t('guide.step2ImportTitle') }}</h4>
                   </div>
                   <div class="col-card-body">
-                    <p>如果您已有 Swagger/OpenAPI 文档，可通过导入功能快速生成 Mock API。</p>
+                    <p>{{ $t('guide.step2ImportDesc') }}</p>
                     <ul>
-                      <li>支持 Swagger 2.0 和 OpenAPI 3.x 格式</li>
-                      <li>上传 JSON 文件或输入文档 URL</li>
-                      <li>自动解析接口路径、方法和参数</li>
-                      <li>自动生成默认响应数据</li>
+                      <li>{{ $t('guide.step2ImportItem1') }}</li>
+                      <li>{{ $t('guide.step2ImportItem2') }}</li>
+                      <li>{{ $t('guide.step2ImportItem3') }}</li>
+                      <li>{{ $t('guide.step2ImportItem4') }}</li>
                     </ul>
                     <div class="col-card-tip">
                       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
                       </svg>
-                      在项目管理页面，点击"导入 Swagger"按钮即可开始
+                      {{ $t('guide.step2ImportTip') }}
                     </div>
                   </div>
                 </div>
@@ -144,22 +144,22 @@
                         <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                       </svg>
                     </div>
-                    <h4>手动创建接口</h4>
+                    <h4>{{ $t('guide.step2CreateTitle') }}</h4>
                   </div>
                   <div class="col-card-body">
-                    <p>在接口管理页面手动创建 Mock API，灵活配置所有细节。</p>
+                    <p>{{ $t('guide.step2CreateDesc') }}</p>
                     <ul>
-                      <li>设置接口名称和请求路径</li>
-                      <li>选择 HTTP 方法（GET/POST/PUT/DELETE/PATCH）</li>
-                      <li>支持 RESTful 路径参数 <code>{userId}</code></li>
-                      <li>配置响应延迟、启用/禁用状态</li>
-                      <li>编写 Java 自定义响应处理器</li>
+                      <li>{{ $t('guide.step2CreateItem1') }}</li>
+                      <li>{{ $t('guide.step2CreateItem2') }}</li>
+                      <li>{{ $t('guide.step2CreateItem3') }}</li>
+                      <li>{{ $t('guide.step2CreateItem4') }}</li>
+                      <li>{{ $t('guide.step2CreateItem5') }}</li>
                     </ul>
                     <div class="col-card-tip">
                       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
                       </svg>
-                      在接口管理页面，点击"创建接口"按钮开始
+                      {{ $t('guide.step2CreateTip') }}
                     </div>
                   </div>
                 </div>
@@ -175,8 +175,8 @@
                   </svg>
                 </div>
                 <div class="illus-body">
-                  <h4>为接口添加响应</h4>
-                  <p>每个接口可以配置多个响应，系统根据请求参数匹配或随机返回。</p>
+                  <h4>{{ $t('guide.step3Heading') }}</h4>
+                  <p>{{ $t('guide.step3Desc') }}</p>
                 </div>
               </div>
               <div class="info-cards">
@@ -187,8 +187,8 @@
                     </svg>
                   </div>
                   <div class="info-card-text">
-                    <strong>HTTP 状态码</strong>
-                    <p>设置返回的 HTTP 状态码，如 200、404、500 等</p>
+                    <strong>{{ $t('guide.step3StatusTitle') }}</strong>
+                    <p>{{ $t('guide.step3StatusDesc') }}</p>
                   </div>
                 </div>
                 <div class="info-card">
@@ -198,8 +198,8 @@
                     </svg>
                   </div>
                   <div class="info-card-text">
-                    <strong>响应体</strong>
-                    <p>支持 JSON、XML、HTML、纯文本等多种 Content-Type</p>
+                    <strong>{{ $t('guide.step3BodyTitle') }}</strong>
+                    <p>{{ $t('guide.step3BodyDesc') }}</p>
                   </div>
                 </div>
                 <div class="info-card">
@@ -209,8 +209,8 @@
                     </svg>
                   </div>
                   <div class="info-card-text">
-                    <strong>权重配置</strong>
-                    <p>启用随机返回时，按权重比例返回不同响应</p>
+                    <strong>{{ $t('guide.step3WeightTitle') }}</strong>
+                    <p>{{ $t('guide.step3WeightDesc') }}</p>
                   </div>
                 </div>
                 <div class="info-card">
@@ -220,8 +220,8 @@
                     </svg>
                   </div>
                   <div class="info-card-text">
-                    <strong>响应延迟</strong>
-                    <p>模拟网络延迟，设置毫秒级的响应等待时间</p>
+                    <strong>{{ $t('guide.step3DelayTitle') }}</strong>
+                    <p>{{ $t('guide.step3DelayDesc') }}</p>
                   </div>
                 </div>
               </div>
@@ -236,8 +236,8 @@
                   </svg>
                 </div>
                 <div class="illus-body">
-                  <h4>配置请求参数匹配规则</h4>
-                  <p>为每个响应添加匹配参数，当请求携带特定参数值时返回对应响应。</p>
+                  <h4>{{ $t('guide.step4Heading') }}</h4>
+                  <p>{{ $t('guide.step4Desc') }}</p>
                 </div>
               </div>
               <div class="info-cards two-cols">
@@ -246,8 +246,8 @@
                     <el-tag size="small" type="success">PATH</el-tag>
                   </div>
                   <div class="info-card-text">
-                    <strong>路径参数</strong>
-                    <p>RESTful 风格参数，如 <code>/users/{userId}</code> 中的 userId</p>
+                    <strong>{{ $t('guide.step4PathTitle') }}</strong>
+                    <p>{{ $t('guide.step4PathDesc') }}</p>
                   </div>
                 </div>
                 <div class="info-card">
@@ -255,8 +255,8 @@
                     <el-tag size="small" type="primary">QUERY</el-tag>
                   </div>
                   <div class="info-card-text">
-                    <strong>查询参数</strong>
-                    <p>URL 查询字符串参数，如 <code>?name=test</code></p>
+                    <strong>{{ $t('guide.step4QueryTitle') }}</strong>
+                    <p>{{ $t('guide.step4QueryDesc') }}</p>
                   </div>
                 </div>
                 <div class="info-card">
@@ -264,8 +264,8 @@
                     <el-tag size="small" type="warning">BODY</el-tag>
                   </div>
                   <div class="info-card-text">
-                    <strong>请求体参数</strong>
-                    <p>JSON 请求体中的字段匹配</p>
+                    <strong>{{ $t('guide.step4BodyTitle') }}</strong>
+                    <p>{{ $t('guide.step4BodyDesc') }}</p>
                   </div>
                 </div>
                 <div class="info-card">
@@ -273,27 +273,27 @@
                     <el-tag size="small" type="info">HEADER</el-tag>
                   </div>
                   <div class="info-card-text">
-                    <strong>请求头参数</strong>
-                    <p>根据请求头中的值进行匹配</p>
+                    <strong>{{ $t('guide.step4HeaderTitle') }}</strong>
+                    <p>{{ $t('guide.step4HeaderDesc') }}</p>
                   </div>
                 </div>
               </div>
               <div class="match-example">
-                <h4>匹配示例</h4>
+                <h4>{{ $t('guide.step4ExampleHeading') }}</h4>
                 <div class="example-block">
                   <div class="example-row">
-                    <span class="example-label">场景</span>
-                    <span class="example-value">根据 userId 返回不同用户数据</span>
+                    <span class="example-label">{{ $t('guide.step4ExampleScenario') }}</span>
+                    <span class="example-value">{{ $t('guide.step4ExampleScenarioValue') }}</span>
                   </div>
                   <div class="example-row">
-                    <span class="example-label">接口路径</span>
+                    <span class="example-label">{{ $t('guide.step4ExamplePath') }}</span>
                     <code>/api/user/{userId}</code>
                   </div>
                   <div class="example-row">
-                    <span class="example-label">参数配置</span>
+                    <span class="example-label">{{ $t('guide.step4ExampleConfig') }}</span>
                     <div class="param-configs">
-                      <span class="param-tag">userId = 1 → 返回管理员数据</span>
-                      <span class="param-tag">userId = * → 返回普通用户数据（通用匹配）</span>
+                      <span class="param-tag">{{ $t('guide.step4ExampleConfig1') }}</span>
+                      <span class="param-tag">{{ $t('guide.step4ExampleConfig2') }}</span>
                     </div>
                   </div>
                 </div>
@@ -310,8 +310,8 @@
                   </svg>
                 </div>
                 <div class="illus-body">
-                  <h4>使用 AI 提升效率</h4>
-                  <p>Mock Server 集成 AI 对话与智能生成能力，支持 12+ 主流 LLM 服务商，让 AI 帮您自动生成响应数据、代码模板、邮件模板和接口描述。</p>
+                  <h4>{{ $t('guide.step5Heading') }}</h4>
+                  <p>{{ $t('guide.step5Desc') }}</p>
                 </div>
               </div>
               <div class="ai-features">
@@ -322,8 +322,8 @@
                     </svg>
                   </div>
                   <div class="ai-f-text">
-                    <strong>AI 智能对话</strong>
-                    <p>流式实时响应，Markdown 渲染 + 代码高亮，多轮上下文记忆，支持 12+ LLM 自由切换</p>
+                    <strong>{{ $t('guide.step5ChatTitle') }}</strong>
+                    <p>{{ $t('guide.step5ChatDesc') }}</p>
                   </div>
                 </div>
                 <div class="ai-feature-item">
@@ -333,8 +333,8 @@
                     </svg>
                   </div>
                   <div class="ai-f-text">
-                    <strong>生成响应数据</strong>
-                    <p>在响应管理中点击"AI 生成"，描述期望的数据风格即可自动生成 JSON 响应体</p>
+                    <strong>{{ $t('guide.step5ResponseTitle') }}</strong>
+                    <p>{{ $t('guide.step5ResponseDesc') }}</p>
                   </div>
                 </div>
                 <div class="ai-feature-item">
@@ -344,8 +344,8 @@
                     </svg>
                   </div>
                   <div class="ai-f-text">
-                    <strong>生成代码模板</strong>
-                    <p>选择转换器类型后 AI 自动生成 Java 自定义响应处理器代码</p>
+                    <strong>{{ $t('guide.step5CodeTitle') }}</strong>
+                    <p>{{ $t('guide.step5CodeDesc') }}</p>
                   </div>
                 </div>
                 <div class="ai-feature-item">
@@ -355,8 +355,8 @@
                     </svg>
                   </div>
                   <div class="ai-f-text">
-                    <strong>生成邮件模板</strong>
-                    <p>在邮件模板管理中，AI 可自动生成 HTML 邮件内容和主题</p>
+                    <strong>{{ $t('guide.step5EmailTitle') }}</strong>
+                    <p>{{ $t('guide.step5EmailDesc') }}</p>
                   </div>
                 </div>
                 <div class="ai-feature-item">
@@ -366,8 +366,19 @@
                     </svg>
                   </div>
                   <div class="ai-f-text">
-                    <strong>生成接口描述</strong>
-                    <p>创建接口时 AI 可根据名称和路径自动生成详细的接口描述</p>
+                    <strong>{{ $t('guide.step5ApiTitle') }}</strong>
+                    <p>{{ $t('guide.step5ApiDesc') }}</p>
+                  </div>
+                </div>
+                <div class="ai-feature-item">
+                  <div class="ai-f-icon" style="background: linear-gradient(135deg, #a18cd1, #fbc2eb);">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                  </div>
+                  <div class="ai-f-text">
+                    <strong>{{ $t('guide.step5TimeoutTitle') }}</strong>
+                    <p>{{ $t('guide.step5TimeoutDesc') }}</p>
                   </div>
                 </div>
               </div>
@@ -382,8 +393,8 @@
                   </svg>
                 </div>
                 <div class="illus-body">
-                  <h4>调用 API 与数据监控</h4>
-                  <p>配置完成后即可通过生成的路径直接调用 Mock API，系统会自动记录请求数据。</p>
+                  <h4>{{ $t('guide.step6Heading') }}</h4>
+                  <p>{{ $t('guide.step6Desc') }}</p>
                 </div>
               </div>
               <div class="info-cards">
@@ -394,8 +405,8 @@
                     </svg>
                   </div>
                   <div class="info-card-text">
-                    <strong>调用地址</strong>
-                    <p>接口路径格式：<code>/api/mock-server/{项目编码}{接口路径}</code>，点击复制按钮即可获取</p>
+                    <strong>{{ $t('guide.step6UrlTitle') }}</strong>
+                    <p>{{ $t('guide.step6UrlDesc') }}</p>
                   </div>
                 </div>
                 <div class="info-card">
@@ -405,8 +416,8 @@
                     </svg>
                   </div>
                   <div class="info-card-text">
-                    <strong>请求统计</strong>
-                    <p>在数据统计页面查看请求频率、来源 IP TOP15、IOPS 等实时指标</p>
+                    <strong>{{ $t('guide.step6StatsTitle') }}</strong>
+                    <p>{{ $t('guide.step6StatsDesc') }}</p>
                   </div>
                 </div>
                 <div class="info-card">
@@ -416,19 +427,19 @@
                     </svg>
                   </div>
                   <div class="info-card-text">
-                    <strong>安全控制</strong>
-                    <p>支持 IP 白名单、JWT 认证、登录锁定等安全机制</p>
+                    <strong>{{ $t('guide.step6SecurityTitle') }}</strong>
+                    <p>{{ $t('guide.step6SecurityDesc') }}</p>
                   </div>
                 </div>
               </div>
               <div class="quick-start-box">
-                <h4>快速开始清单</h4>
+                <h4>{{ $t('guide.step6ChecklistHeading') }}</h4>
                 <div class="checklist">
-                  <div class="checklist-item"><el-icon :size="16" color="#67c23a"><Check /></el-icon> 创建项目并设置编码</div>
-                  <div class="checklist-item"><el-icon :size="16" color="#67c23a"><Check /></el-icon> 添加团队其他成员</div>
-                  <div class="checklist-item"><el-icon :size="16" color="#67c23a"><Check /></el-icon> 导入或创建 Mock API</div>
-                  <div class="checklist-item"><el-icon :size="16" color="#67c23a"><Check /></el-icon> 配置响应和参数匹配</div>
-                  <div class="checklist-item"><el-icon :size="16" color="#67c23a"><Check /></el-icon> 复制调用路径开始使用</div>
+                  <div class="checklist-item"><el-icon :size="16" color="#67c23a"><Check /></el-icon> {{ $t('guide.step6CheckItem1') }}</div>
+                  <div class="checklist-item"><el-icon :size="16" color="#67c23a"><Check /></el-icon> {{ $t('guide.step6CheckItem2') }}</div>
+                  <div class="checklist-item"><el-icon :size="16" color="#67c23a"><Check /></el-icon> {{ $t('guide.step6CheckItem3') }}</div>
+                  <div class="checklist-item"><el-icon :size="16" color="#67c23a"><Check /></el-icon> {{ $t('guide.step6CheckItem4') }}</div>
+                  <div class="checklist-item"><el-icon :size="16" color="#67c23a"><Check /></el-icon> {{ $t('guide.step6CheckItem5') }}</div>
                 </div>
               </div>
             </div>
@@ -438,7 +449,7 @@
         <!-- 底部导航 -->
         <div class="content-footer">
           <el-button @click="prevStep" :disabled="currentStep === 0">
-            <el-icon><ArrowLeft /></el-icon> 上一步
+            <el-icon><ArrowLeft /></el-icon> {{ $t('guide.prev') }}
           </el-button>
           <div class="step-dots">
             <span
@@ -450,10 +461,10 @@
             ></span>
           </div>
           <el-button v-if="currentStep < steps.length - 1" type="primary" @click="nextStep">
-            下一步 <el-icon><ArrowRight /></el-icon>
+            {{ $t('guide.next') }} <el-icon><ArrowRight /></el-icon>
           </el-button>
           <el-button v-else type="success" @click="handleClose">
-            <el-icon><Check /></el-icon> 开始使用
+            <el-icon><Check /></el-icon> {{ $t('guide.start') }}
           </el-button>
         </div>
       </div>
@@ -462,8 +473,11 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ArrowLeft, ArrowRight, Check } from '@element-plus/icons-vue'
+
+const { t } = useI18n()
 
 const props = defineProps({
   modelValue: {
@@ -485,14 +499,14 @@ watch(() => props.modelValue, (val) => {
 
 const currentStep = ref(0)
 
-const steps = [
-  { title: '创建项目', subtitle: '搭建项目空间', summary: '项目是组织 Mock API 的基本单元。首先创建一个项目，设置唯一编码和成员权限，为后续工作打下基础。' },
-  { title: '导入/新增接口', subtitle: '添加 Mock API', summary: '通过 Swagger 导入或手动创建的方式添加接口。支持 RESTful 路径参数、多种 HTTP 方法和自定义响应处理器。' },
-  { title: '配置响应数据', subtitle: '设置返回内容', summary: '为每个接口添加一个或多个响应，设置 HTTP 状态码、响应体、Content-Type、权重和响应延迟等属性。' },
-  { title: '请求参数匹配', subtitle: '精确路由规则', summary: '通过配置请求参数匹配规则，实现同一接口根据不同请求参数返回不同的响应数据。' },
-  { title: 'AI 智能对话与生成', subtitle: '提升开发效率', summary: '利用 AI 多轮对话、流式实时响应、智能生成能力自动生成响应数据、代码模板、邮件模板和接口描述，支持 12+ LLM，大幅提升效率。' },
-  { title: '调用与监控', subtitle: '开始使用', summary: '配置完成后通过生成的路径直接调用 API，系统自动记录请求数据并提供多维度统计分析。' }
-]
+const steps = computed(() => [
+  { title: t('guide.step1Title'), subtitle: t('guide.step1Subtitle'), summary: t('guide.step1Summary') },
+  { title: t('guide.step2Title'), subtitle: t('guide.step2Subtitle'), summary: t('guide.step2Summary') },
+  { title: t('guide.step3Title'), subtitle: t('guide.step3Subtitle'), summary: t('guide.step3Summary') },
+  { title: t('guide.step4Title'), subtitle: t('guide.step4Subtitle'), summary: t('guide.step4Summary') },
+  { title: t('guide.step5Title'), subtitle: t('guide.step5Subtitle'), summary: t('guide.step5Summary') },
+  { title: t('guide.step6Title'), subtitle: t('guide.step6Subtitle'), summary: t('guide.step6Summary') }
+])
 
 const nextStep = () => {
   if (currentStep.value < steps.length - 1) {

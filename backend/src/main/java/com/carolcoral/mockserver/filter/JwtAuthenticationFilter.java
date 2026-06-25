@@ -160,6 +160,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             requestUri.equals("/USER_GUIDE.md") ||
             requestUri.equals("/CHANGELOG.md") ||
             requestUri.equals("/README.md") ||
+            requestUri.equals("/README-US.md") ||
             requestUri.startsWith("/assets/") ||
             requestUri.startsWith("/badges/")) {
             return true;

@@ -656,6 +656,7 @@ print_info "第3.5步：同步 README 和 CHANGELOG 文档..."
 print_info "=========================================="
 
 PROJECT_README="$PROJECT_ROOT/README.md"
+PROJECT_README_US="$PROJECT_ROOT/README-US.md"
 PROJECT_CHANGELOG="$PROJECT_ROOT/CHANGELOG.md"
 
 if [ -f "$PROJECT_README" ]; then
@@ -663,6 +664,13 @@ if [ -f "$PROJECT_README" ]; then
     print_success "README.md 已同步到静态资源目录"
 else
     print_warning "项目根目录未找到 README.md"
+fi
+
+if [ -f "$PROJECT_README_US" ]; then
+    cp "$PROJECT_README_US" "$BACKEND_STATIC/README-US.md"
+    print_success "README-US.md 已同步到静态资源目录"
+else
+    print_warning "项目根目录未找到 README-US.md"
 fi
 
 if [ -f "$PROJECT_CHANGELOG" ]; then
