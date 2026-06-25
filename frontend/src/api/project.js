@@ -12,12 +12,23 @@ export function getProjectList() {
 }
 
 /**
- * 获取有权限的项目列表
+ * 获取有权限的项目列表（分页，用于表格展示）
  * @returns {Promise}
  */
 export function getAccessibleProjects() {
   return request({
     url: '/projects/accessible',
+    method: 'get'
+  })
+}
+
+/**
+ * 获取当前用户可访问的全部项目（不分页，用于下拉选择）
+ * @returns {Promise}
+ */
+export function getAllAccessibleProjects() {
+  return request({
+    url: '/projects/accessible/all',
     method: 'get'
   })
 }

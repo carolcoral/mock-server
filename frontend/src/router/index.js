@@ -67,19 +67,19 @@ const routes = [
         path: '/users',
         name: 'Users',
         component: () => import('@/views/Users.vue'),
-        meta: { requiresAuth: true, requiresAdmin: true }
+        meta: { requiresAuth: true }
       },
       {
         path: '/settings',
         name: 'Settings',
         component: () => import('@/views/Settings.vue'),
-        meta: { requiresAuth: true, requiresAdmin: true }
+        meta: { requiresAuth: true }
       },
       {
         path: '/statistics',
         name: 'Statistics',
         component: () => import('@/views/Statistics.vue'),
-        meta: { requiresAuth: true, requiresAdmin: true }
+        meta: { requiresAuth: true }
       },
       {
         path: '/profile',
@@ -103,13 +103,19 @@ const routes = [
         path: '/email-templates',
         name: 'EmailTemplates',
         component: () => import('@/views/EmailTemplates.vue'),
-        meta: { requiresAuth: true, requiresAdmin: true }
+        meta: { requiresAuth: true }
       },
       {
         path: '/ai-settings',
         name: 'AiSettings',
         component: () => import('@/views/AiSettings.vue'),
-        meta: { requiresAuth: true, requiresAdmin: true }
+        meta: { requiresAuth: true }
+      },
+      {
+        path: '/ai-chat',
+        name: 'AiChat',
+        component: () => import('@/views/AiChat.vue'),
+        meta: { requiresAuth: true }
       }
     ]
   }

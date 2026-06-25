@@ -91,6 +91,7 @@ public class SecurityConfig {
                                 "/api/ws/**",
                                 "/api/error",
                                 "/api/actuator/**",
+                                "/api/system/version",
                                 // Bing 图片代理
                                 "/bing-hp",
                                 // 前端静态资源
@@ -99,6 +100,7 @@ public class SecurityConfig {
                                 "/favicon.ico",
                                 "/robots.txt",
                                 "/assets/**",
+                                "/badges/**",
                                 "/USER_GUIDE.md",
                                 "/CHANGELOG.md",
                                 "/README.md",
@@ -132,7 +134,8 @@ public class SecurityConfig {
                                 "/code-templates",
                                 "/changelog",
                                 "/email-templates",
-                                "/ai-settings"
+                                "/ai-settings",
+                                "/ai-chat"
                         ).permitAll()
                         // Swagger 静态资源 - 公开访问（页面加载 CSS/JS 需要）
                         .requestMatchers(

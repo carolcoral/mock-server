@@ -63,6 +63,19 @@ public class AiConfigController {
         return ApiResponse.success(aiConfigService.toggleEnabled(id, !config.getEnabled()));
     }
 
+    @Operation(summary = "获取启用的 AI 配置（所有认证用户可访问）")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/enabled")
+    public ApiResponse<AiConfig> getEnabledConfig() {
+        AiConfig config = aiConfigService.getEnabledConfig();
+        if (config == null) {
+            return ApiResponse.success(null);
+        }
+        // 脱敏：不返回 apiKey
+        config.setApiKey("***");
+        return ApiResponse.success(config);
+    }
+
     @Operation(summary = "按服务商标识获取配置")
     @GetMapping("/{provider}")
     public ApiResponse<AiConfig> getByProvider(@PathVariable String provider) {

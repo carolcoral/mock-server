@@ -219,7 +219,8 @@
           </div>
         </el-form-item>
 
-        <!-- 自定义响应处理器 -->
+        <!-- 自定义响应处理器 - 已隐藏 -->
+        <template v-if="false">
         <el-divider content-position="left">
           <span style="font-size: 14px; font-weight: 600; color: #303133;">{{ $t('api.customHandlerTitle') }}</span>
         </el-divider>
@@ -286,6 +287,7 @@
             :height="apiCodeFullscreen ? 'calc(100vh - 60px)' : '420px'"
           />
         </el-form-item>
+        </template>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">{{ $t('common.cancel') }}</el-button>
@@ -647,7 +649,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Edit, Delete, InfoFilled, WarningFilled, ArrowDown, CopyDocument, MagicStick } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import { useRoute } from 'vue-router'
-import { getAccessibleProjects } from '@/api/project'
+import { getAccessibleProjects, getAllAccessibleProjects } from '@/api/project'
 import { getEnabledTemplatesByProjectId } from '@/api/codeTemplate'
 import { generateMockResponse, generateApiDescription } from '@/api/ai'
 import { defineAsyncComponent } from 'vue'
@@ -952,7 +954,7 @@ const fetchProjects = async () => {
   try {
     const response = await getAccessibleProjects()
     if (response.code === 200) {
-      projectList.value = response.data
+      projectList.value = response.data?.content || response.data || []
     }
   } catch (error) {
     console.error('获取项目列表失败:', error)
@@ -961,9 +963,9 @@ const fetchProjects = async () => {
 
 const fetchAccessibleProjects = async () => {
   try {
-    const response = await getAccessibleProjects()
+    const response = await getAllAccessibleProjects()
     if (response.code === 200) {
-      accessibleProjects.value = response.data
+      accessibleProjects.value = response.data || []
     }
   } catch (error) {
     console.error('获取可访问项目失败:', error)

@@ -222,7 +222,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, ArrowDown, MagicStick } from '@element-plus/icons-vue'
 import { formatTime, loadDateFormat } from '@/utils/dateFormat'
 import { useI18n } from 'vue-i18n'
-import { getAccessibleProjects } from '@/api/project'
+import { getAccessibleProjects, getAllAccessibleProjects } from '@/api/project'
 import {
   getAccessibleTemplates,
   getTemplatesByProjectId,
@@ -320,7 +320,7 @@ const viewingTemplate = ref(null)
 // 获取项目列表
 const fetchProjects = async () => {
   try {
-    const response = await getAccessibleProjects()
+    const response = await getAllAccessibleProjects()
     if (response.code === 200) {
       const projects = response.data || []
       projectList.value = projects

@@ -9,10 +9,13 @@ package com.carolcoral.mockserver.controller;
 import com.carolcoral.mockserver.dto.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.InputStream;
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;
 import java.lang.management.MemoryMXBean;
@@ -34,6 +37,91 @@ import java.util.Map;
 public class SystemInfoController {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SystemInfoController.class);
+
+    /** 缓存的版本号，避免重复解析 POM */
+    private static volatile String cachedVersion;
+
+    /**
+     * 从 META-INF/maven 目录下的 pom.properties 读取版本号
+     * 优先从 pom.properties 读取，回退到 pom.xml 解析
+     */
+    private static String resolveAppVersion() {
+        if (cachedVersion != null) {
+            return cachedVersion;
+        }
+
+        // 方式1：从 pom.properties 读取（Maven 打包后自动生成）
+        try {
+            ClassPathResource resource = new ClassPathResource("META-INF/maven/com.carolcoral/mock-server/pom.properties");
+            if (resource.exists()) {
+                java.util.Properties props = new java.util.Properties();
+                try (InputStream is = resource.getInputStream()) {
+                    props.load(is);
+                }
+                String version = props.getProperty("version");
+                if (version != null && !version.isEmpty()) {
+                    cachedVersion = version;
+                    log.info("从 pom.properties 读取版本号: {}", version);
+                    return version;
+                }
+            }
+        } catch (Exception e) {
+            log.debug("从 pom.properties 读取版本号失败: {}", e.getMessage());
+        }
+
+        // 方式2：从 pom.xml 解析
+        try {
+            ClassPathResource resource = new ClassPathResource("META-INF/maven/com.carolcoral/mock-server/pom.xml");
+            if (resource.exists()) {
+                try (InputStream is = resource.getInputStream()) {
+                    var doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(is);
+                    var parent = doc.getDocumentElement();
+                    // 如果是子模块，读取 <parent><version>，否则读取 <version>
+                    var versionNode = parent.getElementsByTagName("version").item(0);
+                    if (versionNode != null) {
+                        String version = versionNode.getTextContent().trim();
+                        if (!version.isEmpty()) {
+                            cachedVersion = version;
+                            log.info("从 pom.xml 读取版本号: {}", version);
+                            return version;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.debug("从 pom.xml 读取版本号失败: {}", e.getMessage());
+        }
+
+        // 兜底：尝试从 MANIFEST.MF 获取
+        try {
+            String implVersion = SystemInfoController.class.getPackage().getImplementationVersion();
+            if (implVersion != null && !implVersion.isEmpty()) {
+                cachedVersion = implVersion;
+                log.info("从 MANIFEST.MF 读取版本号: {}", implVersion);
+                return implVersion;
+            }
+        } catch (Exception ignored) {
+        }
+
+        cachedVersion = "unknown";
+        log.warn("无法读取版本号，使用默认值 unknown");
+        return "unknown";
+    }
+
+    /**
+     * 获取应用版本号
+     *
+     * @return 版本号信息
+     */
+    @Operation(summary = "获取应用版本号", description = "从 POM 文件读取当前应用版本号")
+    @GetMapping("/version")
+    public ApiResponse<Map<String, String>> getVersion() {
+        Map<String, String> result = new LinkedHashMap<>();
+        result.put("version", resolveAppVersion());
+        result.put("springBootVersion", org.springframework.boot.SpringBootVersion.getVersion());
+        result.put("appName", "Mock Server");
+        return ApiResponse.success(result);
+    }
 
     /**
      * 获取系统信息
@@ -64,7 +152,7 @@ public class SystemInfoController {
 
             // ========== 应用信息 ==========
             info.put("appName", "Mock Server");
-            info.put("appVersion", "2.1.2");
+            info.put("appVersion", resolveAppVersion());
             info.put("springBootVersion", org.springframework.boot.SpringBootVersion.getVersion());
             info.put("springVersion", org.springframework.core.SpringVersion.getVersion());
 

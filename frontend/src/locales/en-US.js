@@ -47,7 +47,8 @@ export default {
     userManagement: 'User Management',
     settings: 'System Settings',
     statistics: 'Statistics',
-    aiSettings: 'Provider Settings'
+    aiSettings: 'AI Settings',
+    aiChat: 'AI Chat'
   },
 
   // User
@@ -682,7 +683,14 @@ export default {
     currentIops: 'Current IOPS',
     avgIops: 'Average IOPS',
     peakIops: 'Peak IOPS',
-    noData: 'No Data'
+    noData: 'No Data',
+    aiCalls: 'AI Call Statistics',
+    yearly: 'Yearly',
+    monthly: 'Monthly',
+    daily: 'Daily',
+    callCount: 'Call Count',
+    totalCalls: 'Total Calls',
+    aiCallsByUser: 'By User'
   },
 
   // Code Templates
@@ -755,7 +763,7 @@ export default {
 
   // Welcome Page
   welcome: {
-    badge: 'v2.2.0 · API Mock Server',
+    badge: 'API Mock Server',
     title: 'Build Mock APIs Effortlessly',
     subtitle: 'Intelligent, Efficient, Zero Backend Dependency',
     description: 'Mock Server is a powerful API mocking platform supporting custom responses, dynamic code execution, AI generation, Swagger import, request analytics, and more — boosting frontend development and testing efficiency.',
@@ -930,5 +938,27 @@ export default {
     preview: 'Preview',
     editContent: 'Edit',
     previewHtml: 'HTML Preview'
+  },
+
+  // AI Chat
+  aiChat: {
+    welcomeTitle: 'How can I help you?',
+    welcomeDesc: 'I am Mock Server\'s AI assistant. I can answer questions, help generate code, explain technical concepts, and more.',
+    inputPlaceholder: 'Type your question, press Enter to send...',
+    enterHint: 'Enter to send',
+    send: 'Send',
+    thinking: 'Thinking...',
+    you: 'You',
+    ai: 'AI Assistant',
+    clearChat: 'Clear Chat',
+    copySuccess: 'Copied to clipboard',
+    copyFailed: 'Copy failed',
+    error: 'AI response failed, please check configuration or try again',
+    networkError: 'Network error, please check AI service configuration',
+    emptyReply: 'AI returned no content, please try again',
+    suggest1: 'What are the core features of Mock Server?',
+    suggest2: 'How to create and manage Mock APIs?',
+    suggest3: 'How to configure AI service to generate Mock data?',
+    suggest4: 'How to write custom Java response handlers?'
   }
 }

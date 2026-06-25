@@ -629,7 +629,7 @@ const saving = ref(false)
 // 基础设置
 const basicSettings = reactive({
   appName: 'Mock Server',
-  version: 'v2.1.2',
+  version: 'v-',
   language: localStorage.getItem('locale') || 'zh-CN',
   dateFormat: 'YYYY-MM-DD'
 })
@@ -656,7 +656,7 @@ const saveDateFormatToServer = async (dateFormat) => {
   }
 }
 
-// 加载基础配置（从服务器获取语言等）
+// 加载基础配置（从服务器获取语言、版本号等）
 const loadBasicConfig = async () => {
   console.log('[DEBUG] loadBasicConfig called')
   try {
@@ -670,6 +670,17 @@ const loadBasicConfig = async () => {
     }
   } catch (error) {
     console.error('加载基础配置失败:', error)
+  }
+
+  // 从后端获取版本号
+  try {
+    const verResponse = await request.get('/system/version')
+    if (verResponse.code === 200 && verResponse.data) {
+      basicSettings.version = 'v' + (verResponse.data.version || '-')
+      basicSettings.appName = verResponse.data.appName || 'Mock Server'
+    }
+  } catch (error) {
+    console.error('获取版本号失败:', error)
   }
 }
 

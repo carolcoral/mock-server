@@ -48,17 +48,17 @@
           </el-menu-item>
         </el-sub-menu>
 
-        <!-- AI 管理 - 仅管理员可见的可折叠分组 -->
-        <el-sub-menu index="sub-ai" v-if="userStore.isAdmin">
-          <template #title>
-            <el-icon><Cpu /></el-icon>
-            <span>{{ $t('nav.aiManagement') }}</span>
-          </template>
-          <el-menu-item index="/ai-settings">
-            <el-icon><Connection /></el-icon>
-            <span>{{ $t('nav.aiSettings') }}</span>
-          </el-menu-item>
-        </el-sub-menu>
+        <!-- AI 对话 - 一级菜单 -->
+        <el-menu-item index="/ai-chat">
+          <el-icon><ChatDotSquare /></el-icon>
+          <span>{{ $t('nav.aiChat') }}</span>
+        </el-menu-item>
+
+        <!-- 数据统计 - 一级菜单 -->
+        <el-menu-item index="/statistics">
+          <el-icon><DataAnalysis /></el-icon>
+          <span>{{ $t('nav.statistics') }}</span>
+        </el-menu-item>
 
         <!-- 系统管理 - 仅管理员可见的可折叠分组 -->
         <el-sub-menu index="sub-system" v-if="userStore.isAdmin">
@@ -74,9 +74,9 @@
             <el-icon><User /></el-icon>
             <span>{{ $t('nav.userManagement') }}</span>
           </el-menu-item>
-          <el-menu-item index="/statistics">
-            <el-icon><DataAnalysis /></el-icon>
-            <span>{{ $t('nav.statistics') }}</span>
+          <el-menu-item index="/ai-settings">
+            <el-icon><Cpu /></el-icon>
+            <span>{{ $t('nav.aiSettings') }}</span>
           </el-menu-item>
           <el-menu-item index="/settings">
             <el-icon><Setting /></el-icon>
@@ -125,7 +125,7 @@
       </el-header>
 
       <!-- 内容区 -->
-      <el-main class="main-content">
+      <el-main class="main-content" :class="{ 'main-content-chat': route.path === '/ai-chat' }">
         <router-view />
       </el-main>
 
@@ -267,7 +267,8 @@ import {
   Message,
   Monitor,
   Tools,
-  Cpu
+  Cpu,
+  ChatDotSquare
 } from '@element-plus/icons-vue'
 
 const { t } = useI18n()
@@ -288,11 +289,8 @@ const defaultOpeneds = computed(() => {
   if (['/projects', '/apis', '/code-templates'].some(p => path === p || path.startsWith(p + '/'))) {
     opened.push('sub-business')
   }
-  if (['/email-templates', '/users', '/statistics', '/settings'].some(p => path === p || path.startsWith(p + '/'))) {
+  if (['/email-templates', '/users', '/ai-settings', '/settings'].some(p => path === p || path.startsWith(p + '/'))) {
     opened.push('sub-system')
-  }
-  if (['/ai-settings'].some(p => path === p || path.startsWith(p + '/'))) {
-    opened.push('sub-ai')
   }
   return opened
 })
@@ -323,9 +321,9 @@ const footerConfig = reactive({
 // 获取版本号并检测版本变更
 const fetchVersion = async () => {
   try {
-    const response = await request.get('/system/info')
+    const response = await request.get('/system/version')
     if (response.code === 200 && response.data) {
-      const serverVersion = response.data.appVersion || ''
+      const serverVersion = response.data.version || ''
       appVersion.value = 'v' + serverVersion
 
       // 检测版本缓存，如果浏览器缓存的版本与后台不一致则弹窗
@@ -1123,6 +1121,12 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   background-color: #f0f2f5;
   flex: 1;
+}
+
+/* AI 对话页面：去除 overflow 和 padding，让子组件自行管理高度 */
+.main-content-chat {
+  overflow-y: hidden;
+  padding: 12px 20px;
 }
 
 .footer {

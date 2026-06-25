@@ -47,7 +47,8 @@ export default {
     userManagement: 'ユーザー管理',
     settings: 'システム設定',
     statistics: '統計データ',
-    aiSettings: 'プロバイダー設定'
+    aiSettings: 'AI 設定',
+    aiChat: 'AI 会話'
   },
 
   // ユーザー関連
@@ -682,7 +683,14 @@ export default {
     currentIops: '現在のIOPS',
     avgIops: '平均IOPS',
     peakIops: 'ピークIOPS',
-    noData: 'データなし'
+    noData: 'データなし',
+    aiCalls: 'AI呼び出し統計',
+    yearly: '年次',
+    monthly: '月次',
+    daily: '日次',
+    callCount: '呼び出し回数',
+    totalCalls: '総呼び出し回数',
+    aiCallsByUser: 'ユーザー別'
   },
 
   // コードテンプレート
@@ -755,7 +763,7 @@ export default {
 
   // ウェルカムページ
   welcome: {
-    badge: 'v2.2.0 · API モックサーバー',
+    badge: 'API モックサーバー',
     title: 'Mock API を簡単構築',
     subtitle: 'インテリジェント・効率的・ゼロバックエンド',
     description: 'Mock Server は、カスタムレスポンス、動的コード実行、AI 生成、Swagger インポート、リクエスト分析などをサポートする強力な API モックプラットフォームです。',
@@ -930,5 +938,27 @@ export default {
     preview: 'プレビュー',
     editContent: '編集',
     previewHtml: 'HTMLプレビュー'
+  },
+
+  // AI 会話
+  aiChat: {
+    welcomeTitle: '何をお手伝いしましょうか？',
+    welcomeDesc: '私はMock ServerのAIアシスタントです。質問に答えたり、コード生成を手伝ったり、技術概念を説明したりできます。',
+    inputPlaceholder: '質問を入力し、Enterで送信...',
+    enterHint: 'Enterで送信',
+    send: '送信',
+    thinking: '考え中...',
+    you: 'あなた',
+    ai: 'AIアシスタント',
+    clearChat: '会話をクリア',
+    copySuccess: 'クリップボードにコピーしました',
+    copyFailed: 'コピー失敗',
+    error: 'AI応答に失敗しました。設定を確認して再試行してください',
+    networkError: 'ネットワークエラー、AIサービス設定を確認してください',
+    emptyReply: 'AIから有効な応答がありませんでした。再試行してください',
+    suggest1: 'Mock Serverの主な機能は何ですか？',
+    suggest2: 'Mock APIの作成と管理方法は？',
+    suggest3: 'AIサービスを設定してMockデータを生成する方法は？',
+    suggest4: 'カスタムJavaレスポンスハンドラの作成方法は？'
   }
 }

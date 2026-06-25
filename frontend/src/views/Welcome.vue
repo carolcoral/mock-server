@@ -40,7 +40,7 @@
     <main class="welcome-main">
       <!-- Hero 区域 -->
       <section class="hero-section">
-        <div class="hero-badge">{{ $t('welcome.badge') }}</div>
+        <div class="hero-badge">{{ welcomeBadge }}</div>
         <h1 class="hero-title">{{ $t('welcome.title') }}</h1>
         <p class="hero-subtitle">{{ $t('welcome.subtitle') }}</p>
         <p class="hero-desc">{{ $t('welcome.description') }}</p>
@@ -132,9 +132,10 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import request from '@/utils/request'
 import {
   ArrowRight,
   Connection,
@@ -151,6 +152,7 @@ const { t, locale } = useI18n()
 const router = useRouter()
 
 const currentLocale = ref(locale.value)
+const appVersion = ref('')
 
 const switchLocale = (val) => {
   locale.value = val
@@ -164,6 +166,27 @@ const goLogin = () => {
 const goChangelog = () => {
   router.push('/changelog')
 }
+
+const fetchVersion = async () => {
+  try {
+    const response = await request.get('/system/version')
+    if (response.code === 200 && response.data) {
+      appVersion.value = response.data.version || ''
+    }
+  } catch (error) {
+    console.error('获取版本号失败:', error)
+  }
+}
+
+const welcomeBadge = computed(() => {
+  const ver = appVersion.value ? 'v' + appVersion.value : ''
+  const desc = t('welcome.badge')
+  return ver ? ver + ' · ' + desc : desc
+})
+
+onMounted(() => {
+  fetchVersion()
+})
 
 const features = computed(() => [
   {

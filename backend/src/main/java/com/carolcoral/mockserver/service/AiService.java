@@ -11,19 +11,28 @@ import com.carolcoral.mockserver.entity.CustomCodeTemplate;
 import com.carolcoral.mockserver.repository.CustomCodeTemplateRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.SocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * AI 服务 - 封装 OpenAI 协议兼容的 LLM API 调用
@@ -66,7 +75,15 @@ public class AiService {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout((int) Duration.ofSeconds(10).toMillis());
         factory.setReadTimeout((int) Duration.ofSeconds(readTimeoutSeconds).toMillis());
-        return new RestTemplate(factory);
+        RestTemplate rt = new RestTemplate(factory);
+        // 禁止 DefaultResponseErrorHandler 在非2xx时抛异常，让调用方自行处理响应
+        rt.setErrorHandler(new DefaultResponseErrorHandler() {
+            @Override
+            public void handleError(ClientHttpResponse response) throws IOException {
+                // no-op: 不抛出异常，由 callAiApi() 统一处理
+            }
+        });
+        return rt;
     }
 
     /**
@@ -888,5 +905,402 @@ public class AiService {
         }
 
         return results;
+    }
+
+    /**
+     * 通用 AI 对话（支持多轮上下文）
+     *
+     * @param messages 对话消息列表，每条包含 role 和 content
+     * @return AI 回复的文本内容
+     */
+    public String chat(List<Map<String, String>> messages) throws Exception {
+        AiConfig config = aiConfigService.getEnabledConfig();
+        if (config == null) {
+            throw new RuntimeException("未配置 AI 服务或未启用，请先在 AI 设置中配置并启用");
+        }
+
+        String apiUrl = config.getApiUrl();
+        String chatUrl = buildChatUrl(apiUrl);
+        String model = getEffectiveModel(config);
+
+        Map<String, Object> requestBody = buildChatRequestBody(config, model, messages, false);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Authorization", "Bearer " + config.getApiKey());
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+        RestTemplate restTemplate = getRestTemplate();
+
+        log.info("AI Chat 请求: url={}, model={}, messagesCount={}", chatUrl, model, messages.size());
+        try {
+            long startTime = System.currentTimeMillis();
+            ResponseEntity<String> response = restTemplate.exchange(chatUrl, HttpMethod.POST, entity, String.class);
+            long elapsed = System.currentTimeMillis() - startTime;
+
+            log.info("AI Chat 响应: status={}, bodyLength={}, elapsed={}ms",
+                    response.getStatusCode().value(),
+                    response.getBody() != null ? response.getBody().length() : 0,
+                    elapsed);
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return extractTextContent(response.getBody());
+            } else {
+                String errorBody = response.getBody() != null ?
+                        (response.getBody().length() > 500 ? response.getBody().substring(0, 500) : response.getBody()) : "";
+                log.error("AI Chat API 返回非 2xx 状态码: {}, body: {}", response.getStatusCode(), errorBody);
+                throw new RuntimeException("AI Chat API 返回错误: HTTP " + response.getStatusCode() +
+                        (errorBody.isEmpty() ? "" : " - " + errorBody));
+            }
+        } catch (org.springframework.web.client.ResourceAccessException e) {
+            log.error("AI Chat 网络连接失败: {}", e.getMessage());
+            throw new RuntimeException("AI 对话连接失败，请检查网络和 AI 服务配置: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 流式 AI 对话（SSE 逐 token 返回，实时加载）
+     *
+     * @param messages 对话消息列表
+     * @return 逐行 SSE 数据的 BufferedReader，调用方负责关闭
+     */
+    public java.io.BufferedReader chatStream(List<Map<String, String>> messages) throws Exception {
+        AiConfig config = aiConfigService.getEnabledConfig();
+        if (config == null) {
+            throw new RuntimeException("未配置 AI 服务或未启用，请先在 AI 设置中配置并启用");
+        }
+
+        String apiUrl = config.getApiUrl();
+        String chatUrl = buildChatUrl(apiUrl);
+        String model = getEffectiveModel(config);
+
+        // stream: true 请求体
+        Map<String, Object> requestBody = buildChatRequestBody(config, model, messages, true);
+
+        // 构建 HttpURLConnection（不通过 RestTemplate，直接用原生连接以流式读取）
+        java.net.URL url = new java.net.URL(chatUrl);
+        java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setDoOutput(true);
+        conn.setConnectTimeout(10000);
+        // 流式读取超时设为 5 分钟
+        conn.setReadTimeout((int) java.time.Duration.ofMinutes(5).toMillis());
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setRequestProperty("Authorization", "Bearer " + config.getApiKey());
+        conn.setRequestProperty("Accept", "text/event-stream");
+
+        // 写入请求体
+        String reqBodyJson = objectMapper.writeValueAsString(requestBody);
+        log.info("AI Chat Stream 请求: url={}, model={}, messagesCount={}", chatUrl, model, messages.size());
+        try (java.io.OutputStream os = conn.getOutputStream()) {
+            os.write(reqBodyJson.getBytes(StandardCharsets.UTF_8));
+            os.flush();
+        }
+
+        int status = conn.getResponseCode();
+        if (status < 200 || status >= 300) {
+            // 读取错误响应
+            String errorBody = "";
+            try (InputStream errStream = conn.getErrorStream()) {
+                if (errStream != null) {
+                    errorBody = new BufferedReader(new InputStreamReader(errStream, StandardCharsets.UTF_8))
+                            .lines().collect(Collectors.joining("\n"));
+                }
+            }
+            conn.disconnect();
+            log.error("AI Chat Stream API 返回非 2xx 状态码: {}, body: {}", status,
+                    errorBody.length() > 500 ? errorBody.substring(0, 500) : errorBody);
+            throw new RuntimeException("AI Chat Stream API 返回错误: HTTP " + status +
+                    (errorBody.isEmpty() ? "" : " - " + errorBody));
+        }
+
+        // 返回流式 BufferedReader，调用方负责关闭
+        return new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+    }
+
+    /**
+     * 构建 chat/completions URL
+     */
+    private String buildChatUrl(String apiUrl) {
+        if (apiUrl.endsWith("/chat/completions")) {
+            return apiUrl;
+        }
+        return apiUrl.endsWith("/") ? apiUrl + "chat/completions" : apiUrl + "/chat/completions";
+    }
+
+    /**
+     * 获取有效模型名称
+     */
+    private String getEffectiveModel(AiConfig config) {
+        String model = config.getDefaultModel();
+        return (model != null && !model.isBlank()) ? model : "gpt-4o";
+    }
+
+    /**
+     * 构建 chat 请求体
+     */
+    private Map<String, Object> buildChatRequestBody(AiConfig config, String model,
+                                                      List<Map<String, String>> messages, boolean stream) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", model);
+        body.put("messages", messages);
+        body.put("stream", stream);
+
+        if (config.getTemperature() != null) {
+            body.put("temperature", config.getTemperature());
+        } else {
+            body.put("temperature", 0.7);
+        }
+
+        if (config.getMaxTokens() != null) {
+            body.put("max_tokens", config.getMaxTokens());
+        } else {
+            body.put("max_tokens", 4096);
+        }
+
+        return body;
+    }
+
+    // ==================== 建议问题（基于 README + CHANGELOG 生成并缓存） ====================
+
+    /** 缓存版本标识（基于版本号），用于检测是否需要重新生成 */
+    private String cachedVersion = null;
+    /** 缓存的建议问题列表 */
+    private List<String> cachedSuggestions = null;
+
+    /**
+     * 应用启动后异步预生成建议问题缓存，避免前端首次请求时长时间等待。
+     */
+    @PostConstruct
+    public void initChatSuggestions() {
+        new Thread(() -> {
+            try {
+                // 等待 Spring 完全初始化（延迟 5 秒确保 DB/Config 就绪）
+                Thread.sleep(5000);
+                log.info("开始预生成 AI 对话建议问题...");
+                getChatSuggestions();
+                log.info("AI 对话建议问题预生成完成，共 {} 条", 
+                        cachedSuggestions != null ? cachedSuggestions.size() : 0);
+            } catch (Exception e) {
+                log.warn("预生成 AI 对话建议问题失败: {}", e.getMessage());
+            }
+        }, "suggestions-init").start();
+    }
+
+    /**
+     * 获取 AI 对话建议问题列表。
+     * 首次调用时基于 README + CHANGELOG 生成，后续从缓存返回。
+     * 版本更新后自动重新生成。
+     */
+    public List<String> getChatSuggestions() {
+        // 获取当前版本号
+        String currentVersion = resolveAppVersion();
+        // 缓存命中直接返回
+        if (cachedSuggestions != null && currentVersion != null && currentVersion.equals(cachedVersion)) {
+            return cachedSuggestions;
+        }
+
+        // 读取 README 和 CHANGELOG 内容
+        String readme = readStaticFile("README.md");
+        String changelog = readStaticFile("CHANGELOG.md");
+
+        if ((readme == null || readme.isBlank()) && (changelog == null || changelog.isBlank())) {
+            log.warn("无法读取 README 或 CHANGELOG，使用默认建议问题");
+            List<String> defaults = Arrays.asList(
+                    "Mock Server 有哪些核心功能？",
+                    "如何快速创建一个 Mock 接口？",
+                    "AI 智能生成功能怎么使用？",
+                    "如何进行项目管理和权限分配？"
+            );
+            cachedSuggestions = defaults;
+            cachedVersion = currentVersion;
+            return defaults;
+        }
+
+        // 截取摘要（减少 prompt 长度）
+        String readmeSummary = readme != null ? truncateText(readme, 3000) : "";
+        String changelogSummary = changelog != null ? truncateText(changelog, 2000) : "";
+
+        // 尝试用 AI 生成建议问题
+        AiConfig config = null;
+        try {
+            config = aiConfigService.getEnabledConfig();
+        } catch (Exception ignored) {}
+
+        if (config != null && config.getApiUrl() != null && !config.getApiUrl().isBlank()
+                && config.getApiKey() != null && !config.getApiKey().isBlank()) {
+            try {
+                List<String> aiSuggestions = generateSuggestionsWithAI(config, readmeSummary, changelogSummary);
+                if (aiSuggestions != null && !aiSuggestions.isEmpty()) {
+                    cachedSuggestions = aiSuggestions;
+                    cachedVersion = currentVersion;
+                    log.info("AI 生成建议问题成功，共 {} 条，版本={}", aiSuggestions.size(), currentVersion);
+                    return aiSuggestions;
+                }
+            } catch (Exception e) {
+                log.warn("AI 生成建议问题失败，使用规则生成: {}", e.getMessage());
+            }
+        }
+
+        // 回退：基于关键词规则从 README 提取建议问题
+        List<String> fallback = generateSuggestionsByRule(readmeSummary, changelogSummary);
+        cachedSuggestions = fallback;
+        cachedVersion = currentVersion;
+        log.info("规则生成建议问题成功，共 {} 条，版本={}", fallback.size(), currentVersion);
+        return fallback;
+    }
+
+    /**
+     * 读取 classpath 下的静态文件内容
+     */
+    private String readStaticFile(String filename) {
+        try {
+            InputStream is = getClass().getClassLoader().getResourceAsStream("static/" + filename);
+            if (is == null) {
+                // 尝试直接从 classpath 根路径读取
+                is = getClass().getClassLoader().getResourceAsStream(filename);
+            }
+            if (is == null) {
+                log.debug("未找到静态文件: {}", filename);
+                return null;
+            }
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {
+                return reader.lines().collect(Collectors.joining("\n"));
+            }
+        } catch (Exception e) {
+            log.warn("读取静态文件 {} 失败: {}", filename, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 获取当前应用版本号（简单实现：从 SystemInfoController 读取或返回默认值）
+     */
+    private String resolveAppVersion() {
+        try {
+            // 尝试从 pom.properties 读取
+            InputStream is = getClass().getClassLoader().getResourceAsStream("META-INF/maven/com.carolcoral/mock-server/pom.properties");
+            if (is != null) {
+                Properties props = new Properties();
+                props.load(is);
+                String version = props.getProperty("version");
+                if (version != null && !version.isBlank()) {
+                    return version;
+                }
+            }
+        } catch (Exception ignored) {}
+        return "unknown";
+    }
+
+    /**
+     * 截断文本到指定长度
+     */
+    private String truncateText(String text, int maxLen) {
+        if (text == null || text.length() <= maxLen) return text;
+        // 尝试在段落边界截断
+        int cutoff = text.lastIndexOf("\n\n", maxLen);
+        if (cutoff > maxLen / 2) {
+            return text.substring(0, cutoff) + "\n\n...";
+        }
+        return text.substring(0, maxLen) + "...";
+    }
+
+    /**
+     * 使用 AI 生成建议问题
+     */
+    private List<String> generateSuggestionsWithAI(AiConfig config, String readme, String changelog) {
+        try {
+            String prompt = "你是一个 AI 助手。请根据以下系统文档，生成 6 个用户最可能提问的建议问题。\n\n" +
+                    "要求：\n" +
+                    "1. 问题应该覆盖系统的核心功能和最新变更\n" +
+                    "2. 问题简洁明了，15字以内\n" +
+                    "3. 返回纯 JSON 数组格式，如：[\"问题1\",\"问题2\",\"问题3\"]\n" +
+                    "4. 不要包含 markdown 代码块标记，不要包含任何解释文字\n\n" +
+                    "=== 系统说明（README） ===\n" + readme + "\n\n" +
+                    "=== 最新变更（CHANGELOG） ===\n" + changelog;
+
+            String responseJson = callAiApi(config, prompt);
+            String content = extractTextContent(responseJson);
+            content = cleanMarkdownJson(content);
+
+            JsonNode root = objectMapper.readTree(content);
+            if (root.isArray()) {
+                List<String> result = new ArrayList<>();
+                for (int i = 0; i < root.size() && i < 6; i++) {
+                    String q = root.get(i).asText().trim();
+                    if (!q.isEmpty()) {
+                        result.add(q);
+                    }
+                }
+                if (!result.isEmpty()) return result;
+            }
+        } catch (Exception e) {
+            log.warn("AI 生成或解析建议问题失败: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * 基于规则从 README/CHANGELOG 提取建议问题（不依赖 AI）
+     */
+    private List<String> generateSuggestionsByRule(String readme, String changelog) {
+        List<String> questions = new ArrayList<>();
+
+        // 从 README 关键词提取
+        if (readme != null) {
+            if (readme.contains("接口模拟") || readme.contains("Mock")) {
+                questions.add("如何创建和配置 Mock 接口？");
+            }
+            if (readme.contains("AI 智能生成") || readme.contains("AI")) {
+                questions.add("AI 智能生成功能如何使用？");
+            }
+            if (readme.contains("Swagger") || readme.contains("导入")) {
+                questions.add("如何导入 Swagger 文档生成接口？");
+            }
+            if (readme.contains("邮件") || readme.contains("邮件系统")) {
+                questions.add("如何配置邮件通知和模板？");
+            }
+            if (readme.contains("项目管理") || readme.contains("项目")) {
+                questions.add("如何管理项目和成员权限？");
+            }
+            if (readme.contains("代码模板") || readme.contains("代码处理器")) {
+                questions.add("代码模板和自定义处理器怎么用？");
+            }
+            if (readme.contains("WebSocket")) {
+                questions.add("WebSocket Mock 如何配置？");
+            }
+            if (readme.contains("国际化") || readme.contains("语言")) {
+                questions.add("如何切换系统语言？");
+            }
+            if (readme.contains("Docker") || readme.contains("部署")) {
+                questions.add("如何使用 Docker 部署系统？");
+            }
+        }
+
+        // 从 CHANGELOG 提取最新版本变更
+        if (changelog != null) {
+            if (changelog.contains("AI") && !questions.stream().anyMatch(q -> q.contains("AI"))) {
+                questions.add("最新的 AI 功能有哪些？");
+            }
+        }
+
+        // 确保至少有 4 条
+        List<String> defaults = Arrays.asList(
+                "Mock Server 有哪些核心功能？",
+                "如何快速创建一个 Mock 接口？",
+                "AI 智能生成功能怎么使用？",
+                "如何进行项目管理和权限分配？"
+        );
+
+        while (questions.size() < 4) {
+            for (String d : defaults) {
+                if (!questions.contains(d) && questions.size() < 6) {
+                    questions.add(d);
+                }
+            }
+        }
+
+        // 最多 6 条
+        return questions.size() > 6 ? questions.subList(0, 6) : questions;
     }
 }

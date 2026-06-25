@@ -210,7 +210,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             requestUri.equals("/USER_GUIDE.md") ||
             requestUri.equals("/CHANGELOG.md") ||
             requestUri.equals("/README.md") ||
-            requestUri.startsWith("/assets/")) {
+            requestUri.startsWith("/assets/") ||
+            requestUri.startsWith("/badges/")) {
             return true;
         }
 
@@ -235,7 +236,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             requestUri.equals("/profile") || requestUri.equals("/code-templates") ||
             requestUri.equals("/changelog") ||
             requestUri.equals("/email-templates") ||
-            requestUri.equals("/ai-settings")) {
+            requestUri.equals("/ai-settings") ||
+            requestUri.equals("/ai-chat")) {
             return true;
         }
 
@@ -254,7 +256,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                requestUri.startsWith("/api" + ACTUATOR_PATH_PREFIX) ||
                requestUri.startsWith("/api/public/") ||
                requestUri.equals("/error") ||
-               requestUri.equals("/api/error");
+               requestUri.equals("/api/error") ||
+               requestUri.equals("/system/version") ||
+               requestUri.equals("/api/system/version");
     }
 
     /**

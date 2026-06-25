@@ -71,6 +71,21 @@
       <div ref="sourceIpChart" class="chart-container"></div>
     </el-card>
 
+    <!-- AI 调用统计 -->
+    <el-card class="chart-card" shadow="hover" style="margin-top: 20px;">
+      <template #header>
+        <div class="card-header">
+          <span>{{ $t('statistics.aiCalls') }}</span>
+          <el-radio-group v-model="aiCallsGranularity" size="small" @change="fetchAiCalls">
+            <el-radio-button value="yearly">{{ $t('statistics.yearly') }}</el-radio-button>
+            <el-radio-button value="monthly">{{ $t('statistics.monthly') }}</el-radio-button>
+            <el-radio-button value="daily">{{ $t('statistics.daily') }}</el-radio-button>
+          </el-radio-group>
+        </div>
+      </template>
+      <div ref="aiCallsChart" class="chart-container"></div>
+    </el-card>
+
     <!-- 新增趋势统计 -->
     <el-card class="chart-card" shadow="hover" style="margin-top: 20px;">
       <template #header>
@@ -96,14 +111,17 @@ const avgIops = ref('--')
 const peakIops = ref('--')
 const iopsUnit = ref('req/s')
 
+const aiCallsGranularity = ref('monthly')
 const iopsChart = ref(null)
 const requestFreqChart = ref(null)
 const sourceIpChart = ref(null)
+const aiCallsChart = ref(null)
 const creationTrendChart = ref(null)
 
 let iopsChartInstance = null
 let freqChartInstance = null
 let ipChartInstance = null
+let aiCallsChartInstance = null
 let trendChartInstance = null
 
 // ========== IOPS 统计 ==========
@@ -392,6 +410,102 @@ const renderSourceIpChart = (data) => {
   ipChartInstance.setOption(option, true)
 }
 
+// ========== AI 调用统计 ==========
+
+const fetchAiCalls = async () => {
+  try {
+    const response = await request.get('/statistics/ai-calls', {
+      params: { granularity: aiCallsGranularity.value }
+    })
+    if (response.code === 200 && response.data) {
+      renderAiCallsChart(response.data)
+    }
+  } catch (error) {
+    console.error('获取AI调用统计失败:', error)
+  }
+}
+
+const renderAiCallsChart = (data) => {
+  if (!aiCallsChart.value) return
+  if (!aiCallsChartInstance) {
+    aiCallsChartInstance = echarts.init(aiCallsChart.value)
+  }
+
+  const timeLabels = data.timeLabels || []
+  const userSeries = data.userSeries || []
+  const totalData = data.totalData || []
+
+  // 为每位用户生成一个 bar series
+  const colorPalette = [
+    '#667eea', '#f5576c', '#30cfd0', '#f093fb', '#4facfe',
+    '#fa709a', '#fee140', '#43e97b', '#fa6400', '#6c5ce7',
+    '#00cec9', '#fd79a8', '#636e72', '#e17055', '#0984e3'
+  ]
+
+  const series = userSeries.map((user, index) => ({
+    name: user.username,
+    type: 'bar',
+    stack: 'total',
+    data: user.data || [],
+    emphasis: { focus: 'series' },
+    itemStyle: {
+      color: colorPalette[index % colorPalette.length]
+    }
+  }))
+
+  // 添加汇总折线
+  series.push({
+    name: t('statistics.totalCalls'),
+    type: 'line',
+    data: totalData,
+    smooth: true,
+    symbol: 'circle',
+    symbolSize: 6,
+    lineStyle: { color: '#303133', width: 2, type: 'dashed' },
+    itemStyle: { color: '#303133' },
+    emphasis: { focus: 'self' }
+  })
+
+  const option = {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: (params) => {
+        let result = params[0].axisValue + '<br/>'
+        params.forEach(p => {
+          result += `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color};margin-right:4px;"></span>`
+          result += `${p.seriesName}: ${p.value}<br/>`
+        })
+        return result
+      }
+    },
+    legend: {
+      type: 'scroll',
+      top: 0,
+      data: [...userSeries.map(u => u.username), t('statistics.totalCalls')]
+    },
+    grid: { left: '3%', right: '4%', bottom: '12%', top: '45px', containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: timeLabels,
+      axisLabel: { rotate: timeLabels.length > 7 ? 45 : 0, fontSize: 11 }
+    },
+    yAxis: { type: 'value', minInterval: 1, name: t('statistics.callCount') },
+    dataZoom: timeLabels.length > 12 ? [
+      { type: 'slider', start: Math.max(0, ((timeLabels.length - 12) / timeLabels.length) * 100), end: 100, height: 18, bottom: 2 },
+      { type: 'inside' }
+    ] : [],
+    series,
+    title: timeLabels.length === 0 ? {
+      text: t('statistics.noData') || '暂无数据',
+      left: 'center',
+      top: 'center',
+      textStyle: { color: '#999', fontSize: 14, fontWeight: 'normal' }
+    } : undefined
+  }
+  aiCallsChartInstance.setOption(option, true)
+}
+
 // ========== 新增趋势统计 ==========
 
 const fetchCreationTrend = async () => {
@@ -463,11 +577,12 @@ const handleResize = () => {
   iopsChartInstance?.resize()
   freqChartInstance?.resize()
   ipChartInstance?.resize()
+  aiCallsChartInstance?.resize()
   trendChartInstance?.resize()
 }
 
 const loadAllStats = async () => {
-  await Promise.all([fetchIops(), fetchRequestFrequency(), fetchSourceIps(), fetchCreationTrend()])
+  await Promise.all([fetchIops(), fetchRequestFrequency(), fetchSourceIps(), fetchAiCalls(), fetchCreationTrend()])
 }
 
 // IOPS 自动刷新定时器
@@ -501,6 +616,7 @@ onBeforeUnmount(() => {
   iopsChartInstance?.dispose()
   freqChartInstance?.dispose()
   ipChartInstance?.dispose()
+  aiCallsChartInstance?.dispose()
   trendChartInstance?.dispose()
 })
 </script>

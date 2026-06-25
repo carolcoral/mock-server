@@ -192,6 +192,21 @@ public class ProjectController {
     }
 
     /**
+     * 获取当前用户可访问的全部项目列表（不分页，用于下拉选择）
+     *
+     * @param request 请求
+     * @return 全部可访问项目列表（带用户角色）
+     */
+    @Operation(summary = "获取当前用户可访问的全部项目", description = "获取当前用户有权限访问的全部项目列表，不分页，用于下拉选择等场景")
+    @GetMapping("/accessible/all")
+    public ApiResponse<java.util.List<ProjectWithRoleDTO>> getAllAccessibleProjects(HttpServletRequest request) {
+        Long userId = getUserIdFromRequest(request);
+        User.UserRole userRole = getUserRoleFromRequest(request);
+        log.info("查询用户可访问的全部项目请求，用户: {}, 角色: {}", userId, userRole);
+        return projectService.getAccessibleProjectsWithRole(userId, userRole);
+    }
+
+    /**
      * 从请求中获取用户ID
      *
      * @param request 请求

@@ -218,5 +218,32 @@ public class DatabaseMigration implements CommandLineRunner {
         } catch (Exception e) {
             log.warn("创建t_ai_config表失败: {}", e.getMessage());
         }
+
+        try {
+            // v2.2.0: 创建 AI 调用日志表（用于统计页面展示）
+            // 先删除旧表（修复之前因 ID 生成策略不兼容导致的损坏表）
+            jdbcTemplate.execute("DROP TABLE IF EXISTS t_ai_call_log");
+            jdbcTemplate.execute("""
+                CREATE TABLE t_ai_call_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id BIGINT NOT NULL,
+                    username VARCHAR(100),
+                    api_type VARCHAR(50) NOT NULL,
+                    call_time DATETIME NOT NULL,
+                    success BOOLEAN,
+                    error_message VARCHAR(500)
+                )
+                """);
+            log.info("成功创建t_ai_call_log表");
+            // 创建索引加速按时间查询
+            jdbcTemplate.execute("""
+                CREATE INDEX IF NOT EXISTS idx_ai_call_time ON t_ai_call_log(call_time)
+                """);
+            jdbcTemplate.execute("""
+                CREATE INDEX IF NOT EXISTS idx_ai_call_username ON t_ai_call_log(username)
+                """);
+        } catch (Exception e) {
+            log.warn("创建t_ai_call_log表失败: {}", e.getMessage());
+        }
     }
 }

@@ -25,6 +25,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -295,6 +296,120 @@ public class StatisticsController {
             }
         }
         return 0;
+    }
+
+    /**
+     * 获取 AI 调用统计（按年/月/日，统计每位用户的调用次数）
+     *
+     * @param granularity 粒度：yearly / monthly / daily
+     * @return 各用户在各时间段的调用次数
+     */
+    @Operation(summary = "获取 AI 调用统计", description = "按年/月/日统计每位用户的 AI 调用次数，无调用用户默认为0")
+    @GetMapping("/ai-calls")
+    public ApiResponse<Map<String, Object>> getAiCallStats(
+            @Parameter(description = "粒度：yearly(按年) / monthly(按月) / daily(按日)", example = "monthly")
+            @RequestParam(defaultValue = "monthly") String granularity) {
+
+        try {
+            // 获取所有用户
+            String userSql = "SELECT id, username FROM t_user";
+            List<Object[]> userRows = entityManager.createNativeQuery(userSql).getResultList();
+            List<Map<String, Object>> allUsers = new ArrayList<>();
+            for (Object[] row : userRows) {
+                Map<String, Object> userMap = new HashMap<>();
+                userMap.put("userId", ((Number) row[0]).longValue());
+                userMap.put("username", String.valueOf(row[1]));
+                userMap.put("callCount", 0L);
+                allUsers.add(userMap);
+            }
+
+            // 按粒度构建分组格式
+            String timeFormat;
+            String timeLabelFormat;
+            if ("yearly".equals(granularity)) {
+                timeFormat = "%Y";
+                timeLabelFormat = "%Y";
+            } else if ("daily".equals(granularity)) {
+                timeFormat = "%Y-%m-%d";
+                timeLabelFormat = "%Y-%m-%d";
+            } else {
+                // monthly (default)
+                timeFormat = "%Y-%m";
+                timeLabelFormat = "%Y-%m";
+            }
+
+            // 查询 AI 调用统计：按用户+时间段分组
+            String statsSql = "SELECT a.username, strftime('" + timeFormat + "', a.call_time) as timeKey, COUNT(*) as cnt " +
+                    "FROM t_ai_call_log a " +
+                    "WHERE a.call_time IS NOT NULL " +
+                    "GROUP BY a.username, timeKey " +
+                    "ORDER BY timeKey ASC, cnt DESC";
+
+            List<Object[]> statsRows = entityManager.createNativeQuery(statsSql).getResultList();
+
+            // 构建时间段集合
+            java.util.Set<String> timeKeySet = new java.util.LinkedHashSet<>();
+            for (Object[] row : statsRows) {
+                if (row[1] != null) {
+                    timeKeySet.add(String.valueOf(row[1]));
+                }
+            }
+            List<String> timeLabels = new ArrayList<>(timeKeySet);
+
+            // 构建 username -> (timeKey -> count) 映射
+            Map<String, Map<String, Long>> userTimeCount = new LinkedHashMap<>();
+            for (Object[] row : statsRows) {
+                String username = row[0] != null ? String.valueOf(row[0]) : "unknown";
+                String timeKey = row[1] != null ? String.valueOf(row[1]) : "";
+                long count = ((Number) row[2]).longValue();
+                userTimeCount.computeIfAbsent(username, k -> new LinkedHashMap<>()).put(timeKey, count);
+            }
+
+            // 构建每位用户的序列数据（无调用默认0）
+            List<Map<String, Object>> userSeries = new ArrayList<>();
+            for (Map<String, Object> user : allUsers) {
+                String username = (String) user.get("username");
+                Map<String, Long> timeMap = userTimeCount.getOrDefault(username, new LinkedHashMap<>());
+                List<Long> data = new ArrayList<>();
+                long totalCount = 0L;
+                for (String tk : timeLabels) {
+                    long cnt = timeMap.getOrDefault(tk, 0L);
+                    data.add(cnt);
+                    totalCount += cnt;
+                }
+                Map<String, Object> series = new LinkedHashMap<>();
+                series.put("username", username);
+                series.put("data", data);
+                series.put("totalCount", totalCount);
+                userSeries.add(series);
+            }
+
+            // 计算汇总（所有用户在每个时间段的总和）
+            List<Long> totalData = new ArrayList<>();
+            for (String tk : timeLabels) {
+                long sum = 0L;
+                for (Map<String, Object> series : userSeries) {
+                    @SuppressWarnings("unchecked")
+                    List<Long> data = (List<Long>) series.get("data");
+                    int idx = timeLabels.indexOf(tk);
+                    if (idx >= 0 && idx < data.size()) {
+                        sum += data.get(idx);
+                    }
+                }
+                totalData.add(sum);
+            }
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("granularity", granularity);
+            result.put("timeLabels", timeLabels);
+            result.put("userSeries", userSeries);
+            result.put("totalData", totalData);
+
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            log.error("获取 AI 调用统计失败: {}", e.getMessage(), e);
+            return ApiResponse.error("获取 AI 调用统计失败");
+        }
     }
 
     @Operation(summary = "诊断：请求日志数据状态", description = "检查 t_request_log 表中 request_time 字段的分布情况")

@@ -31,6 +31,8 @@ service.interceptors.request.use(
     // AI 相关接口动态读取用户在 AI 设置中配置的超时时间（实时全局生效）
     if (config.url && (
       config.url.includes('/ai/generate-') ||
+      config.url.includes('/ai/chat') ||
+      config.url.includes('/ai/chat-suggestions') ||
       config.url.includes('/ai-config/test-connectivity')
     )) {
       config.timeout = getAiTimeout()

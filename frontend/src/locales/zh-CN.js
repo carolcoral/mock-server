@@ -47,7 +47,8 @@ export default {
     userManagement: '用户管理',
     settings: '系统设置',
     statistics: '数据统计',
-    aiSettings: '服务商设置'
+    aiSettings: 'AI 设置',
+    aiChat: 'AI 对话'
   },
 
   // 用户相关
@@ -682,7 +683,14 @@ export default {
     currentIops: '当前IOPS',
     avgIops: '平均IOPS',
     peakIops: '峰值IOPS',
-    noData: '暂无数据'
+    noData: '暂无数据',
+    aiCalls: 'AI 调用统计',
+    yearly: '按年',
+    monthly: '按月',
+    daily: '按日',
+    callCount: '调用次数',
+    totalCalls: '总调用次数',
+    aiCallsByUser: '按用户统计'
   },
 
   // 代码模板
@@ -755,7 +763,7 @@ export default {
 
   // 访问页
   welcome: {
-    badge: 'v2.2.0 · API 模拟服务器',
+    badge: 'API 模拟服务器',
     title: '轻松构建 Mock API',
     subtitle: '智能、高效、零后端依赖',
     description: 'Mock Server 是一款功能强大的 API 模拟平台，支持自定义响应、动态代码执行、AI 智能生成、Swagger 导入、请求统计分析等，助力前端开发与测试提效。',
@@ -930,5 +938,27 @@ export default {
     preview: '预览',
     editContent: '编辑',
     previewHtml: 'HTML 预览效果'
+  },
+
+  // AI 对话
+  aiChat: {
+    welcomeTitle: '有什么可以帮助你的？',
+    welcomeDesc: '我是 Mock Server 的 AI 助手，可以回答你的问题、帮助生成代码、解释技术概念等',
+    inputPlaceholder: '输入你的问题，按 Enter 发送...',
+    enterHint: 'Enter 发送',
+    send: '发送',
+    thinking: '思考中...',
+    you: '你',
+    ai: 'AI 助手',
+    clearChat: '清空对话',
+    copySuccess: '已复制到剪贴板',
+    copyFailed: '复制失败',
+    error: 'AI 响应失败，请检查配置或重试',
+    networkError: '网络错误，请检查 AI 服务配置',
+    emptyReply: 'AI 未返回有效内容，请重试',
+    suggest1: 'Mock Server 有哪些核心功能？',
+    suggest2: '如何创建和管理 Mock API？',
+    suggest3: '如何配置 AI 服务来生成 Mock 数据？',
+    suggest4: '如何编写自定义 Java 响应处理器？'
   }
 }
