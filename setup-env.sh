@@ -843,15 +843,20 @@ install_maven_manual() {
     # 尝试下载，优先 wget，失败则回退到 curl
     local downloaded=false
 
+    # 清除可能残留的旧文件
+    rm -f /tmp/apache-maven.tar.gz
+
     if command -v wget >/dev/null 2>&1; then
         print_info "使用 wget 下载..."
         if sudo wget -q --show-progress "$MAVEN_DOWNLOAD_URL" -O /tmp/apache-maven.tar.gz 2>/dev/null; then
             downloaded=true
         else
+            rm -f /tmp/apache-maven.tar.gz
             print_warning "wget 下载失败（尝试无 sudo）..."
             if wget -q "$MAVEN_DOWNLOAD_URL" -O /tmp/apache-maven.tar.gz 2>/dev/null; then
                 downloaded=true
             else
+                rm -f /tmp/apache-maven.tar.gz
                 print_warning "wget 下载失败，尝试 curl..."
             fi
         fi
@@ -859,18 +864,53 @@ install_maven_manual() {
 
     if [ "$downloaded" = false ] && command -v curl >/dev/null 2>&1; then
         print_info "使用 curl 下载..."
-        if curl -sL --retry 3 --retry-delay 2 "$MAVEN_DOWNLOAD_URL" -o /tmp/apache-maven.tar.gz; then
+        # -f: HTTP 错误（404等）时返回非零退出码
+        # -s: 静默模式  -L: 跟随重定向  --retry: 失败重试
+        if curl -fsSL --retry 3 --retry-delay 2 "$MAVEN_DOWNLOAD_URL" -o /tmp/apache-maven.tar.gz; then
             downloaded=true
         else
+            rm -f /tmp/apache-maven.tar.gz
             print_warning "curl 下载也失败"
         fi
     fi
 
+    # 验证下载的文件是否为有效的 gzip 压缩包
+    if [ "$downloaded" = true ]; then
+        if ! gzip -t /tmp/apache-maven.tar.gz 2>/dev/null; then
+            print_error "下载的文件不是有效的 gzip 压缩包（可能下载了错误页面）"
+            print_info "文件大小: $(stat -c%s /tmp/apache-maven.tar.gz 2>/dev/null || echo '未知') 字节"
+            print_info "文件类型: $(file /tmp/apache-maven.tar.gz 2>/dev/null || echo '未知')"
+            rm -f /tmp/apache-maven.tar.gz
+
+            # 尝试备用镜像下载
+            if command -v curl >/dev/null 2>&1; then
+                print_info "尝试从 Apache 镜像列表获取可用镜像..."
+                local mirror_url
+                mirror_url=$(curl -fsSL "https://www.apache.org/dyn/closer.lua?action=json&filename=maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz" 2>/dev/null | \
+                    grep -o '"preferred":"[^"]*"' 2>/dev/null | head -1 | sed 's/.*"preferred":"//;s/"//')
+                if [ -n "$mirror_url" ] && curl -fsSL --retry 3 --retry-delay 2 "$mirror_url" -o /tmp/apache-maven.tar.gz; then
+                    if gzip -t /tmp/apache-maven.tar.gz 2>/dev/null; then
+                        print_success "备用镜像下载成功"
+                        downloaded=true
+                    else
+                        rm -f /tmp/apache-maven.tar.gz
+                        downloaded=false
+                    fi
+                else
+                    downloaded=false
+                fi
+            else
+                downloaded=false
+            fi
+        fi
+    fi
+
     if [ "$downloaded" = false ]; then
+        rm -f /tmp/apache-maven.tar.gz
         if ! command -v wget >/dev/null 2>&1 && ! command -v curl >/dev/null 2>&1; then
             print_error "未找到 wget 或 curl，无法下载 Maven"
         else
-            print_error "Maven 下载失败（wget 和 curl 均失败）"
+            print_error "Maven 下载失败（wget 和 curl 均失败或下载文件损坏）"
         fi
         print_info "请手动安装 Maven $REQUIRED_MAVEN_MAJOR.$REQUIRED_MAVEN_MINOR+: https://maven.apache.org/download.cgi"
         return 1
@@ -878,7 +918,29 @@ install_maven_manual() {
     
     print_info "解压并安装到 $MAVEN_INSTALL_DIR..."
     sudo mkdir -p "$MAVEN_INSTALL_DIR"
-    sudo tar -xzf /tmp/apache-maven.tar.gz -C "$MAVEN_INSTALL_DIR" --strip-components=1
+    if ! sudo tar -xzf /tmp/apache-maven.tar.gz -C "$MAVEN_INSTALL_DIR" --strip-components=1 2>/dev/null; then
+        print_warning "直接解压失败，尝试兼容方式..."
+        # 某些旧版 tar（如 CentOS 7 busybox tar）不支持 --strip-components
+        # 先解压到临时目录再移动
+        local tmp_extract="/tmp/maven-extract-$$"
+        mkdir -p "$tmp_extract"
+        if sudo tar -xzf /tmp/apache-maven.tar.gz -C "$tmp_extract" 2>/dev/null; then
+            # 找到第一层子目录（Maven 的 apache-maven-x.x.x/）
+            local inner_dir
+            inner_dir=$(ls -1 "$tmp_extract" | head -1)
+            if [ -n "$inner_dir" ] && [ -d "$tmp_extract/$inner_dir" ]; then
+                sudo cp -a "$tmp_extract/$inner_dir/"* "$MAVEN_INSTALL_DIR/" 2>/dev/null
+            else
+                sudo cp -a "$tmp_extract/"* "$MAVEN_INSTALL_DIR/" 2>/dev/null
+            fi
+            rm -rf "$tmp_extract"
+        else
+            rm -rf "$tmp_extract"
+            print_error "解压 Maven 失败"
+            rm -f /tmp/apache-maven.tar.gz
+            return 1
+        fi
+    fi
     rm -f /tmp/apache-maven.tar.gz
     
     # 确保 /usr/local/bin 在 PATH 中且优先级高于系统路径
