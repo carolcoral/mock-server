@@ -23,6 +23,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +53,21 @@ public class ProjectService {
         this.userRepository = userRepository;
         this.projectMemberRepository = projectMemberRepository;
         this.cacheUtil = cacheUtil;
+    }
+
+    /**
+     * 检查当前登录用户是否拥有指定权限（ADMIN 角色或指定 authority）
+     */
+    private boolean hasAuthorityOrAdmin(String authority) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return false;
+        for (GrantedAuthority ga : auth.getAuthorities()) {
+            String authStr = ga.getAuthority();
+            if ("ROLE_ADMIN".equals(authStr) || authority.equals(authStr)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private final ProjectRepository projectRepository;
@@ -169,15 +187,15 @@ public class ProjectService {
     @Transactional
     public ApiResponse<Void> deleteProject(@Parameter(description = "项目ID", example = "1") Long projectId,
                                        @Parameter(description = "当前用户ID") Long userId,
-                                       @Parameter(description = "用户角色") User.UserRole userRole) {
+                                       @Parameter(description = "用户角色，null 表示通过细粒度权限授权") User.UserRole userRole) {
         try {
             if (!projectRepository.existsById(projectId)) {
                 return ApiResponse.error("项目不存在");
             }
 
-            // 管理员可以删除任何项目
-            // 非管理员只能删除自己创建的项目
-            if (userRole != User.UserRole.ADMIN) {
+            // 管理员或有 project:delete 权限的用户（userRole 为 null 表示通过 @PreAuthorize 授权）
+            // 但仍需检查是否为项目创建者，非创建者不可删除
+            if (userRole == null || userRole != User.UserRole.ADMIN) {
                 Optional<Project> projectOpt = projectRepository.findById(projectId);
                 if (projectOpt.isPresent()) {
                     Project project = projectOpt.get();
@@ -293,8 +311,8 @@ public class ProjectService {
             }
 
             List<Long> accessibleProjectIds;
-            if (userRole == User.UserRole.ADMIN) {
-                // 管理员：不限制项目
+            if (hasAuthorityOrAdmin("project:view_all")) {
+                // 管理员或有 project:view_all 权限：不限制项目（查看全部）
                 accessibleProjectIds = null; // null 表示不限制
             } else {
                 List<Project> accessibleProjects = projectRepository.findAccessibleProjectsByUserId(userId);
@@ -421,8 +439,8 @@ public class ProjectService {
             List<Project> projects;
             List<ProjectWithRoleDTO> projectWithRoles = new ArrayList<>();
 
-            if (userRole == User.UserRole.ADMIN) {
-                // 管理员可以访问所有项目，角色为ADMIN（自己创建的项目也显示为项目管理员）
+            if (hasAuthorityOrAdmin("project:view_all")) {
+                // 管理员或有 project:view_all 权限：可以访问所有项目
                 projects = projectRepository.findAll();
                 for (Project project : projects) {
                     String role = "ADMIN";
@@ -485,8 +503,8 @@ public class ProjectService {
             User user = userOpt.get();
             List<Project> projects;
 
-            // 管理员可以访问所有项目
-            if (userRole == User.UserRole.ADMIN) {
+            // 管理员或有 project:view_all 权限的用户可以访问所有项目
+            if (hasAuthorityOrAdmin("project:view_all")) {
                 projects = projectRepository.findAll();
             } else {
                 // 普通用户只能访问自己是创建者或管理员的项目

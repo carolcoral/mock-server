@@ -58,7 +58,8 @@ public class MockApiController {
      * @param mockApi 接口信息
      * @return 创建的接口
      */
-    @Operation(summary = "创建接口", description = "创建新的自定义接口")
+    @Operation(summary = "创建接口", description = "创建新的自定义接口（需要 api:create 权限或管理员）")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('api:create')")
     @PostMapping
     public ApiResponse<MockApi> createMockApi(@Parameter(description = "接口信息") @Valid @RequestBody MockApi mockApi) {
         log.info("创建接口请求: {}", mockApi.getName());
@@ -71,7 +72,8 @@ public class MockApiController {
      * @param mockApi 接口信息
      * @return 更新的接口
      */
-    @Operation(summary = "更新接口", description = "更新自定义接口信息")
+    @Operation(summary = "更新接口", description = "更新自定义接口信息（需要 api:edit 权限或管理员）")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('api:edit')")
     @PutMapping
     public ApiResponse<MockApi> updateMockApi(@Parameter(description = "接口信息") @Valid @RequestBody MockApi mockApi) {
         log.info("更新接口请求: {}", mockApi.getId());
@@ -84,7 +86,8 @@ public class MockApiController {
      * @param apiId 接口ID
      * @return 删除结果
      */
-    @Operation(summary = "删除接口", description = "删除自定义接口")
+    @Operation(summary = "删除接口", description = "删除自定义接口（需要 api:delete 权限或管理员）")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('api:delete')")
     @DeleteMapping("/{apiId}")
     public ApiResponse<Void> deleteMockApi(@Parameter(description = "接口ID", example = "1") @PathVariable Long apiId) {
         log.info("删除接口请求: {}", apiId);

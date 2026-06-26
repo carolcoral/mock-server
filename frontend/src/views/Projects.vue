@@ -369,16 +369,20 @@ const router = useRouter()
 const { t } = useI18n()
 const userStore = useUserStore()
 const isAdmin = computed(() => userStore.isAdmin)
-// 管理员或拥有 project:view 权限的用户可以看到所有项目
-const canViewAllProjects = computed(() => userStore.hasPermission('project:view'))
+// 管理员或拥有 project:view_all 权限的用户可以看到所有项目
+const canViewAllProjects = computed(() => userStore.hasPermission('project:view_all'))
 const canCreateProject = computed(() => userStore.hasPermission('project:create'))
 const canEditProject = (project) => {
-  if (userStore.hasPermission('project:edit')) return true
+  // 有 project:view_all 且有 project:edit 权限：可编辑所有项目
+  if (canViewAllProjects.value && userStore.hasPermission('project:edit')) return true
+  // 否则只能编辑自己是项目管理员/创建者的项目
   const role = project.userRole
   return role === 'ADMIN' || role === 'CREATOR'
 }
 const canDeleteProject = (project) => {
-  if (userStore.hasPermission('project:delete')) return true
+  // 有 project:view_all 且有 project:delete 权限：可删除所有项目
+  if (canViewAllProjects.value && userStore.hasPermission('project:delete')) return true
+  // 否则只能删除自己是项目管理员/创建者的项目
   const role = project.userRole
   return role === 'ADMIN' || role === 'CREATOR'
 }

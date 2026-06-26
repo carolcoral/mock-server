@@ -52,7 +52,8 @@ public class ProjectController {
      * @param request 请求
      * @return 创建的项目
      */
-    @Operation(summary = "创建项目", description = "创建新项目")
+    @Operation(summary = "创建项目", description = "创建新项目（需要 project:create 权限或管理员）")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('project:create')")
     @PostMapping
     public ApiResponse<Project> createProject(@Parameter(description = "项目信息") @Valid @RequestBody Project project,
                                               HttpServletRequest request) {
@@ -67,7 +68,8 @@ public class ProjectController {
      * @param project 项目信息
      * @return 更新的项目
      */
-    @Operation(summary = "更新项目", description = "更新项目信息")
+    @Operation(summary = "更新项目", description = "更新项目信息（需要 project:edit 权限或管理员，或项目创建者）")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('project:edit')")
     @PutMapping
     public ApiResponse<Project> updateProject(@Parameter(description = "项目信息") @Valid @RequestBody Project project,
                                        HttpServletRequest request) {
@@ -83,14 +85,14 @@ public class ProjectController {
      * @param request   请求
      * @return 删除结果
      */
-    @Operation(summary = "删除项目", description = "删除项目，需要管理员权限或项目创建者权限")
+    @Operation(summary = "删除项目", description = "删除项目，需要 project:delete 权限或管理员")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('project:delete')")
     @DeleteMapping("/{projectId}")
     public ApiResponse<Void> deleteProject(@Parameter(description = "项目ID", example = "1") @PathVariable Long projectId,
                                        HttpServletRequest request) {
         Long userId = getUserIdFromRequest(request);
-        User.UserRole userRole = getUserRoleFromRequest(request);
-        log.info("删除项目请求: {}, 用户={}, 角色={}", projectId, userId, userRole);
-        return projectService.deleteProject(projectId, userId, userRole);
+        log.info("删除项目请求: {}, 用户={}", projectId, userId);
+        return projectService.deleteProject(projectId, userId, null);
     }
 
     /**
@@ -132,7 +134,8 @@ public class ProjectController {
      * @param request 请求
      * @return 分页结果
      */
-    @Operation(summary = "查询所有项目", description = "查询所有项目列表，支持分页和搜索（仅管理员）")
+    @Operation(summary = "查询所有项目", description = "查询所有项目列表，支持分页和搜索（需要 project:view 权限或管理员）")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('project:view')")
     @GetMapping
     public ApiResponse<com.carolcoral.mockserver.dto.PageResult<Project>> getAllProjects(
             @Parameter(description = "项目名称（模糊搜索）") @RequestParam(required = false) String name,
@@ -141,13 +144,6 @@ public class ProjectController {
             @Parameter(description = "页码（从0开始）") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "每页大小") @RequestParam(defaultValue = "10") int size,
             HttpServletRequest request) {
-        User.UserRole userRole = getUserRoleFromRequest(request);
-        
-        // 只有管理员可以查询所有项目
-        if (userRole != User.UserRole.ADMIN) {
-            return ApiResponse.error("没有权限访问");
-        }
-        
         log.info("查询所有项目请求: name={}, code={}, enabled={}, page={}, size={}", name, code, enabled, page, size);
         return projectService.searchProjects(name, code, enabled, page, size);
     }

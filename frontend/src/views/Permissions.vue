@@ -43,6 +43,7 @@
             <el-checkbox
               v-model="group.checkedAll"
               :indeterminate="group.indeterminate"
+              :disabled="!canAssignPermission"
               @change="(val) => handleGroupCheckAll(group, val)"
             >
               <strong>{{ group.groupName }}</strong>
@@ -52,6 +53,7 @@
             <div v-for="perm in group.permissions" :key="perm.id" class="perm-item">
               <el-checkbox
                 :model-value="checkedPermissionIds.includes(perm.id)"
+                :disabled="!canAssignPermission"
                 @change="(val) => handlePermCheck(perm.id, val)"
               >
                 <span class="perm-name">{{ perm.name }}</span>
@@ -63,7 +65,7 @@
           </div>
         </div>
 
-        <div class="perms-footer">
+        <div class="perms-footer" v-if="canAssignPermission">
           <el-button type="primary" :loading="saving" @click="handleSave">
             {{ $t('permission.permission.savePermissions') }}
           </el-button>
@@ -78,8 +80,10 @@ import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import { useUserStore } from '@/stores/user'
 
 const { t } = useI18n()
+const userStore = useUserStore()
 
 const roleList = ref([])
 const selectedRoleId = ref(null)
@@ -87,6 +91,8 @@ const permissionGroups = ref([])
 const checkedPermissionIds = ref([])
 const loading = ref(false)
 const saving = ref(false)
+
+const canAssignPermission = computed(() => userStore.hasPermission('permission:assign'))
 
 const fetchRoles = async () => {
   try {

@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -110,18 +111,15 @@ public class CustomCodeTemplateController {
     /**
      * 批量删除模板（仅系统管理员）
      */
-    @Operation(summary = "批量删除自定义代码模板（仅管理员）")
+    @Operation(summary = "批量删除自定义代码模板（需要 code-template:delete 权限或管理员）")
+    @PreAuthorize("hasRole('ADMIN') or hasAuthority('code-template:delete')")
     @DeleteMapping("/batch-delete")
     public ApiResponse<Void> batchDeleteTemplates(
             @Parameter(description = "模板ID列表") @RequestBody List<Long> ids,
             HttpServletRequest request) {
         Long userId = getCurrentUserId(request);
-        User.UserRole userRole = getCurrentUserRole(request);
         if (userId == null) {
             return ApiResponse.error("用户未登录");
-        }
-        if (userRole != User.UserRole.ADMIN) {
-            return ApiResponse.error("仅系统管理员可批量删除");
         }
         return templateService.batchDeleteTemplates(ids, userId);
     }

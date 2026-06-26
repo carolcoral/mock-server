@@ -26,6 +26,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -65,6 +66,21 @@ public class MockApiService {
     private final CacheUtil cacheUtil;
     private final UserRepository userRepository;
     private final MockService mockService;
+
+    /**
+     * 检查当前登录用户是否拥有指定权限（ADMIN 角色或指定 authority）
+     */
+    private boolean hasAuthorityOrAdmin(String authority) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return false;
+        for (GrantedAuthority ga : auth.getAuthorities()) {
+            String authStr = ga.getAuthority();
+            if ("ROLE_ADMIN".equals(authStr) || authority.equals(authStr)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     /**
      * 创建接口
@@ -331,9 +347,9 @@ public class MockApiService {
 
             User user = userOpt.get();
 
-            // 管理员可以查看所有项目的接口
-            if (user.getRole() != User.UserRole.ADMIN) {
-                // 检查用户是否有权限访问该项目
+            // 管理员或有 api:view_all 权限的用户可以查看所有项目的接口
+            if (!hasAuthorityOrAdmin("api:view_all")) {
+                // 检查用户是否有权限访问该项目（仅限成员项目）
                 List<Long> accessibleProjectIds = projectRepository.findAccessibleProjectsByUserId(user.getId())
                         .stream()
                         .map(Project::getId)
@@ -384,12 +400,12 @@ public class MockApiService {
 
             User user = userOpt.get();
 
-            // 管理员可以查看所有接口
-            if (user.getRole() == User.UserRole.ADMIN) {
+            // 管理员或有 api:view_all 权限的用户可以查看所有接口
+            if (hasAuthorityOrAdmin("api:view_all")) {
                 return ApiResponse.success(allApis);
             }
 
-            // 普通用户只能查看自己有权限的项目下的接口
+            // 普通用户只能查看自己是成员的项目下的接口
             List<Long> accessibleProjectIds = projectRepository.findAccessibleProjectsByUserId(user.getId())
                     .stream()
                     .map(Project::getId)
@@ -425,7 +441,7 @@ public class MockApiService {
             User user = userOpt.get();
 
             List<Long> accessibleProjectIds = null;
-            if (user.getRole() != User.UserRole.ADMIN) {
+            if (!hasAuthorityOrAdmin("api:view_all")) {
                 accessibleProjectIds = projectRepository.findAccessibleProjectsByUserId(user.getId())
                         .stream().map(Project::getId).collect(Collectors.toList());
             }
@@ -460,8 +476,8 @@ public class MockApiService {
 
             User user = userOpt.get();
 
-            // 管理员可以查看所有项目的接口
-            if (user.getRole() != User.UserRole.ADMIN) {
+            // 管理员或有 api:view_all 权限的用户可以查看所有项目的接口
+            if (!hasAuthorityOrAdmin("api:view_all")) {
                 List<Long> accessibleProjectIds = projectRepository.findAccessibleProjectsByUserId(user.getId())
                         .stream()
                         .map(Project::getId)

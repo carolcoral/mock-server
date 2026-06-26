@@ -12,7 +12,7 @@
         <el-button v-if="canBatchDelete && selectedRows.length > 0" type="danger" @click="handleBatchDelete">
           {{ $t('codeTemplate.batchDelete') }} ({{ selectedRows.length }})
         </el-button>
-        <el-button type="primary" @click="handleCreate">
+        <el-button type="primary" @click="handleCreate" v-if="canCreateTemplate">
           <Plus :width="'1em'" :height="'1em'" />
           {{ $t('codeTemplate.createTemplate') }}
         </el-button>
@@ -246,6 +246,9 @@ const MonacoEditor = defineAsyncComponent(() => import('@/components/MonacoEdito
 const { t } = useI18n()
 const userStore = useUserStore()
 const isAdmin = computed(() => userStore.isAdmin)
+// 管理员或有 code-template:view_all 权限：可以看到所有模板（含全部项目模板）
+const canViewAllTemplates = computed(() => userStore.hasPermission('code-template:view_all'))
+const canCreateTemplate = computed(() => userStore.hasPermission('code-template:create'))
 const canManageSystemTemplates = computed(() => userStore.hasPermission('code-template:edit'))
 const canBatchDelete = computed(() => userStore.hasPermission('code-template:delete'))
 
@@ -785,7 +788,16 @@ const handleDialogClose = () => {
 
 // 判断用户是否可以编辑/删除模板
 const canEditTemplate = (template) => {
-  if (userStore.hasPermission('code-template:edit')) return true
+  // 有 code-template:view_all 且有 code-template:edit 权限：可编辑所有模板（含系统模板）
+  if (canViewAllTemplates.value && userStore.hasPermission('code-template:edit')) return true
+  // 有 code-template:edit 但没有 view_all：只能编辑自己项目的模板
+  if (userStore.hasPermission('code-template:edit')) {
+    const projectId = template.project?.id
+    if (!projectId) return false // 系统模板不可编辑
+    const role = projectRoleMap.value[projectId]
+    return role === 'ADMIN' || role === 'CREATOR'
+  }
+  // 没有 code-template:edit：只能编辑自己是项目管理员/创建者的模板
   const projectId = template.project?.id
   if (!projectId) return false
   const role = projectRoleMap.value[projectId]

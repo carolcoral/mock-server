@@ -13,7 +13,7 @@
           <Refresh :width="'1em'" :height="'1em'" />
           {{ $t('api.refresh') }}
         </el-button>
-        <el-button type="primary" @click="handleCreate">
+        <el-button type="primary" @click="handleCreate" v-if="canCreateApi">
           <Plus :width="'1em'" :height="'1em'" />
           {{ $t('api.createApi') }}
         </el-button>
@@ -126,9 +126,9 @@
               </el-button>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item command="edit">{{ $t('api.edit') }}</el-dropdown-item>
-                  <el-dropdown-item command="responses">{{ $t('api.manageResponses') }}</el-dropdown-item>
-                  <el-dropdown-item command="delete" divided style="color: #f56c6c;">{{ $t('api.delete') }}</el-dropdown-item>
+                  <el-dropdown-item command="edit" :disabled="!canEditApi">{{ $t('api.edit') }}</el-dropdown-item>
+                  <el-dropdown-item command="responses" :disabled="!canEditApi">{{ $t('api.manageResponses') }}</el-dropdown-item>
+                  <el-dropdown-item command="delete" :disabled="!canDeleteApi" divided style="color: #f56c6c;">{{ $t('api.delete') }}</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -651,6 +651,7 @@
 <script setup>
 import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Edit, Delete, InfoFilled, WarningFilled, ArrowDown, CopyDocument, MagicStick } from '@element-plus/icons-vue'
 import request from '@/utils/request'
@@ -664,6 +665,12 @@ const MonacoEditor = defineAsyncComponent(() => import('@/components/MonacoEdito
 
 const { t } = useI18n()
 const route = useRoute()
+const userStore = useUserStore()
+
+// 权限控制
+const canCreateApi = computed(() => userStore.hasPermission('api:create'))
+const canEditApi = computed(() => userStore.hasPermission('api:edit'))
+const canDeleteApi = computed(() => userStore.hasPermission('api:delete'))
 
 // 搜索表单
 const searchForm = reactive({

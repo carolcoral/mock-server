@@ -372,14 +372,17 @@ public class DatabaseMigration implements CommandLineRunner {
             {"项目管理-创建", "project:create", "业务管理", "BUTTON", "11"},
             {"项目管理-编辑", "project:edit", "业务管理", "BUTTON", "12"},
             {"项目管理-删除", "project:delete", "业务管理", "BUTTON", "13"},
+            {"项目管理-查看全部", "project:view_all", "业务管理", "BUTTON", "14"},
             {"接口管理-页面访问", "api:view", "业务管理", "PAGE", "20"},
             {"接口管理-创建", "api:create", "业务管理", "BUTTON", "21"},
             {"接口管理-编辑", "api:edit", "业务管理", "BUTTON", "22"},
             {"接口管理-删除", "api:delete", "业务管理", "BUTTON", "23"},
+            {"接口管理-查看全部", "api:view_all", "业务管理", "BUTTON", "24"},
             {"代码模板-页面访问", "code-template:view", "业务管理", "PAGE", "30"},
             {"代码模板-创建", "code-template:create", "业务管理", "BUTTON", "31"},
             {"代码模板-编辑", "code-template:edit", "业务管理", "BUTTON", "32"},
             {"代码模板-删除", "code-template:delete", "业务管理", "BUTTON", "33"},
+            {"代码模板-查看全部", "code-template:view_all", "业务管理", "BUTTON", "34"},
             // AI 对话
             {"AI对话-页面访问", "ai-chat:view", "AI对话", "PAGE", "40"},
             // 数据统计

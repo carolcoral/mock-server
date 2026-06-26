@@ -25,6 +25,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,6 +59,21 @@ public class CustomCodeTemplateService {
     }
 
     /**
+     * 检查当前登录用户是否拥有指定权限（ADMIN 角色或指定 authority）
+     */
+    private boolean hasAuthorityOrAdmin(String authority) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) return false;
+        for (GrantedAuthority ga : auth.getAuthorities()) {
+            String authStr = ga.getAuthority();
+            if ("ROLE_ADMIN".equals(authStr) || authority.equals(authStr)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * 创建模板
      * 系统管理员可创建系统默认模板（isSystem=true, project=null）
      * 普通用户只能创建项目级模板
@@ -68,8 +86,8 @@ public class CustomCodeTemplateService {
 
             if (isSystemTemplate) {
                 // 只有系统管理员可以创建系统默认模板
-                if (userRole != User.UserRole.ADMIN) {
-                    return ApiResponse.error("只有系统管理员可以创建系统默认模板");
+                if (!hasAuthorityOrAdmin("code-template:edit")) {
+                    return ApiResponse.error("只有系统管理员或有 code-template:edit 权限的用户可以创建系统默认模板");
                 }
                 // 系统模板不关联项目
                 template.setProject(null);
@@ -115,8 +133,8 @@ public class CustomCodeTemplateService {
 
             CustomCodeTemplate existing = existingOpt.get();
 
-            // 权限检查：系统管理员可编辑所有模板（含系统模板），项目创建者/管理员可编辑本项目模板
-            if (userRole != User.UserRole.ADMIN) {
+            // 权限检查：系统管理员或有 code-template:edit 权限可编辑所有模板（含系统模板），项目创建者/管理员可编辑本项目模板
+            if (!hasAuthorityOrAdmin("code-template:edit")) {
                 // 普通用户：系统默认模板不可修改
                 if (existing.getIsSystem() != null && existing.getIsSystem()) {
                     return ApiResponse.error("系统默认模板不可修改");
@@ -139,8 +157,8 @@ public class CustomCodeTemplateService {
             if (template.getEnabled() != null) {
                 existing.setEnabled(template.getEnabled());
             }
-            // 系统管理员可以修改 isSystem 标志
-            if (template.getIsSystem() != null && userRole == User.UserRole.ADMIN) {
+            // 系统管理员或有 code-template:edit 权限可以修改 isSystem 标志
+            if (template.getIsSystem() != null && hasAuthorityOrAdmin("code-template:edit")) {
                 existing.setIsSystem(template.getIsSystem());
             }
             if (template.getProject() != null && template.getProject().getId() != null) {
@@ -174,8 +192,8 @@ public class CustomCodeTemplateService {
 
             CustomCodeTemplate existing = existingOpt.get();
 
-            // 权限检查：系统管理员可删除所有模板（含系统模板），项目创建者/管理员可删除本项目模板
-            if (userRole != User.UserRole.ADMIN) {
+            // 权限检查：系统管理员或有 code-template:delete 权限可删除所有模板（含系统模板），项目创建者/管理员可删除本项目模板
+            if (!hasAuthorityOrAdmin("code-template:delete")) {
                 // 普通用户：系统默认模板不可删除
                 if (existing.getIsSystem() != null && existing.getIsSystem()) {
                     return ApiResponse.error("系统默认模板不可删除");
@@ -326,7 +344,7 @@ public class CustomCodeTemplateService {
         Specification<CustomCodeTemplate> systemSpec = (root, query, cb) ->
                 cb.isTrue(root.get("isSystem"));
 
-        if (userRole != User.UserRole.ADMIN) {
+        if (!hasAuthorityOrAdmin("code-template:view_all")) {
             List<Long> projectIds = getAccessibleProjectIds(userId);
             if (projectIds.isEmpty()) {
                 // 没有权限访问任何项目，只能看系统默认模板
