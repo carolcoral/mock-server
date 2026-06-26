@@ -20,286 +20,158 @@ public class DatabaseMigration implements CommandLineRunner {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private DatabaseDialectProvider dialect;
+
     @Override
     public void run(String... args) {
-        try {
-            // 添加active字段到t_mock_response表
-            jdbcTemplate.execute("ALTER TABLE t_mock_response ADD COLUMN active BOOLEAN DEFAULT 0");
-            log.info("成功添加active字段到t_mock_response表");
-        } catch (Exception e) {
-            String errorMsg = e.getMessage();
-            if (errorMsg != null && errorMsg.contains("duplicate column name")) {
-                log.info("active字段已存在，跳过迁移");
-            } else {
-                log.warn("添加active字段失败: {}", errorMsg);
-            }
+        log.info("当前数据库类型: {}, URL: {}", dialect.detectDbType(), dialect.isSqlite() ? "SQLite" : "MySQL/PostgreSQL");
+
+        // SQLite 特有的 ALTER TABLE 迁移（MySQL/PostgreSQL 由 Hibernate ddl-auto 处理）
+        if (dialect.isSqlite()) {
+            runSqliteMigrations();
         }
 
-        try {
-            // 添加is_default字段到t_mock_response表
-            jdbcTemplate.execute("ALTER TABLE t_mock_response ADD COLUMN is_default BOOLEAN DEFAULT 0");
-            log.info("成功添加is_default字段到t_mock_response表");
-        } catch (Exception e) {
-            String errorMsg = e.getMessage();
-            if (errorMsg != null && errorMsg.contains("duplicate column name")) {
-                log.info("is_default字段已存在，跳过迁移");
-            } else {
-                log.warn("添加is_default字段失败: {}", errorMsg);
-            }
-        }
+        // 通用数据迁移（所有数据库都执行）
+        runCommonMigrations();
+    }
 
-        try {
-            // 添加response_delay字段到t_mock_response表
-            jdbcTemplate.execute("ALTER TABLE t_mock_response ADD COLUMN response_delay INTEGER DEFAULT 0");
-            log.info("成功添加response_delay字段到t_mock_response表");
-        } catch (Exception e) {
-            String errorMsg = e.getMessage();
-            if (errorMsg != null && errorMsg.contains("duplicate column name")) {
-                log.info("response_delay字段已存在，跳过迁移");
-            } else {
-                log.warn("添加response_delay字段失败: {}", errorMsg);
-            }
-        }
+    /**
+     * SQLite 特有的表结构迁移（MySQL/PostgreSQL 由 Hibernate ddl-auto:update 处理）
+     */
+    private void runSqliteMigrations() {
+        // 添加active字段到t_mock_response表
+        safeAlter("ALTER TABLE t_mock_response ADD COLUMN active BOOLEAN DEFAULT 0", "active");
 
-        try {
-            // 创建t_response_request_param表
-            jdbcTemplate.execute("""
-                CREATE TABLE IF NOT EXISTS t_response_request_param (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    param_name VARCHAR(100) NOT NULL,
-                    param_type VARCHAR(50) NOT NULL,
-                    param_value TEXT,
-                    required BOOLEAN NOT NULL DEFAULT 1,
-                    create_time DATETIME NOT NULL,
-                    update_time DATETIME NOT NULL,
-                    response_id INTEGER NOT NULL,
-                    FOREIGN KEY (response_id) REFERENCES t_mock_response(id)
-                )
-                """);
-            log.info("成功创建t_response_request_param表");
-        } catch (Exception e) {
-            log.warn("创建t_response_request_param表失败: {}", e.getMessage());
-        }
+        // 添加is_default字段到t_mock_response表
+        safeAlter("ALTER TABLE t_mock_response ADD COLUMN is_default BOOLEAN DEFAULT 0", "is_default");
 
-        try {
-            // 添加language字段到t_user表（允许NULL，然后更新现有记录）
-            jdbcTemplate.execute("ALTER TABLE t_user ADD COLUMN language varchar(10)");
-            log.info("成功添加language字段到t_user表");
-            // 为现有用户设置默认语言
-            jdbcTemplate.update("UPDATE t_user SET language = 'zh-CN' WHERE language IS NULL");
-            log.info("为现有用户设置默认语言");
-        } catch (Exception e) {
-            String errorMsg = e.getMessage();
-            if (errorMsg != null && errorMsg.contains("duplicate column name")) {
-                log.info("language字段已存在，跳过迁移");
-            } else {
-                log.warn("添加language字段失败: {}", errorMsg);
-            }
-        }
+        // 添加response_delay字段到t_mock_response表
+        safeAlter("ALTER TABLE t_mock_response ADD COLUMN response_delay INTEGER DEFAULT 0", "response_delay");
 
-        try {
-            // 创建t_system_config表
-            jdbcTemplate.execute("""
-                CREATE TABLE IF NOT EXISTS t_system_config (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    config_key VARCHAR(100) NOT NULL UNIQUE,
-                    config_value VARCHAR(500) NOT NULL,
-                    description VARCHAR(500),
-                    create_time DATETIME NOT NULL,
-                    update_time DATETIME NOT NULL
-                )
-                """);
-            log.info("成功创建t_system_config表");
-            // 插入默认配置（如果不存在）
-            jdbcTemplate.execute("""
-                INSERT OR IGNORE INTO t_system_config (config_key, config_value, description, create_time, update_time)
-                VALUES ('defaultLanguage', 'zh-CN', '系统默认语言', datetime('now'), datetime('now'))
-                """);
-            log.info("插入默认系统配置");
-        } catch (Exception e) {
-            log.warn("创建t_system_config表失败: {}", e.getMessage());
-        }
+        // 创建t_response_request_param表
+        safeExecute("CREATE TABLE IF NOT EXISTS t_response_request_param (" +
+            "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+            "param_name VARCHAR(100) NOT NULL," +
+            "param_type VARCHAR(50) NOT NULL," +
+            "param_value TEXT," +
+            "required BOOLEAN NOT NULL DEFAULT 1," +
+            "create_time DATETIME NOT NULL," +
+            "update_time DATETIME NOT NULL," +
+            "response_id INTEGER NOT NULL," +
+            "FOREIGN KEY (response_id) REFERENCES t_mock_response(id))",
+            "t_response_request_param");
 
-        try {
-            // 添加custom_response_handler字段到t_mock_api表
-            jdbcTemplate.execute("ALTER TABLE t_mock_api ADD COLUMN custom_response_handler VARCHAR(500)");
-            log.info("成功添加custom_response_handler字段到t_mock_api表");
-        } catch (Exception e) {
-            String errorMsg = e.getMessage();
-            if (errorMsg != null && errorMsg.contains("duplicate column name")) {
-                log.info("custom_response_handler字段已存在，跳过迁移");
-            } else {
-                log.warn("添加custom_response_handler字段失败: {}", errorMsg);
-            }
-        }
+        // 添加language字段到t_user表
+        safeAlter("ALTER TABLE t_user ADD COLUMN language varchar(10)", "language");
 
-        try {
-            // 添加custom_response_source字段到t_mock_api表（TEXT类型，存储动态编译的源码）
-            jdbcTemplate.execute("ALTER TABLE t_mock_api ADD COLUMN custom_response_source TEXT");
-            log.info("成功添加custom_response_source字段到t_mock_api表");
-        } catch (Exception e) {
-            String errorMsg = e.getMessage();
-            if (errorMsg != null && errorMsg.contains("duplicate column name")) {
-                log.info("custom_response_source字段已存在，跳过迁移");
-            } else {
-                log.warn("添加custom_response_source字段失败: {}", errorMsg);
-            }
-        }
+        // 添加custom_response_handler字段
+        safeAlter("ALTER TABLE t_mock_api ADD COLUMN custom_response_handler VARCHAR(500)", "custom_response_handler");
 
-        try {
-            // 添加is_system字段到t_custom_code_template表（v2.1.2 系统默认模板标识）
-            jdbcTemplate.execute("ALTER TABLE t_custom_code_template ADD COLUMN is_system BOOLEAN DEFAULT 0");
-            log.info("成功添加is_system字段到t_custom_code_template表");
-        } catch (Exception e) {
-            String errorMsg = e.getMessage();
-            if (errorMsg != null && (errorMsg.contains("duplicate column name") || errorMsg.contains("no such table"))) {
-                log.info("is_system字段已存在或表不存在，跳过迁移");
-            } else {
-                log.warn("添加is_system字段失败: {}", errorMsg);
-            }
-        }
+        // 添加custom_response_source字段
+        safeAlter("ALTER TABLE t_mock_api ADD COLUMN custom_response_source TEXT", "custom_response_source");
 
-        try {
-            // v2.1.2: 将 project_id 改为可空（系统模板不属于任何项目）
-            // SQLite 不支持 ALTER COLUMN，需要重建表
-            // 注意：v2.1.0 升级时此表由 Hibernate ddl-auto 自动创建，无需迁移
-            jdbcTemplate.execute("""
-                CREATE TABLE t_custom_code_template_new (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name VARCHAR(100) NOT NULL,
-                    description VARCHAR(500),
-                    source_code TEXT NOT NULL,
-                    language VARCHAR(50) NOT NULL DEFAULT 'JAVA',
-                    enabled BOOLEAN NOT NULL DEFAULT 1,
-                    is_system BOOLEAN DEFAULT 0,
-                    create_time DATETIME NOT NULL,
-                    update_time DATETIME NOT NULL,
-                    create_user_id BIGINT NOT NULL,
-                    project_id BIGINT
-                )
-                """);
-            // 迁移旧数据（如果旧表存在且有数据）
-            jdbcTemplate.execute("""
-                INSERT INTO t_custom_code_template_new
-                SELECT id, name, description, source_code, language, enabled,
-                       COALESCE(is_system, 0), create_time, update_time, create_user_id, project_id
-                FROM t_custom_code_template
-                """);
-            jdbcTemplate.execute("DROP TABLE t_custom_code_template");
-            jdbcTemplate.execute("ALTER TABLE t_custom_code_template_new RENAME TO t_custom_code_template");
-            log.info("成功将project_id改为可空（v2.1.2 代码模板表结构升级）");
-        } catch (Exception e) {
-            String errorMsg = e.getMessage();
-            if (errorMsg != null && (errorMsg.contains("already exists") || errorMsg.contains("no such table"))) {
-                log.info("代码模板表无需升级，跳过迁移");
-            } else {
-                log.warn("代码模板表结构升级失败: {}", errorMsg);
-            }
-        }
+        // 添加is_system字段
+        safeAlter("ALTER TABLE t_custom_code_template ADD COLUMN is_system BOOLEAN DEFAULT 0", "is_system");
 
-        try {
-            // v2.1.2: 创建 AI 配置表
-            jdbcTemplate.execute("""
-                CREATE TABLE IF NOT EXISTS t_ai_config (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    provider VARCHAR(50) NOT NULL UNIQUE,
-                    provider_name VARCHAR(100) NOT NULL,
-                    api_url VARCHAR(500) NOT NULL,
-                    api_key VARCHAR(500) NOT NULL,
-                    default_model VARCHAR(100),
-                    max_tokens INTEGER DEFAULT 4096,
-                    temperature REAL DEFAULT 0.7,
-                    enabled BOOLEAN NOT NULL DEFAULT 0,
-                    create_time DATETIME NOT NULL,
-                    update_time DATETIME NOT NULL
-                )
-                """);
-            log.info("成功创建t_ai_config表");
-        } catch (Exception e) {
-            log.warn("创建t_ai_config表失败: {}", e.getMessage());
-        }
+        // 代码模板表结构升级（project_id改为可空）
+        safeExecute("""
+            CREATE TABLE t_custom_code_template_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(100) NOT NULL,
+                description VARCHAR(500),
+                source_code TEXT NOT NULL,
+                language VARCHAR(50) NOT NULL DEFAULT 'JAVA',
+                enabled BOOLEAN NOT NULL DEFAULT 1,
+                is_system BOOLEAN DEFAULT 0,
+                create_time DATETIME NOT NULL,
+                update_time DATETIME NOT NULL,
+                create_user_id BIGINT NOT NULL,
+                project_id BIGINT
+            )
+            """, "t_custom_code_template_new (v2.1.2)");
+        safeExecute("""
+            INSERT INTO t_custom_code_template_new
+            SELECT id, name, description, source_code, language, enabled,
+                   COALESCE(is_system, 0), create_time, update_time, create_user_id, project_id
+            FROM t_custom_code_template
+            """, "代码模板数据迁移");
+        safeExecute("DROP TABLE t_custom_code_template", "DROP旧模板表");
+        safeExecute("ALTER TABLE t_custom_code_template_new RENAME TO t_custom_code_template", "RENAME新模板表");
 
-        try {
-            // v2.3.0: 创建角色表
-            jdbcTemplate.execute("""
-                CREATE TABLE IF NOT EXISTS t_role (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name VARCHAR(50) NOT NULL UNIQUE,
-                    code VARCHAR(50) NOT NULL UNIQUE,
-                    description VARCHAR(200),
-                    is_default BOOLEAN NOT NULL DEFAULT 0,
-                    create_time DATETIME NOT NULL,
-                    update_time DATETIME NOT NULL
-                )
-                """);
-            log.info("成功创建t_role表");
-            // 插入默认角色
-            jdbcTemplate.execute("""
-                INSERT OR IGNORE INTO t_role (id, name, code, description, is_default, create_time, update_time)
-                VALUES (1, '管理员', 'ROLE_ADMIN', '系统管理员，拥有所有权限', 0, datetime('now'), datetime('now'))
-                """);
-            jdbcTemplate.execute("""
-                INSERT OR IGNORE INTO t_role (id, name, code, description, is_default, create_time, update_time)
-                VALUES (2, '普通用户', 'ROLE_USER', '默认注册用户角色', 1, datetime('now'), datetime('now'))
-                """);
-        } catch (Exception e) {
-            log.warn("创建t_role表失败: {}", e.getMessage());
-        }
+        // 添加role_id字段到t_user表
+        safeAlter("ALTER TABLE t_user ADD COLUMN role_id BIGINT", "role_id");
+    }
 
-        try {
-            // v2.3.0: 创建权限表
-            jdbcTemplate.execute("""
-                CREATE TABLE IF NOT EXISTS t_permission (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name VARCHAR(100) NOT NULL,
-                    code VARCHAR(100) NOT NULL UNIQUE,
-                    group_name VARCHAR(50) NOT NULL,
-                    type VARCHAR(20) NOT NULL,
-                    sort_order INTEGER NOT NULL DEFAULT 0,
-                    create_time DATETIME NOT NULL,
-                    update_time DATETIME NOT NULL
-                )
-                """);
-            log.info("成功创建t_permission表");
-            // 插入默认权限
-            insertDefaultPermissions();
-        } catch (Exception e) {
-            log.warn("创建t_permission表失败: {}", e.getMessage());
-        }
+    /**
+     * 通用数据迁移（所有数据库类型都执行）
+     */
+    private void runCommonMigrations() {
+        // 创建t_system_config表
+        safeExecute("CREATE TABLE IF NOT EXISTS t_system_config (" +
+            dialect.idColumnDefinition() + "," +
+            "config_key VARCHAR(100) NOT NULL UNIQUE," +
+            "config_value VARCHAR(500) NOT NULL," +
+            "description VARCHAR(500)," +
+            "create_time " + dialect.dateTimeType() + " NOT NULL," +
+            "update_time " + dialect.dateTimeType() + " NOT NULL)", "t_system_config");
+        safeInsertOrIgnore("t_system_config",
+            "(config_key, config_value, description, create_time, update_time)",
+            "config_key",
+            "VALUES ('defaultLanguage', 'zh-CN', '系统默认语言', " + dialect.nowExpression() + ", " + dialect.nowExpression() + ")");
 
-        try {
-            // v2.3.0: 创建角色-权限关联表
-            jdbcTemplate.execute("""
-                CREATE TABLE IF NOT EXISTS t_role_permission (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    role_id BIGINT NOT NULL,
-                    permission_id BIGINT NOT NULL
-                )
-                """);
-            log.info("成功创建t_role_permission表");
-            // 给管理员角色分配所有权限
-            jdbcTemplate.execute("""
-                INSERT OR IGNORE INTO t_role_permission (role_id, permission_id)
-                SELECT 1, id FROM t_permission
-                """);
-        } catch (Exception e) {
-            log.warn("创建t_role_permission表失败: {}", e.getMessage());
-        }
+        // 创建t_ai_config表
+        safeExecute("CREATE TABLE IF NOT EXISTS t_ai_config (" +
+            dialect.idColumnDefinition() + "," +
+            "provider VARCHAR(50) NOT NULL UNIQUE," +
+            "provider_name VARCHAR(100) NOT NULL," +
+            "api_url VARCHAR(500) NOT NULL," +
+            "api_key VARCHAR(500) NOT NULL," +
+            "default_model VARCHAR(100)," +
+            "max_tokens INTEGER DEFAULT 4096," +
+            "temperature REAL DEFAULT 0.7," +
+            "enabled BOOLEAN NOT NULL DEFAULT 0," +
+            "create_time " + dialect.dateTimeType() + " NOT NULL," +
+            "update_time " + dialect.dateTimeType() + " NOT NULL)", "t_ai_config");
 
-        try {
-            // v2.3.0: 给t_user表添加role_id字段
-            jdbcTemplate.execute("ALTER TABLE t_user ADD COLUMN role_id BIGINT");
-            log.info("成功添加role_id字段到t_user表");
-        } catch (Exception e) {
-            String errorMsg = e.getMessage();
-            if (errorMsg != null && errorMsg.contains("duplicate column name")) {
-                log.info("role_id字段已存在，跳过迁移");
-            } else {
-                log.warn("添加role_id字段失败: {}", errorMsg);
-            }
-        }
+        // 创建t_role表
+        safeExecute("CREATE TABLE IF NOT EXISTS t_role (" +
+            dialect.idColumnDefinition() + "," +
+            "name VARCHAR(50) NOT NULL UNIQUE," +
+            "code VARCHAR(50) NOT NULL UNIQUE," +
+            "description VARCHAR(200)," +
+            "is_default BOOLEAN NOT NULL DEFAULT 0," +
+            "create_time " + dialect.dateTimeType() + " NOT NULL," +
+            "update_time " + dialect.dateTimeType() + " NOT NULL)", "t_role");
+        String now = dialect.nowExpression();
+        safeInsertOrIgnore("t_role", "(id, name, code, description, is_default, create_time, update_time)", "id",
+            "VALUES (1, '管理员', 'ROLE_ADMIN', '系统管理员，拥有所有权限', 0, " + now + ", " + now + ")");
+        safeInsertOrIgnore("t_role", "(id, name, code, description, is_default, create_time, update_time)", "id",
+            "VALUES (2, '普通用户', 'ROLE_USER', '默认注册用户角色', 1, " + now + ", " + now + ")");
 
-        // 无论列是否已存在，都尝试更新已有用户的 role_id（处理列已存在但数据未迁移的情况）
+        // 创建t_permission表
+        safeExecute("CREATE TABLE IF NOT EXISTS t_permission (" +
+            dialect.idColumnDefinition() + "," +
+            "name VARCHAR(100) NOT NULL," +
+            "code VARCHAR(100) NOT NULL UNIQUE," +
+            "group_name VARCHAR(50) NOT NULL," +
+            "type VARCHAR(20) NOT NULL," +
+            "sort_order INTEGER NOT NULL DEFAULT 0," +
+            "create_time " + dialect.dateTimeType() + " NOT NULL," +
+            "update_time " + dialect.dateTimeType() + " NOT NULL)", "t_permission");
+        insertDefaultPermissions();
+
+        // 创建t_role_permission表
+        safeExecute("CREATE TABLE IF NOT EXISTS t_role_permission (" +
+            dialect.idColumnDefinition() + "," +
+            "role_id BIGINT NOT NULL," +
+            "permission_id BIGINT NOT NULL)", "t_role_permission");
+        // 给管理员角色分配所有权限
+        String assignPerms = dialect.buildInsertOrIgnore("t_role_permission", "(role_id, permission_id)", "role_id,permission_id")
+            + "SELECT 1, id FROM t_permission";
+        safeExecute(assignPerms, "管理员权限分配");
+
+        // 更新用户的role_id
         try {
             jdbcTemplate.update("UPDATE t_user SET role_id = 1 WHERE role = 'ADMIN' AND role_id IS NULL");
             jdbcTemplate.update("UPDATE t_user SET role_id = 2 WHERE role = 'USER' AND role_id IS NULL");
@@ -308,55 +180,93 @@ public class DatabaseMigration implements CommandLineRunner {
             log.warn("更新现有用户role_id失败: {}", e.getMessage());
         }
 
-        try {
-            // v2.3.0: 创建 AI 调用日志表（用于统计页面展示）
-            // 使用 CREATE TABLE IF NOT EXISTS，保留历史数据
-            jdbcTemplate.execute("""
-                CREATE TABLE IF NOT EXISTS t_ai_call_log (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id BIGINT NOT NULL,
-                    username VARCHAR(100),
-                    api_type VARCHAR(50) NOT NULL,
-                    call_time DATETIME NOT NULL,
-                    success BOOLEAN,
-                    error_message VARCHAR(500)
-                )
-                """);
-            log.info("成功创建t_ai_call_log表");
-            // 创建索引加速按时间查询
-            jdbcTemplate.execute("""
-                CREATE INDEX IF NOT EXISTS idx_ai_call_time ON t_ai_call_log(call_time)
-                """);
-            jdbcTemplate.execute("""
-                CREATE INDEX IF NOT EXISTS idx_ai_call_username ON t_ai_call_log(username)
-                """);
-        } catch (Exception e) {
-            log.warn("创建t_ai_call_log表失败: {}", e.getMessage());
-        }
+        // 创建t_ai_call_log表
+        safeExecute("CREATE TABLE IF NOT EXISTS t_ai_call_log (" +
+            dialect.idColumnDefinition() + "," +
+            "user_id BIGINT NOT NULL," +
+            "username VARCHAR(100)," +
+            "api_type VARCHAR(50) NOT NULL," +
+            "call_time " + dialect.dateTimeType() + " NOT NULL," +
+            "success BOOLEAN," +
+            "error_message VARCHAR(500))", "t_ai_call_log");
+        safeExecute(dialect.createIndexIfNotExists("idx_ai_call_time", "t_ai_call_log", "call_time"), "idx_ai_call_time");
+        safeExecute(dialect.createIndexIfNotExists("idx_ai_call_username", "t_ai_call_log", "username"), "idx_ai_call_username");
 
+        // 补全项目创建者的成员记录
         try {
-            // v2.3.1: 补全项目创建者的成员记录（之前createUserId硬编码跳过成员检查）
-            // Hibernate EnumType.ORDINAL: CREATOR=0, ADMIN=1, MEMBER=2
-            int migratedCount = jdbcTemplate.update("""
-                INSERT OR IGNORE INTO t_project_member (project_id, user_id, role, create_time, update_time)
-                SELECT p.id, p.create_user_id, 1, datetime('now'), datetime('now')
-                FROM t_project p
-                WHERE p.create_user_id IS NOT NULL
-                  AND NOT EXISTS (
-                      SELECT 1 FROM t_project_member pm
-                      WHERE pm.project_id = p.id AND pm.user_id = p.create_user_id
-                  )
-                """);
+            String insertMembers = dialect.buildInsertOrIgnore("t_project_member", "(project_id, user_id, role, create_time, update_time)", "project_id,user_id")
+                + "SELECT p.id, p.create_user_id, 1, " + now + ", " + now
+                + " FROM t_project p"
+                + " WHERE p.create_user_id IS NOT NULL"
+                + " AND NOT EXISTS ("
+                + " SELECT 1 FROM t_project_member pm"
+                + " WHERE pm.project_id = p.id AND pm.user_id = p.create_user_id"
+                + ")";
+            int migratedCount = jdbcTemplate.update(insertMembers);
             log.info("补全项目创建者成员记录: 迁移 {} 条", migratedCount);
 
-            // 将旧的 CREATOR(ordinal=0) 角色统一更新为 ADMIN(ordinal=1)
             int updatedCount = jdbcTemplate.update(
-                "UPDATE t_project_member SET role = 1, update_time = datetime('now') WHERE role = 0");
+                "UPDATE t_project_member SET role = 1, update_time = " + now + " WHERE role = 0");
             if (updatedCount > 0) {
                 log.info("将 CREATOR(0) 角色统一更新为 ADMIN(1): {} 条", updatedCount);
             }
         } catch (Exception e) {
             log.warn("补全项目创建者成员记录失败: {}", e.getMessage());
+        }
+
+        // 更新现有用户语言
+        try {
+            jdbcTemplate.update("UPDATE t_user SET language = 'zh-CN' WHERE language IS NULL");
+            log.info("为现有用户设置默认语言");
+        } catch (Exception e) {
+            log.warn("设置默认语言失败: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 安全的 ALTER TABLE（仅 SQLite 执行）
+     */
+    private void safeAlter(String sql, String columnName) {
+        if (!dialect.isSqlite()) return;
+        try {
+            jdbcTemplate.execute(sql);
+            log.info("成功添加{}字段", columnName);
+        } catch (Exception e) {
+            String errorMsg = e.getMessage();
+            if (errorMsg != null && errorMsg.contains("duplicate column name")) {
+                log.info("{}字段已存在，跳过迁移", columnName);
+            } else {
+                log.warn("添加{}字段失败: {}", errorMsg, columnName);
+            }
+        }
+    }
+
+    /**
+     * 安全的执行 SQL（忽略表已存在的错误）
+     */
+    private void safeExecute(String sql, String name) {
+        try {
+            jdbcTemplate.execute(sql);
+            log.info("成功执行: {}", name);
+        } catch (Exception e) {
+            String errorMsg = e.getMessage();
+            if (errorMsg != null && (errorMsg.contains("already exists") || errorMsg.contains("no such table"))) {
+                log.info("{}已存在或无需迁移，跳过", name);
+            } else {
+                log.warn("执行{}失败: {}", name, errorMsg);
+            }
+        }
+    }
+
+    /**
+     * 安全的 INSERT OR IGNORE（自动处理数据库方言差异）
+     */
+    private void safeInsertOrIgnore(String table, String columns, String conflictColumn, String values) {
+        try {
+            String sql = dialect.buildInsertOrIgnore(table, columns, conflictColumn) + values;
+            jdbcTemplate.execute(sql);
+        } catch (Exception e) {
+            log.warn("插入数据到{}失败: {}", table, e.getMessage());
         }
     }
 
@@ -364,6 +274,7 @@ public class DatabaseMigration implements CommandLineRunner {
      * 插入默认权限定义
      */
     private void insertDefaultPermissions() {
+        String now = dialect.nowExpression();
         String[][] perms = {
             // 仪表盘
             {"仪表盘-页面访问", "dashboard:view", "仪表盘", "PAGE", "1"},
@@ -407,12 +318,12 @@ public class DatabaseMigration implements CommandLineRunner {
             {"系统设置-页面访问", "settings:view", "系统管理", "PAGE", "100"},
         };
 
+        String sql = dialect.buildInsertOrIgnore("t_permission",
+            "(name, code, group_name, type, sort_order, create_time, update_time)", "code")
+            + "VALUES (?, ?, ?, ?, ?, " + now + ", " + now + ")";
         for (String[] perm : perms) {
             try {
-                jdbcTemplate.update(
-                    "INSERT OR IGNORE INTO t_permission (name, code, group_name, type, sort_order, create_time, update_time) VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))",
-                    perm[0], perm[1], perm[2], perm[3], Integer.parseInt(perm[4])
-                );
+                jdbcTemplate.update(sql, perm[0], perm[1], perm[2], perm[3], Integer.parseInt(perm[4]));
             } catch (Exception e) {
                 log.warn("插入权限失败: {} - {}", perm[1], e.getMessage());
             }

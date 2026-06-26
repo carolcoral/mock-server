@@ -262,7 +262,7 @@ check_maven() {
                 local ver_output
                 ver_output=$("$candidate_home/bin/mvn" --version 2>&1 | head -n 1)
                 local ver
-                ver=$(echo "$ver_output" | grep -oP 'Apache Maven \K[0-9]+\.[0-9]+' 2>/dev/null)
+                ver=$(echo "$ver_output" | sed -n 's/.*Apache Maven \([0-9]\+\.[0-9]\+\).*/\1/p')
                 if [ -n "$ver" ]; then
                     local major minor
                     major=$(echo "$ver" | cut -d'.' -f1)
@@ -287,7 +287,7 @@ check_maven() {
     # 方法1: 检查当前 PATH 中的 mvn
     if command -v mvn >/dev/null 2>&1; then
         local current_ver
-        current_ver=$(mvn --version 2>&1 | head -n 1 | grep -oP 'Apache Maven \K[0-9]+\.[0-9]+' 2>/dev/null)
+        current_ver=$(mvn --version 2>&1 | head -n 1 | sed -n 's/.*Apache Maven \([0-9]\+\.[0-9]\+\).*/\1/p')
         if [ -n "$current_ver" ]; then
             local cur_major cur_minor
             cur_major=$(echo "$current_ver" | cut -d'.' -f1)
@@ -357,7 +357,7 @@ check_maven() {
         export MAVEN_HOME="$best_maven"
         export PATH="$best_maven/bin:$PATH"
         local best_ver
-        best_ver=$(mvn --version 2>&1 | head -n 1 | grep -oP 'Apache Maven \K[0-9]+\.[0-9]+' 2>/dev/null)
+        best_ver=$(mvn --version 2>&1 | head -n 1 | sed -n 's/.*Apache Maven \([0-9]\+\.[0-9]\+\).*/\1/p')
         print_success "Maven $best_ver 已就绪 (多版本切换): $best_maven"
         print_info "  $(mvn --version 2>&1 | head -n 1)"
         return 0

@@ -167,14 +167,15 @@ if [ -f "$PID_FILE" ]; then
 fi
 
 # 兜底：通过端口清理
-OLD_PID=$(lsof -ti:$SERVER_PORT 2>/dev/null || ss -tlnp 2>/dev/null | grep -oP "pid=\K[0-9]+" | head -1)
+OLD_PID=$(lsof -ti:$SERVER_PORT 2>/dev/null || ss -tlnp 2>/dev/null | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' | head -1)
 if [ ! -z "$OLD_PID" ] && [ "$OLD_PID" != "$PID_FROM_FILE" ]; then
     kill "$OLD_PID" 2>/dev/null
     sleep 2
     kill -0 "$OLD_PID" 2>/dev/null && kill -9 "$OLD_PID" 2>/dev/null
 fi
 
-# 构造启动参数
+# 构造数据库和日志路径参数
+DB_TYPE=${DB_TYPE:-sqlite}
 if [ "$JAR_DIR" = "$SCRIPT_DIR" ]; then
     JAVA_DB_URL="jdbc:sqlite:./data/mock-server.db"
     JAVA_LOG_PATH="./logs/mock-server.log"
@@ -183,11 +184,16 @@ else
     JAVA_LOG_PATH="./backend/logs/mock-server.log"
 fi
 
+# 启动参数：仅 SQLite 模式需要覆盖 DB_URL 路径，MySQL/PostgreSQL 由 profile YAML 自动构建
+JAVA_OPTS="-DLOG_FILE_PATH=$JAVA_LOG_PATH"
+if [ "$DB_TYPE" = "sqlite" ]; then
+    JAVA_OPTS="$JAVA_OPTS -DDB_URL=$JAVA_DB_URL"
+fi
+
 # 启动服务
-print_info "启动后端服务 (端口: $SERVER_PORT)..."
+print_info "启动后端服务 (端口: $SERVER_PORT, 数据库: $DB_TYPE)..."
 nohup "$INTERNAL_JAVA_HOME/bin/java" \
-    -DDB_URL="$JAVA_DB_URL" \
-    -DLOG_FILE_PATH="$JAVA_LOG_PATH" \
+    $JAVA_OPTS \
     -jar "$JAR_FILE" \
     > "$LOG_DIR/server.log" 2>&1 &
 

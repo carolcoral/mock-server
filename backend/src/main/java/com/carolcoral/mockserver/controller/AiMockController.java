@@ -27,6 +27,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -85,8 +86,10 @@ public class AiMockController {
         return 0L;
     }
 
+    private static final DateTimeFormatter DB_DATETIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
     /**
-     * 记录 AI 调用日志（使用 JdbcTemplate 直接 INSERT，避免 JPA ID 生成策略与 SQLite 的兼容问题）
+     * 记录 AI 调用日志（使用 JdbcTemplate 直接 INSERT，避免 JPA ID 生成策略与数据库的兼容问题）
      */
     private void logAiCall(String apiType, boolean success, String errorMessage) {
         try {
@@ -95,7 +98,7 @@ public class AiMockController {
                 getCurrentUserId(),
                 getCurrentUsername(),
                 apiType,
-                LocalDateTime.now().toString(),
+                LocalDateTime.now().format(DB_DATETIME_FMT),
                 success ? 1 : 0,
                 errorMessage != null && errorMessage.length() > 500 ? errorMessage.substring(0, 500) : errorMessage
             );

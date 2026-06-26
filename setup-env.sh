@@ -794,7 +794,8 @@ check_maven_installed() {
     
     if command -v mvn >/dev/null 2>&1; then
         MAVEN_VERSION_OUTPUT=$(mvn --version 2>&1 | head -n 1)
-        MAVEN_VERSION=$(echo "$MAVEN_VERSION_OUTPUT" | grep -oP 'Apache Maven \K[0-9]+\.[0-9]+' 2>/dev/null)
+        # 使用 sed 替代 grep -oP，兼容老系统（如 CentOS 7）
+        MAVEN_VERSION=$(echo "$MAVEN_VERSION_OUTPUT" | sed -n 's/.*Apache Maven \([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
         
         if [ -n "$MAVEN_VERSION" ]; then
             MAVEN_MAJOR=$(echo "$MAVEN_VERSION" | cut -d'.' -f1)
@@ -813,6 +814,72 @@ check_maven_installed() {
     fi
     
     print_warning "未检测到 Maven $REQUIRED_MAVEN_MAJOR.$REQUIRED_MAVEN_MINOR+"
+    return 1
+}
+
+# 静默检查 Maven 版本（供安装后验证使用，不输出日志）
+check_maven_version_silent() {
+    if command -v mvn >/dev/null 2>&1; then
+        MAVEN_VERSION=$(mvn --version 2>&1 | head -n 1 | sed -n 's/.*Apache Maven \([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
+        if [ -n "$MAVEN_VERSION" ]; then
+            MAVEN_MAJOR=$(echo "$MAVEN_VERSION" | cut -d'.' -f1)
+            MAVEN_MINOR=$(echo "$MAVEN_VERSION" | cut -d'.' -f2)
+            if [ "$MAVEN_MAJOR" -gt "$REQUIRED_MAVEN_MAJOR" ] || \
+               ([ "$MAVEN_MAJOR" -eq "$REQUIRED_MAVEN_MAJOR" ] && [ "$MAVEN_MINOR" -ge "$REQUIRED_MAVEN_MINOR" ]); then
+                return 0
+            fi
+        fi
+    fi
+    return 1
+}
+
+# 手动下载安装 Maven（当系统包管理器提供的版本过低时使用）
+install_maven_manual() {
+    print_step "手动下载 Maven 3.9.9（系统包管理器版本过低）..."
+    
+    MAVEN_DOWNLOAD_URL="https://dlcdn.apache.org/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz"
+    MAVEN_INSTALL_DIR="/opt/maven"
+    
+    if command -v wget >/dev/null 2>&1; then
+        print_info "使用 wget 下载..."
+        sudo wget -q --show-progress "$MAVEN_DOWNLOAD_URL" -O /tmp/apache-maven.tar.gz 2>/dev/null || \
+        wget -q "$MAVEN_DOWNLOAD_URL" -O /tmp/apache-maven.tar.gz
+    elif command -v curl >/dev/null 2>&1; then
+        print_info "使用 curl 下载..."
+        curl -sL "$MAVEN_DOWNLOAD_URL" -o /tmp/apache-maven.tar.gz
+    else
+        print_error "未找到 wget 或 curl，无法下载 Maven"
+        return 1
+    fi
+    
+    if [ ! -f /tmp/apache-maven.tar.gz ] || [ ! -s /tmp/apache-maven.tar.gz ]; then
+        print_error "Maven 下载失败，请手动安装 Maven $REQUIRED_MAVEN_MAJOR.$REQUIRED_MAVEN_MINOR+: https://maven.apache.org/download.cgi"
+        return 1
+    fi
+    
+    print_info "解压并安装到 $MAVEN_INSTALL_DIR..."
+    sudo mkdir -p "$MAVEN_INSTALL_DIR"
+    sudo tar -xzf /tmp/apache-maven.tar.gz -C "$MAVEN_INSTALL_DIR" --strip-components=1
+    rm -f /tmp/apache-maven.tar.gz
+    
+    # 确保 /usr/local/bin 在 PATH 中且优先级高于系统路径
+    sudo ln -sf "$MAVEN_INSTALL_DIR/bin/mvn" /usr/local/bin/mvn 2>/dev/null || \
+    sudo ln -sf "$MAVEN_INSTALL_DIR/bin/mvn" /usr/bin/mvn 2>/dev/null || true
+    
+    # 重新加载 PATH
+    export PATH="/usr/local/bin:$PATH"
+    hash -r 2>/dev/null || true
+    
+    if command -v mvn >/dev/null 2>&1; then
+        MAVEN_VERSION_OUTPUT=$(mvn --version 2>&1 | head -n 1)
+        if check_maven_version_silent; then
+            print_success "Maven 手动安装完成"
+            print_info "$MAVEN_VERSION_OUTPUT"
+            return 0
+        fi
+    fi
+    
+    print_error "Maven 手动安装失败，请手动安装: https://maven.apache.org/download.cgi"
     return 1
 }
 
@@ -841,25 +908,34 @@ install_maven_mac() {
 
 # 在 Debian/Ubuntu 上安装 Maven
 install_maven_debian() {
-    print_step "在 Debian/Ubuntu 上安装 Maven..."
+    print_step "在 Debian/Ubuntu 上安装 Maven $REQUIRED_MAVEN_MAJOR.$REQUIRED_MAVEN_MINOR+..."
     
     sudo apt-get update -qq
     sudo apt-get install -y -qq maven
     
-    if [ $? -eq 0 ]; then
+    if [ $? -ne 0 ]; then
+        print_warning "apt 安装失败，尝试手动安装..."
+        install_maven_manual
+        return $?
+    fi
+    
+    # 验证版本是否满足要求
+    if check_maven_version_silent; then
         print_success "Maven 安装完成"
         MAVEN_VERSION_OUTPUT=$(mvn --version 2>&1 | head -n 1)
         print_info "$MAVEN_VERSION_OUTPUT"
         return 0
-    else
-        print_error "Maven 安装失败"
-        return 1
     fi
+    
+    print_warning "系统包管理器的 Maven 版本过低，卸载后手动安装..."
+    sudo apt-get remove -y maven 2>/dev/null || true
+    install_maven_manual
+    return $?
 }
 
 # 在 RHEL/CentOS/Fedora 上安装 Maven
 install_maven_rhel() {
-    print_step "在 RHEL/CentOS/Fedora 上安装 Maven..."
+    print_step "在 RHEL/CentOS/Fedora 上安装 Maven $REQUIRED_MAVEN_MAJOR.$REQUIRED_MAVEN_MINOR+..."
     
     if command -v dnf >/dev/null 2>&1; then
         sudo dnf install -y maven
@@ -870,32 +946,55 @@ install_maven_rhel() {
         return 1
     fi
     
-    if [ $? -eq 0 ]; then
+    if [ $? -ne 0 ]; then
+        print_warning "包管理器安装失败，尝试手动安装..."
+        install_maven_manual
+        return $?
+    fi
+    
+    # 验证安装后的版本是否满足要求（CentOS 7 的 yum 只有 Maven 3.0.x）
+    if check_maven_version_silent; then
         print_success "Maven 安装完成"
         MAVEN_VERSION_OUTPUT=$(mvn --version 2>&1 | head -n 1)
         print_info "$MAVEN_VERSION_OUTPUT"
         return 0
-    else
-        print_error "Maven 安装失败"
-        return 1
     fi
+    
+    # 系统包管理器版本过低，卸载后用 Apache 官方二进制包
+    print_warning "系统包管理器的 Maven 版本过低（CentOS 7 仅提供 Maven 3.0.x）"
+    print_info "卸载旧版本并使用 Apache 官方 Maven $REQUIRED_MAVEN_MAJOR.$REQUIRED_MAVEN_MINOR+..."
+    if command -v dnf >/dev/null 2>&1; then
+        sudo dnf remove -y maven 2>/dev/null || true
+    elif command -v yum >/dev/null 2>&1; then
+        sudo yum remove -y maven 2>/dev/null || true
+    fi
+    install_maven_manual
+    return $?
 }
 
 # 在 openSUSE 上安装 Maven
 install_maven_suse() {
-    print_step "在 openSUSE 上安装 Maven..."
+    print_step "在 openSUSE 上安装 Maven $REQUIRED_MAVEN_MAJOR.$REQUIRED_MAVEN_MINOR+..."
     
     sudo zypper install -y maven
     
-    if [ $? -eq 0 ]; then
+    if [ $? -ne 0 ]; then
+        print_warning "zypper 安装失败，尝试手动安装..."
+        install_maven_manual
+        return $?
+    fi
+    
+    if check_maven_version_silent; then
         print_success "Maven 安装完成"
         MAVEN_VERSION_OUTPUT=$(mvn --version 2>&1 | head -n 1)
         print_info "$MAVEN_VERSION_OUTPUT"
         return 0
-    else
-        print_error "Maven 安装失败"
-        return 1
     fi
+    
+    print_warning "系统包管理器的 Maven 版本过低，卸载后手动安装..."
+    sudo zypper remove -y maven 2>/dev/null || true
+    install_maven_manual
+    return $?
 }
 
 # 在 Alpine 上安装 Maven
@@ -1148,12 +1247,12 @@ install_nodejs_rhel() {
                 print_info "RHEL $DISTRO_VERSION (>=8)，使用 dnf module 安装..."
                 sudo dnf module install -y nodejs:$REQUIRED_NODE_MAJOR 2>/dev/null || \
                 sudo dnf install -y nodejs
-            elif [ "$RHEL_MAJOR" -ge 7 ] 2>/dev/null; then
-                print_info "RHEL/CentOS 7，使用 NodeSource 安装..."
-                curl -fsSL "https://rpm.nodesource.com/setup_${REQUIRED_NODE_MAJOR}.x" -o /tmp/nodesource_setup.sh
-                sudo bash /tmp/nodesource_setup.sh
-                rm -f /tmp/nodesource_setup.sh
-                sudo yum install -y nodejs
+            elif [ "$RHEL_MAJOR" -eq 7 ] 2>/dev/null; then
+                # CentOS/RHEL 7 glibc 2.17 不支持 Node.js 18+ 的 RPM 包（需要 glibc 2.28+）
+                # 跳过 NodeSource RPM，直接走 nvm（如有兼容构建仍可安装）
+                print_warning "CentOS/RHEL 7 的 glibc 2.17 不兼容 Node.js 18 RPM 包"
+                print_info "跳过 RPM 安装，交由 nvm 处理..."
+                return 2  # 特殊返回码：让调用者走 nvm 路径
             else
                 print_warning "版本过旧，尝试使用 NodeSource..."
                 curl -fsSL "https://rpm.nodesource.com/setup_${REQUIRED_NODE_MAJOR}.x" -o /tmp/nodesource_setup.sh

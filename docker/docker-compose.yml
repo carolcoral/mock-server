@@ -11,8 +11,21 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - SERVER_PORT=8080
-      - DB_URL=jdbc:sqlite:/app/data/mock-server.db
-      - LOG_FILE_PATH=/app/logs/mock-server.log
+      - DB_TYPE=${DB_TYPE:-sqlite}
+      - DB_URL=${DB_URL:-jdbc:sqlite:/app/data/mock-server.db}
+      - LOG_FILE_PATH=${LOG_FILE_PATH:-/app/logs/mock-server.log}
+      # MySQL 配置（DB_TYPE=mysql 时生效）
+      - MYSQL_HOST=${MYSQL_HOST:-}
+      - MYSQL_PORT=${MYSQL_PORT:-}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-}
+      - MYSQL_USERNAME=${MYSQL_USERNAME:-}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-}
+      # PostgreSQL 配置（DB_TYPE=postgresql 时生效）
+      - PGSQL_HOST=${PGSQL_HOST:-}
+      - PGSQL_PORT=${PGSQL_PORT:-}
+      - PGSQL_DATABASE=${PGSQL_DATABASE:-}
+      - PGSQL_USERNAME=${PGSQL_USERNAME:-}
+      - PGSQL_PASSWORD=${PGSQL_PASSWORD:-}
       - JWT_SECRET=${JWT_SECRET:-scbcnlsue#TVYbxka73bdlyabjj63glbod4vjb^FRIGBbja63jku^FXYZ123456789ABC}
       - JWT_EXPIRATION=${JWT_EXPIRATION:-86400000}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}

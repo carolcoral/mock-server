@@ -1,0 +1,21 @@
+# ========================================
+# PostgreSQL 数据库配置
+# 适合生产环境，功能丰富的关系型数据库
+# ========================================
+spring:
+  datasource:
+    url: jdbc:postgresql://${PGSQL_HOST:localhost}:${PGSQL_PORT:5432}/${PGSQL_DATABASE:mock_server}
+    driver-class-name: org.postgresql.Driver
+    username: ${PGSQL_USERNAME:postgres}
+    password: ${PGSQL_PASSWORD:}
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect

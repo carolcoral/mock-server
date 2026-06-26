@@ -7,6 +7,7 @@
 package com.carolcoral.mockserver.controller;
 
 import com.carolcoral.mockserver.dto.ApiResponse;
+import com.carolcoral.mockserver.util.DatabaseDialectProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -42,9 +43,11 @@ public class StatisticsController {
     private static final Logger log = LoggerFactory.getLogger(StatisticsController.class);
 
     private final EntityManager entityManager;
+    private final DatabaseDialectProvider dialect;
 
-    public StatisticsController(EntityManager entityManager) {
+    public StatisticsController(EntityManager entityManager, DatabaseDialectProvider dialect) {
         this.entityManager = entityManager;
+        this.dialect = dialect;
     }
 
     /**
@@ -73,18 +76,18 @@ public class StatisticsController {
                 startTime = LocalDateTime.now().minusDays(days).with(LocalTime.MIN);
             }
 
-            // SQLite 中 request_time 存储为 epoch 毫秒
+            // request_time 存储为 epoch 毫秒
             long startTimeMillis = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
 
             String groupBy;
             if ("hourly".equals(granularity)) {
-                groupBy = "strftime('%Y-%m-%d %H:00', r.request_time / 1000, 'unixepoch')";
+                groupBy = dialect.formatEpochMillisToDate("r.request_time", "%Y-%m-%d %H:00");
             } else if ("yearly".equals(granularity)) {
-                groupBy = "strftime('%Y', r.request_time / 1000, 'unixepoch')";
+                groupBy = dialect.formatEpochMillisToDate("r.request_time", "%Y");
             } else if ("monthly".equals(granularity)) {
-                groupBy = "strftime('%Y-%m', r.request_time / 1000, 'unixepoch')";
+                groupBy = dialect.formatEpochMillisToDate("r.request_time", "%Y-%m");
             } else {
-                groupBy = "strftime('%Y-%m-%d', r.request_time / 1000, 'unixepoch')";
+                groupBy = dialect.formatEpochMillisToDate("r.request_time", "%Y-%m-%d");
             }
 
             String sql = "SELECT " + groupBy + " as timeKey, COUNT(*) as cnt " +
@@ -137,7 +140,7 @@ public class StatisticsController {
             LocalDateTime startTime = LocalDateTime.now().minusDays(days).with(LocalTime.MIN);
             long startTimeMillis = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
 
-            // 按粒度选择时间格式化（SQLite strftime）
+            // 按粒度选择时间格式化
             String timeFormat;
             if ("yearly".equals(granularity)) {
                 timeFormat = "%Y";
@@ -174,7 +177,7 @@ public class StatisticsController {
             }
 
             // 查询 TOP IP 按时间段分组的调用量
-            String statsSql = "SELECT r.request_ip, strftime('" + timeFormat + "', r.request_time / 1000, 'unixepoch') as timeKey, COUNT(*) as cnt " +
+            String statsSql = "SELECT r.request_ip, " + dialect.formatEpochMillisToDate("r.request_time", timeFormat) + " as timeKey, COUNT(*) as cnt " +
                     "FROM t_request_log r " +
                     "WHERE r.request_time >= :startTime AND r.request_ip IS NOT NULL AND r.request_ip != '' " +
                     "AND r.request_ip IN :topIps " +
@@ -288,7 +291,7 @@ public class StatisticsController {
             long startTimeMillis = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
 
             // 查询项目新增（create_time 存储为 epoch 毫秒）
-            String projectSql = "SELECT strftime('" + timeFormat + "', p.create_time / 1000, 'unixepoch') as dt, COUNT(*) as cnt " +
+            String projectSql = "SELECT " + dialect.formatEpochMillisToDate("p.create_time", timeFormat) + " as dt, COUNT(*) as cnt " +
                     "FROM t_project p " +
                     "WHERE p.create_time >= :startTime " +
                     "GROUP BY dt ORDER BY dt ASC";
@@ -297,7 +300,7 @@ public class StatisticsController {
             List<Object[]> projectRows = projectQuery.getResultList();
 
             // 查询接口新增（create_time 存储为 epoch 毫秒）
-            String apiSql = "SELECT strftime('" + timeFormat + "', a.create_time / 1000, 'unixepoch') as dt, COUNT(*) as cnt " +
+            String apiSql = "SELECT " + dialect.formatEpochMillisToDate("a.create_time", timeFormat) + " as dt, COUNT(*) as cnt " +
                     "FROM t_mock_api a " +
                     "WHERE a.create_time >= :startTime " +
                     "GROUP BY dt ORDER BY dt ASC";
@@ -357,11 +360,10 @@ public class StatisticsController {
             if (minutes > 1440) minutes = 1440; // 最多24小时
 
             LocalDateTime startTime = LocalDateTime.now().minusMinutes(minutes);
-            // SQLite 中 LocalDateTime 存储为毫秒时间戳
+            // LocalDateTime 存储为毫秒时间戳
             long startTimeMillis = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
 
             // 短时间窗口（≤60分钟）按秒分组，长窗口按分钟分组
-            // SQLite strftime 需要秒级 Unix 时间戳 + 'unixepoch' 修饰符
             String timeFormat;
             String unit;
             double divisor;
@@ -377,7 +379,7 @@ public class StatisticsController {
                 divisor = 1.0;
             }
 
-            String sql = "SELECT strftime('" + timeFormat + "', r.request_time / 1000, 'unixepoch') as timeKey, COUNT(*) as cnt " +
+            String sql = "SELECT " + dialect.formatEpochMillisToDate("r.request_time", timeFormat) + " as timeKey, COUNT(*) as cnt " +
                     "FROM t_request_log r " +
                     "WHERE r.request_time >= :startTime AND r.request_time IS NOT NULL " +
                     "GROUP BY timeKey " +
@@ -463,7 +465,7 @@ public class StatisticsController {
             }
 
             // 查询 AI 调用统计：按用户+时间段分组
-            String statsSql = "SELECT a.username, strftime('" + timeFormat + "', a.call_time) as timeKey, COUNT(*) as cnt " +
+            String statsSql = "SELECT a.username, " + dialect.formatDateTimeToDate("a.call_time", timeFormat) + " as timeKey, COUNT(*) as cnt " +
                     "FROM t_ai_call_log a " +
                     "WHERE a.call_time IS NOT NULL " +
                     "GROUP BY a.username, timeKey " +

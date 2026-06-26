@@ -1,0 +1,18 @@
+# ========================================
+# SQLite 数据库配置（默认）
+# 轻量级文件数据库，无需额外安装
+# ========================================
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:sqlite:./data/mock-server.db}
+    driver-class-name: org.sqlite.JDBC
+    username: ${DB_USERNAME:}
+    password: ${DB_PASSWORD:}
+  jpa:
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+    properties:
+      hibernate:
+        jdbc:
+          use_get_generated_keys: false  # SQLite 不支持 getGeneratedKeys
+        id:
+          new_generator_mappings: false  # 兼容旧版 ID 生成策略
