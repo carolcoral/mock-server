@@ -256,15 +256,24 @@
                 <div class="conflict-path">
                   <span class="error-method">{{ conflict.method }}</span>
                   <span class="error-path">{{ conflict.path }}</span>
+                  <el-tag size="small" type="warning" effect="plain" style="margin-left: 8px;">
+                    {{ $t('project.importConflictChangeCount', { count: conflict.changes?.length || 0 }) }}
+                  </el-tag>
                 </div>
-                <div class="conflict-diff">
-                  <div class="conflict-col">
-                    <span class="conflict-label">{{ $t('project.importConflictExisting') }}</span>
-                    <span class="conflict-val">{{ conflict.existingName }}</span>
-                  </div>
-                  <div class="conflict-col">
-                    <span class="conflict-label">{{ $t('project.importConflictNew') }}</span>
-                    <span class="conflict-val new-val">{{ conflict.newName }}</span>
+                <!-- 变更详情列表 -->
+                <div class="conflict-changes">
+                  <div v-for="(change, cIdx) in conflict.changes" :key="cIdx" class="change-item">
+                    <div class="change-field-tag">{{ change.fieldName }}</div>
+                    <div class="change-values">
+                      <div class="change-value-row">
+                        <span class="change-arrow-label">{{ $t('project.importConflictExisting') }}</span>
+                        <span class="change-val old-val" :title="change.existingValue">{{ truncateValue(change.existingValue) }}</span>
+                      </div>
+                      <div class="change-value-row">
+                        <span class="change-arrow-label">{{ $t('project.importConflictNew') }}</span>
+                        <span class="change-val new-val" :title="change.newValue">{{ truncateValue(change.newValue) }}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -901,6 +910,14 @@ const handleAddMemberDialogClose = () => {
   memberFormRef.value?.resetFields()
 }
 
+// 截断过长文本用于展示
+const truncateValue = (val) => {
+  if (!val) return '-'
+  const str = String(val)
+  if (str.length > 80) return str.substring(0, 77) + '...'
+  return str
+}
+
 // ====== 冲突解决 ======
 const initConflictSelection = () => {
   if (importResult.conflicts && importResult.conflicts.length > 0) {
@@ -927,12 +944,31 @@ const handleConflictResolve = async () => {
 
   conflictResolving.value = true
   try {
-    const requests = selectedConflicts.map(c => ({
-      existingApiId: c.existingApiId,
-      newName: c.newName,
-      newDescription: c.newDescription,
-      newResponseBody: c.newResponseBody
-    }))
+    const requests = selectedConflicts.map(c => {
+      const req = { existingApiId: c.existingApiId }
+      if (c.changes) {
+        c.changes.forEach(change => {
+          switch (change.field) {
+            case 'name':
+              req.newName = change.newValue
+              break
+            case 'description':
+              req.newDescription = change.newValue
+              break
+            case 'method':
+              req.newMethod = change.newValue
+              break
+            case 'responseBody':
+              req.newResponseBody = change.newValue
+              break
+            case 'requestParams':
+              req.newRequestParamsJson = change.newValue
+              break
+          }
+        })
+      }
+      return req
+    })
 
     const response = await request({
       url: `/projects/${currentImportProject.value.id}/import-conflicts/resolve`,
@@ -1232,6 +1268,71 @@ onMounted(async () => {
 .conflict-val.new-val {
   color: #409eff;
   font-weight: 500;
+}
+
+/* 变更详情列表 */
+.conflict-changes {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.change-item {
+  background: #fafafa;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.change-field-tag {
+  display: inline-block;
+  background: #e6f7ff;
+  color: #409eff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 3px;
+  margin-bottom: 6px;
+}
+
+.change-values {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.change-value-row {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  align-items: flex-start;
+}
+
+.change-arrow-label {
+  color: #b0b0b0;
+  flex-shrink: 0;
+  min-width: 36px;
+  font-size: 11px;
+}
+
+.change-val {
+  word-break: break-all;
+  flex: 1;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  max-height: 40px;
+  overflow: hidden;
+}
+
+.change-val.old-val {
+  color: #909399;
+  text-decoration: line-through;
+}
+
+.change-val.new-val {
+  color: #409eff;
 }
 </style>
 

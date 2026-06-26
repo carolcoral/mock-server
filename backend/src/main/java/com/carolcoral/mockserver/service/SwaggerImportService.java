@@ -13,9 +13,11 @@ import com.carolcoral.mockserver.entity.MockApi.HttpMethod;
 import com.carolcoral.mockserver.entity.MockApi.RequestType;
 import com.carolcoral.mockserver.entity.MockResponse;
 import com.carolcoral.mockserver.entity.Project;
+import com.carolcoral.mockserver.entity.ResponseRequestParam;
 import com.carolcoral.mockserver.repository.MockApiRepository;
 import com.carolcoral.mockserver.repository.MockResponseRepository;
 import com.carolcoral.mockserver.repository.ProjectRepository;
+import com.carolcoral.mockserver.repository.ResponseRequestParamRepository;
 import com.carolcoral.mockserver.util.CacheUtil;
 import io.swagger.parser.OpenAPIParser;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -53,17 +55,20 @@ public class SwaggerImportService {
     private final ProjectRepository projectRepository;
     private final MockApiService mockApiService;
     private final MockResponseRepository mockResponseRepository;
+    private final ResponseRequestParamRepository requestParamRepository;
     private final CacheUtil cacheUtil;
 
     public SwaggerImportService(MockApiRepository mockApiRepository,
                                  ProjectRepository projectRepository,
                                  MockApiService mockApiService,
                                  MockResponseRepository mockResponseRepository,
+                                 ResponseRequestParamRepository requestParamRepository,
                                  CacheUtil cacheUtil) {
         this.mockApiRepository = mockApiRepository;
         this.projectRepository = projectRepository;
         this.mockApiService = mockApiService;
         this.mockResponseRepository = mockResponseRepository;
+        this.requestParamRepository = requestParamRepository;
         this.cacheUtil = cacheUtil;
     }
 
@@ -85,17 +90,31 @@ public class SwaggerImportService {
         }
 
         /**
-         * 路径重复但响应报文不一致的冲突项
+         * 统一冲突项：记录接口所有维度（名称、描述、请求方式、响应报文、请求参数）的变更
          */
         public static class ConflictItem {
+            /** 已有接口的 ID */
             public Long existingApiId;
+            /** 接口路径 */
             public String path;
+            /** 当前接口的请求方式 */
             public String method;
-            public String existingName;
-            public String newName;
-            public String newDescription;
-            public String existingResponseBody;
-            public String newResponseBody;
+            /** 变更详情列表 */
+            public List<ChangeDetail> changes = new ArrayList<>();
+
+            /**
+             * 单个变更详情
+             */
+            public static class ChangeDetail {
+                /** 变更字段标识：name, description, method, responseBody, requestParams */
+                public String field;
+                /** 变更字段中文名 */
+                public String fieldName;
+                /** 已有值（旧值） */
+                public String existingValue;
+                /** 导入值（新值） */
+                public String newValue;
+            }
         }
     }
 
@@ -103,11 +122,28 @@ public class SwaggerImportService {
      * 冲突解决请求 DTO
      */
     public static class ResolveConflictRequest {
+        /** 已有接口 ID */
         public Long existingApiId;
+        /** 新接口名称（有变更时传） */
         public String newName;
+        /** 新接口描述（有变更时传） */
         public String newDescription;
+        /** 新请求方式（有变更时传） */
+        public String newMethod;
+        /** 新响应报文（有变更时传） */
         public String newResponseBody;
+        /** 新请求参数 JSON（有变更时传），格式: [{"paramName":"...","paramType":"...","required":true},...] */
+        public String newRequestParamsJson;
     }
+
+    /**
+     * 变更字段常量
+     */
+    private static final String FIELD_NAME = "name";
+    private static final String FIELD_DESCRIPTION = "description";
+    private static final String FIELD_METHOD = "method";
+    private static final String FIELD_RESPONSE_BODY = "responseBody";
+    private static final String FIELD_REQUEST_PARAMS = "requestParams";
 
     /**
      * 从 Swagger JSON 文件流导入
@@ -152,13 +188,11 @@ public class SwaggerImportService {
      * 从 JSON 字符串解析并导入
      */
     private ImportResult importFromJson(String jsonContent, Long projectId, Long userId) {
-        // 验证项目存在
         Optional<Project> projectOpt = projectRepository.findById(projectId);
         if (projectOpt.isEmpty()) {
             throw new RuntimeException("项目不存在");
         }
 
-        // 使用 Swagger Parser 解析（兼容 Swagger 2.0 和 OpenAPI 3.x）
         SwaggerParseResult parseResult = new OpenAPIParser().readContents(jsonContent, null, null);
         OpenAPI openAPI = parseResult.getOpenAPI();
 
@@ -166,14 +200,12 @@ public class SwaggerImportService {
             throw new RuntimeException("无法解析 Swagger/OpenAPI 文档，请确认文件格式正确");
         }
 
-        // 如果 parser 有消息，记录日志
         if (parseResult.getMessages() != null && !parseResult.getMessages().isEmpty()) {
             log.warn("Swagger 解析警告: {}", parseResult.getMessages());
         }
 
         ImportResult result = new ImportResult();
 
-        // 遍历所有路径
         if (openAPI.getPaths() == null || openAPI.getPaths().isEmpty()) {
             result.total = 0;
             return result;
@@ -188,7 +220,6 @@ public class SwaggerImportService {
 
     private void processPathItem(String path, PathItem pathItem, OpenAPI openAPI,
                                   Long projectId, Long userId, ImportResult result) {
-        // 遍历该路径下的所有 HTTP 方法
         Map<PathItem.HttpMethod, Operation> operations = new LinkedHashMap<>();
         if (pathItem.getGet() != null) operations.put(PathItem.HttpMethod.GET, pathItem.getGet());
         if (pathItem.getPost() != null) operations.put(PathItem.HttpMethod.POST, pathItem.getPost());
@@ -203,20 +234,14 @@ public class SwaggerImportService {
             PathItem.HttpMethod swaggerMethod = entry.getKey();
             Operation operation = entry.getValue();
 
-            // 映射 HTTP 方法
             HttpMethod mockMethod = mapHttpMethod(swaggerMethod);
             if (mockMethod == null) continue;
 
             result.total++;
 
             try {
-                // 生成 API 名称
                 String apiName = generateApiName(operation, path, mockMethod);
-
-                // 构建新导入的默认响应体
                 String newResponseBody = buildDefaultResponse(operation, openAPI);
-
-                // 描述：优先用 operation summary，其次 description
                 String desc = operation.getSummary();
                 if (desc == null || desc.isBlank()) {
                     desc = operation.getDescription();
@@ -224,37 +249,50 @@ public class SwaggerImportService {
                 if (desc != null && desc.length() > 500) {
                     desc = desc.substring(0, 497) + "...";
                 }
+                // 构建新导入的请求参数列表
+                List<Map<String, Object>> newParams = extractRequestParams(operation);
+                String newParamsJson = JSON.toJSONString(newParams);
 
-                // 检查是否已存在相同 path+method 的接口
-                Optional<MockApi> existing = mockApiRepository.findByProjectIdAndPathAndMethod(
+                // 统一查找：先按 path+method 精确匹配，再按 path 模糊匹配
+                Optional<MockApi> existingByPathAndMethod = mockApiRepository.findByProjectIdAndPathAndMethod(
                         projectId, path, mockMethod);
-                if (existing.isPresent()) {
-                    MockApi existingApi = existing.get();
-                    // 获取已有接口的默认响应
-                    String existingResponseBody = getExistingDefaultResponseBody(existingApi.getId());
+                Optional<MockApi> existingByPath = existingByPathAndMethod.isPresent()
+                        ? existingByPathAndMethod
+                        : mockApiRepository.findByProjectIdAndPath(projectId, path);
 
-                    // 比较响应报文是否一致（标准化 JSON 后比较）
-                    if (isJsonEqual(newResponseBody, existingResponseBody)) {
-                        // 响应报文一致，跳过
+                if (existingByPath.isPresent()) {
+                    MockApi existingApi = existingByPath.get();
+                    // 获取已有接口的现有数据
+                    String existingDesc = existingApi.getDescription();
+                    String existingResponseBody = getExistingDefaultResponseBody(existingApi.getId());
+                    String existingParamsJson = getExistingRequestParamsJson(existingApi.getId());
+                    String existingMethodName = existingApi.getMethod().name();
+
+                    // 统一对比所有维度
+                    List<ImportResult.ConflictItem.ChangeDetail> changes = buildChangeDetails(
+                            existingApi.getName(), apiName,
+                            existingDesc != null ? existingDesc : "", desc != null ? desc : "",
+                            existingMethodName, mockMethod.name(),
+                            existingResponseBody, newResponseBody,
+                            existingParamsJson, newParamsJson);
+
+                    if (changes.isEmpty()) {
+                        // 所有维度均无变化，跳过
                         result.skipped++;
                         continue;
                     }
 
-                    // 响应报文不一致，记录冲突
+                    // 有变化，记录冲突
                     ImportResult.ConflictItem conflict = new ImportResult.ConflictItem();
                     conflict.existingApiId = existingApi.getId();
                     conflict.path = path;
-                    conflict.method = mockMethod.name();
-                    conflict.existingName = existingApi.getName();
-                    conflict.newName = apiName;
-                    conflict.newDescription = desc;
-                    conflict.existingResponseBody = existingResponseBody;
-                    conflict.newResponseBody = newResponseBody;
+                    conflict.method = existingApi.getMethod().name();
+                    conflict.changes = changes;
                     result.conflicts.add(conflict);
                     continue;
                 }
 
-                // 创建 MockApi
+                // 不存在冲突，创建新接口
                 MockApi mockApi = new MockApi();
                 mockApi.setName(apiName);
                 mockApi.setPath(path);
@@ -268,12 +306,10 @@ public class SwaggerImportService {
                 mockApi.setUpdateTime(LocalDateTime.now());
                 mockApi.setCreateUserId(userId);
 
-                // 关联项目
                 Project project = new Project();
                 project.setId(projectId);
                 mockApi.setProject(project);
 
-                // 创建默认响应
                 MockResponse mockResponse = new MockResponse();
                 mockResponse.setStatusCode(200);
                 mockResponse.setContentType("application/json");
@@ -287,13 +323,17 @@ public class SwaggerImportService {
                 mockResponse.setCreateTime(LocalDateTime.now());
                 mockResponse.setUpdateTime(LocalDateTime.now());
 
-                // 添加到 API 的响应列表
                 List<MockResponse> responses = new ArrayList<>();
                 responses.add(mockResponse);
                 mockApi.setResponses(responses);
 
-                // 保存
-                mockApiRepository.save(mockApi);
+                mockApi = mockApiRepository.save(mockApi);
+
+                // 保存请求参数
+                if (!newParams.isEmpty()) {
+                    saveRequestParams(newParams, mockResponse);
+                }
+
                 result.success++;
 
             } catch (Exception e) {
@@ -309,6 +349,187 @@ public class SwaggerImportService {
     }
 
     /**
+     * 统一对比所有维度，构建变更详情列表
+     */
+    private List<ImportResult.ConflictItem.ChangeDetail> buildChangeDetails(
+            String existingName, String newName,
+            String existingDesc, String newDesc,
+            String existingMethod, String newMethod,
+            String existingResponseBody, String newResponseBody,
+            String existingParamsJson, String newParamsJson) {
+
+        List<ImportResult.ConflictItem.ChangeDetail> changes = new ArrayList<>();
+
+        // 1. 接口名称
+        if (!Objects.equals(existingName, newName) && newName != null && !newName.isBlank()) {
+            ImportResult.ConflictItem.ChangeDetail cd = new ImportResult.ConflictItem.ChangeDetail();
+            cd.field = FIELD_NAME;
+            cd.fieldName = "接口名称";
+            cd.existingValue = existingName;
+            cd.newValue = newName;
+            changes.add(cd);
+        }
+
+        // 2. 接口描述（null 和空串视为相同）
+        String normExistingDesc = existingDesc != null ? existingDesc : "";
+        String normNewDesc = newDesc != null ? newDesc : "";
+        if (!Objects.equals(normExistingDesc, normNewDesc) && !normNewDesc.isBlank()) {
+            ImportResult.ConflictItem.ChangeDetail cd = new ImportResult.ConflictItem.ChangeDetail();
+            cd.field = FIELD_DESCRIPTION;
+            cd.fieldName = "接口描述";
+            cd.existingValue = normExistingDesc.isBlank() ? "(空)" : normExistingDesc;
+            cd.newValue = normNewDesc;
+            changes.add(cd);
+        }
+
+        // 3. 请求方式
+        if (!Objects.equals(existingMethod, newMethod)) {
+            ImportResult.ConflictItem.ChangeDetail cd = new ImportResult.ConflictItem.ChangeDetail();
+            cd.field = FIELD_METHOD;
+            cd.fieldName = "请求方式";
+            cd.existingValue = existingMethod;
+            cd.newValue = newMethod;
+            changes.add(cd);
+        }
+
+        // 4. 响应报文
+        if (!isJsonEqual(existingResponseBody, newResponseBody)) {
+            ImportResult.ConflictItem.ChangeDetail cd = new ImportResult.ConflictItem.ChangeDetail();
+            cd.field = FIELD_RESPONSE_BODY;
+            cd.fieldName = "响应报文";
+            cd.existingValue = existingResponseBody != null ? existingResponseBody : "{}";
+            cd.newValue = newResponseBody != null ? newResponseBody : "{}";
+            changes.add(cd);
+        }
+
+        // 5. 请求参数
+        if (!isJsonEqual(existingParamsJson, newParamsJson) && newParamsJson != null && !"[]".equals(newParamsJson)) {
+            ImportResult.ConflictItem.ChangeDetail cd = new ImportResult.ConflictItem.ChangeDetail();
+            cd.field = FIELD_REQUEST_PARAMS;
+            cd.fieldName = "请求参数";
+            cd.existingValue = existingParamsJson;
+            cd.newValue = newParamsJson;
+            changes.add(cd);
+        }
+
+        return changes;
+    }
+
+    /**
+     * 从 Swagger Operation 中提取请求参数
+     */
+    private List<Map<String, Object>> extractRequestParams(Operation operation) {
+        List<Map<String, Object>> params = new ArrayList<>();
+
+        // 提取 path/query/header 参数
+        if (operation.getParameters() != null) {
+            for (Parameter param : operation.getParameters()) {
+                Map<String, Object> p = new LinkedHashMap<>();
+                p.put("paramName", param.getName());
+                p.put("paramType", mapParamType(param.getIn()));
+                p.put("required", param.getRequired() != null ? param.getRequired() : false);
+                // 提取示例值
+                if (param.getExample() != null) {
+                    p.put("paramValue", String.valueOf(param.getExample()));
+                } else if (param.getSchema() != null && param.getSchema().getExample() != null) {
+                    p.put("paramValue", String.valueOf(param.getSchema().getExample()));
+                } else {
+                    p.put("paramValue", "");
+                }
+                params.add(p);
+            }
+        }
+
+        // 提取 requestBody 参数（JSON body 中的字段）
+        RequestBody requestBody = operation.getRequestBody();
+        if (requestBody != null && requestBody.getContent() != null) {
+            Content content = requestBody.getContent();
+            MediaType jsonMedia = content.get("application/json");
+            if (jsonMedia == null) {
+                jsonMedia = content.get("*/*");
+            }
+            if (jsonMedia != null && jsonMedia.getSchema() != null) {
+                Schema<?> schema = jsonMedia.getSchema();
+                if (schema.getProperties() != null) {
+                    schema.getProperties().forEach((propName, propSchema) -> {
+                        Map<String, Object> p = new LinkedHashMap<>();
+                        p.put("paramName", propName);
+                        p.put("paramType", "REQUEST_BODY");
+                        // 检查 required 列表
+                        boolean isRequired = schema.getRequired() != null && schema.getRequired().contains(propName);
+                        p.put("required", isRequired);
+                        p.put("paramValue", "");
+                        params.add(p);
+                    });
+                }
+            }
+        }
+
+        return params;
+    }
+
+    /**
+     * 映射 Swagger 参数位置到 ParamType
+     */
+    private String mapParamType(String in) {
+        if (in == null) return "REQUEST_BODY";
+        return switch (in.toLowerCase()) {
+            case "path" -> "PATH";
+            case "query" -> "QUERY";
+            case "header" -> "HEADER";
+            default -> "REQUEST_BODY";
+        };
+    }
+
+    /**
+     * 获取已有接口的请求参数 JSON
+     */
+    private String getExistingRequestParamsJson(Long apiId) {
+        List<MockResponse> responses = mockResponseRepository.findByMockApiId(apiId);
+        if (responses == null || responses.isEmpty()) return "[]";
+
+        MockResponse defaultResp = null;
+        for (MockResponse r : responses) {
+            if (Boolean.TRUE.equals(r.getIsDefault())) {
+                defaultResp = r;
+                break;
+            }
+        }
+        if (defaultResp == null) {
+            defaultResp = responses.get(0);
+        }
+
+        List<ResponseRequestParam> params = requestParamRepository.findByMockResponseId(defaultResp.getId());
+        if (params == null || params.isEmpty()) return "[]";
+
+        List<Map<String, Object>> paramList = new ArrayList<>();
+        for (ResponseRequestParam p : params) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("paramName", p.getParamName());
+            m.put("paramType", p.getParamType().name());
+            m.put("required", p.getRequired());
+            m.put("paramValue", p.getParamValue() != null ? p.getParamValue() : "");
+            paramList.add(m);
+        }
+        return JSON.toJSONString(paramList);
+    }
+
+    /**
+     * 保存请求参数
+     */
+    private void saveRequestParams(List<Map<String, Object>> params, MockResponse mockResponse) {
+        for (Map<String, Object> paramMap : params) {
+            ResponseRequestParam rp = new ResponseRequestParam();
+            rp.setParamName((String) paramMap.get("paramName"));
+            rp.setParamType(ResponseRequestParam.ParamType.valueOf((String) paramMap.get("paramType")));
+            rp.setRequired((Boolean) paramMap.getOrDefault("required", false));
+            rp.setParamValue((String) paramMap.getOrDefault("paramValue", ""));
+            rp.setMockResponse(mockResponse);
+            requestParamRepository.save(rp);
+        }
+    }
+
+    /**
      * 映射 Swagger HttpMethod 到 MockApi HttpMethod
      */
     private HttpMethod mapHttpMethod(PathItem.HttpMethod swaggerMethod) {
@@ -318,7 +539,7 @@ public class SwaggerImportService {
             case PUT -> HttpMethod.PUT;
             case DELETE -> HttpMethod.DELETE;
             case PATCH -> HttpMethod.PATCH;
-            default -> null; // HEAD, OPTIONS, TRACE 不支持
+            default -> null;
         };
     }
 
@@ -330,14 +551,10 @@ public class SwaggerImportService {
         if (name != null && !name.isBlank()) {
             return name.length() > 100 ? name.substring(0, 97) + "..." : name;
         }
-
-        // 从 operationId 生成
         String operationId = operation.getOperationId();
         if (operationId != null && !operationId.isBlank()) {
             return operationId.length() > 100 ? operationId.substring(0, 97) + "..." : operationId;
         }
-
-        // 从路径和方法的组合生成
         return method.name() + " " + path;
     }
 
@@ -346,62 +563,36 @@ public class SwaggerImportService {
      */
     private String buildDefaultResponse(Operation operation, OpenAPI openAPI) {
         ApiResponses responses = operation.getResponses();
-        if (responses == null || responses.isEmpty()) {
-            return "{}";
-        }
+        if (responses == null || responses.isEmpty()) return "{}";
 
-        // 优先取 200 响应
         ApiResponse successResponse = responses.get("200");
+        if (successResponse == null) successResponse = responses.get("default");
         if (successResponse == null) {
-            successResponse = responses.get("default");
-        }
-        if (successResponse == null) {
-            // 取第一个响应
             String firstKey = responses.keySet().iterator().next();
             successResponse = responses.get(firstKey);
         }
-
-        if (successResponse == null) {
-            return "{}";
-        }
+        if (successResponse == null) return "{}";
 
         Content content = successResponse.getContent();
-        if (content == null) {
-            return "{}";
-        }
+        if (content == null) return "{}";
 
-        // 优先 JSON
         MediaType mediaType = content.get("application/json");
-        if (mediaType == null) {
-            mediaType = content.get("*/*");
-        }
+        if (mediaType == null) mediaType = content.get("*/*");
         if (mediaType == null && !content.isEmpty()) {
             String firstType = content.keySet().iterator().next();
             mediaType = content.get(firstType);
         }
-
-        if (mediaType == null || mediaType.getSchema() == null) {
-            return "{}";
-        }
+        if (mediaType == null || mediaType.getSchema() == null) return "{}";
 
         Schema<?> schema = mediaType.getSchema();
-
-        // 如果有 example，直接返回
         if (schema.getExample() != null) {
             Object example = schema.getExample();
-            if (example instanceof String) {
-                return (String) example;
-            }
+            if (example instanceof String) return (String) example;
             return JSON.toJSONString(example);
         }
-
-        // 根据 schema 生成示例 JSON
         return generateExampleFromSchema(schema, openAPI);
     }
 
-    /**
-     * 根据 Schema 递归生成示例 JSON
-     */
     private String generateExampleFromSchema(Schema<?> schema, OpenAPI openAPI) {
         return generateExampleFromSchema(schema, openAPI, new HashSet<>(), 0);
     }
@@ -409,12 +600,11 @@ public class SwaggerImportService {
     private String generateExampleFromSchema(Schema<?> schema, OpenAPI openAPI,
                                               Set<String> visitedRefs, int depth) {
         if (schema == null) return "{}";
-        if (depth > 20) return "{}";  // 防止过深递归
+        if (depth > 20) return "{}";
 
-        // 如果有 $ref，解析引用
         String ref = schema.get$ref();
         if (ref != null) {
-            if (visitedRefs.contains(ref)) return "{}";  // 防止循环引用
+            if (visitedRefs.contains(ref)) return "{}";
             visitedRefs.add(ref);
             Schema<?> resolved = resolveRef(ref, openAPI);
             if (resolved != null) {
@@ -423,53 +613,42 @@ public class SwaggerImportService {
             return "{}";
         }
 
-        // 处理数组
         if ("array".equals(schema.getType()) && schema.getItems() != null) {
             String itemExample = generateExampleFromSchema(schema.getItems(), openAPI, visitedRefs, depth + 1);
             return "[" + itemExample + "]";
         }
 
-        // 处理对象
         if ("object".equals(schema.getType()) || schema.getProperties() != null) {
             return generateObjectExample(schema, openAPI, visitedRefs, depth);
         }
 
-        // 处理枚举
         if (schema.getEnum() != null && !schema.getEnum().isEmpty()) {
             return JSON.toJSONString(schema.getEnum().get(0));
         }
 
-        // 基本类型
         return getPrimitiveExample(schema.getType(), schema.getFormat());
     }
 
     private String generateObjectExample(Schema<?> schema, OpenAPI openAPI,
                                           Set<String> visitedRefs, int depth) {
         Map<String, Object> example = new LinkedHashMap<>();
-
         if (schema.getProperties() != null) {
             schema.getProperties().forEach((propName, propSchema) -> {
                 Object value = generateExampleValue(propSchema, openAPI, visitedRefs, depth + 1);
                 example.put(propName, value);
             });
         }
-
-        if (example.isEmpty()) {
-            return "{}";
-        }
-
-        return JSON.toJSONString(example);
+        return example.isEmpty() ? "{}" : JSON.toJSONString(example);
     }
 
     private Object generateExampleValue(Schema<?> propSchema, OpenAPI openAPI,
                                          Set<String> visitedRefs, int depth) {
         if (propSchema == null) return "";
-        if (depth > 20) return "";  // 防止过深递归
+        if (depth > 20) return "";
 
-        // 解析 $ref
         String ref = propSchema.get$ref();
         if (ref != null) {
-            if (visitedRefs.contains(ref)) return "{}";  // 防止循环引用
+            if (visitedRefs.contains(ref)) return "{}";
             visitedRefs.add(ref);
             Schema<?> resolved = resolveRef(ref, openAPI);
             if (resolved != null) {
@@ -480,14 +659,12 @@ public class SwaggerImportService {
 
         String type = propSchema.getType();
 
-        // 数组
         if ("array".equals(type) && propSchema.getItems() != null) {
             List<Object> arr = new ArrayList<>();
             arr.add(generateExampleValue(propSchema.getItems(), openAPI, visitedRefs, depth + 1));
             return arr;
         }
 
-        // 对象
         if ("object".equals(type) || propSchema.getProperties() != null) {
             Map<String, Object> obj = new LinkedHashMap<>();
             if (propSchema.getProperties() != null) {
@@ -498,12 +675,10 @@ public class SwaggerImportService {
             return obj.isEmpty() ? "{}" : obj;
         }
 
-        // 枚举
         if (propSchema.getEnum() != null && !propSchema.getEnum().isEmpty()) {
             return propSchema.getEnum().get(0);
         }
 
-        // 基本类型
         return getPrimitiveExampleValue(propSchema.getType(), propSchema.getFormat());
     }
 
@@ -511,28 +686,16 @@ public class SwaggerImportService {
         if (type == null) return "";
         return switch (type) {
             case "integer", "number" -> {
-                if ("int64".equals(format) || "long".equals(format)) {
-                    yield 1000001L;
-                }
-                if ("float".equals(format) || "double".equals(format)) {
-                    yield 3.14;
-                }
+                if ("int64".equals(format) || "long".equals(format)) yield 1000001L;
+                if ("float".equals(format) || "double".equals(format)) yield 3.14;
                 yield 1;
             }
             case "boolean" -> true;
             case "string" -> {
-                if ("date".equals(format)) {
-                    yield "2024-01-01";
-                }
-                if ("date-time".equals(format)) {
-                    yield "2024-01-01T00:00:00Z";
-                }
-                if ("email".equals(format)) {
-                    yield "user@example.com";
-                }
-                if ("uri".equals(format) || "url".equals(format)) {
-                    yield "https://example.com";
-                }
+                if ("date".equals(format)) yield "2024-01-01";
+                if ("date-time".equals(format)) yield "2024-01-01T00:00:00Z";
+                if ("email".equals(format)) yield "user@example.com";
+                if ("uri".equals(format) || "url".equals(format)) yield "https://example.com";
                 yield "string";
             }
             default -> "";
@@ -541,19 +704,12 @@ public class SwaggerImportService {
 
     private String getPrimitiveExample(String type, String format) {
         Object val = getPrimitiveExampleValue(type, format);
-        if (val instanceof String) {
-            return "\"" + val + "\"";
-        }
+        if (val instanceof String) return "\"" + val + "\"";
         return String.valueOf(val);
     }
 
-    /**
-     * 解析 $ref 引用
-     */
     private Schema<?> resolveRef(String ref, OpenAPI openAPI) {
         if (ref == null || openAPI == null) return null;
-
-        // #/components/schemas/Pet
         if (ref.startsWith("#/components/schemas/")) {
             String schemaName = ref.substring("#/components/schemas/".length());
             if (openAPI.getComponents() != null && openAPI.getComponents().getSchemas() != null) {
@@ -563,27 +719,19 @@ public class SwaggerImportService {
         return null;
     }
 
-    /**
-     * 获取已有接口的默认响应体内容
-     */
     private String getExistingDefaultResponseBody(Long apiId) {
         List<MockResponse> responses = mockResponseRepository.findByMockApiId(apiId);
         if (responses != null && !responses.isEmpty()) {
-            // 优先查找 isDefault=true 的响应
             for (MockResponse r : responses) {
                 if (Boolean.TRUE.equals(r.getIsDefault())) {
                     return r.getResponseBody();
                 }
             }
-            // 否则取第一个
             return responses.get(0).getResponseBody();
         }
         return "{}";
     }
 
-    /**
-     * 标准化 JSON 字符串后比较是否相等
-     */
     private boolean isJsonEqual(String json1, String json2) {
         if (json1 == null && json2 == null) return true;
         if (json1 == null || json2 == null) return false;
@@ -592,14 +740,12 @@ public class SwaggerImportService {
             Object obj2 = JSON.parse(json2.trim());
             return Objects.equals(obj1, obj2);
         } catch (JSONException e) {
-            // 解析失败时直接字符串比较
             return json1.trim().equals(json2.trim());
         }
     }
 
     /**
      * 解决导入冲突：用新导入的数据覆盖已有接口信息
-     * （更新接口名称、描述、响应报文，但不更新接口路径和方法）
      */
     @Transactional
     public int resolveConflicts(Long projectId, List<ResolveConflictRequest> requests) {
@@ -612,7 +758,6 @@ public class SwaggerImportService {
             }
             MockApi existingApi = existingOpt.get();
 
-            // 验证接口属于当前项目
             if (!existingApi.getProject().getId().equals(projectId)) {
                 log.warn("冲突解决失败，接口不属于当前项目: {}", req.existingApiId);
                 continue;
@@ -628,21 +773,60 @@ public class SwaggerImportService {
                 existingApi.setDescription(req.newDescription);
             }
 
+            // 更新请求方式
+            if (req.newMethod != null && !req.newMethod.isBlank()) {
+                try {
+                    HttpMethod newHttpMethod = HttpMethod.valueOf(req.newMethod);
+                    existingApi.setMethod(newHttpMethod);
+                } catch (IllegalArgumentException e) {
+                    log.warn("无效的请求方式: {}", req.newMethod);
+                }
+            }
+
             existingApi.setUpdateTime(LocalDateTime.now());
             mockApiRepository.save(existingApi);
 
-            // 更新默认响应体的内容
-            if (req.newResponseBody != null && !req.newResponseBody.isBlank()) {
-                List<MockResponse> responses = mockResponseRepository.findByMockApiId(existingApi.getId());
-                if (responses != null) {
-                    for (MockResponse r : responses) {
-                        if (Boolean.TRUE.equals(r.getIsDefault())) {
-                            r.setResponseBody(req.newResponseBody);
-                            r.setUpdateTime(LocalDateTime.now());
-                            mockResponseRepository.save(r);
-                            break;
-                        }
+            // 获取默认响应
+            List<MockResponse> responses = mockResponseRepository.findByMockApiId(existingApi.getId());
+            MockResponse defaultResp = null;
+            if (responses != null) {
+                for (MockResponse r : responses) {
+                    if (Boolean.TRUE.equals(r.getIsDefault())) {
+                        defaultResp = r;
+                        break;
                     }
+                }
+                if (defaultResp == null) {
+                    defaultResp = responses.get(0);
+                }
+            }
+
+            // 更新响应报文
+            if (req.newResponseBody != null && !req.newResponseBody.isBlank() && defaultResp != null) {
+                defaultResp.setResponseBody(req.newResponseBody);
+                defaultResp.setUpdateTime(LocalDateTime.now());
+                mockResponseRepository.save(defaultResp);
+            }
+
+            // 更新请求参数
+            if (req.newRequestParamsJson != null && !req.newRequestParamsJson.isBlank() && defaultResp != null) {
+                // 删除旧的请求参数
+                requestParamRepository.deleteByMockResponseId(defaultResp.getId());
+                // 解析并保存新的请求参数
+                try {
+                    List<Map<String, Object>> newParams = JSON.parseArray(req.newRequestParamsJson)
+                            .toJavaList((Class<Map<String, Object>>) (Class<?>) Map.class);
+                    for (Map<String, Object> paramMap : newParams) {
+                        ResponseRequestParam rp = new ResponseRequestParam();
+                        rp.setParamName((String) paramMap.get("paramName"));
+                        rp.setParamType(ResponseRequestParam.ParamType.valueOf((String) paramMap.get("paramType")));
+                        rp.setRequired((Boolean) paramMap.getOrDefault("required", false));
+                        rp.setParamValue((String) paramMap.getOrDefault("paramValue", ""));
+                        rp.setMockResponse(defaultResp);
+                        requestParamRepository.save(rp);
+                    }
+                } catch (Exception e) {
+                    log.warn("解析请求参数 JSON 失败: {}", req.newRequestParamsJson, e);
                 }
             }
 

@@ -151,6 +151,18 @@ public interface MockApiRepository extends JpaRepository<MockApi, Long>, JpaSpec
                                                      @Param("method") MockApi.HttpMethod method);
 
     /**
+     * 根据项目ID和接口路径查询接口（用于检测同一路径下不同请求方式的接口）
+     *
+     * @param projectId 项目ID
+     * @param path      接口路径
+     * @return 接口Optional
+     */
+    @Operation(summary = "根据项目ID和接口路径查询接口")
+    @Query("SELECT a FROM MockApi a WHERE a.project.id = :projectId AND a.path = :path")
+    Optional<MockApi> findByProjectIdAndPath(@Param("projectId") Long projectId,
+                                              @Param("path") String path);
+
+    /**
      * 判断接口路径是否存在
      *
      * @param path 接口路径
