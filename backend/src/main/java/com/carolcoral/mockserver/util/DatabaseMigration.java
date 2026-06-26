@@ -396,10 +396,10 @@ public class DatabaseMigration implements CommandLineRunner {
             {"邮件模板-创建", "email-template:create", "系统管理", "BUTTON", "71"},
             {"邮件模板-编辑", "email-template:edit", "系统管理", "BUTTON", "72"},
             {"邮件模板-删除", "email-template:delete", "系统管理", "BUTTON", "73"},
-            {"用户管理-页面访问", "user:view", "系统管理", "PAGE", "80"},
-            {"用户管理-创建", "user:create", "系统管理", "BUTTON", "81"},
-            {"用户管理-编辑", "user:edit", "系统管理", "BUTTON", "82"},
-            {"用户管理-删除", "user:delete", "系统管理", "BUTTON", "83"},
+            {"用户管理-页面访问", "user:view", "权限管理", "PAGE", "66"},
+            {"用户管理-创建", "user:create", "权限管理", "BUTTON", "67"},
+            {"用户管理-编辑", "user:edit", "权限管理", "BUTTON", "68"},
+            {"用户管理-删除", "user:delete", "权限管理", "BUTTON", "69"},
             {"AI设置-页面访问", "ai-settings:view", "系统管理", "PAGE", "90"},
             {"系统设置-页面访问", "settings:view", "系统管理", "PAGE", "100"},
         };
@@ -413,6 +413,18 @@ public class DatabaseMigration implements CommandLineRunner {
             } catch (Exception e) {
                 log.warn("插入权限失败: {} - {}", perm[1], e.getMessage());
             }
+        }
+
+        // 修正已有数据：将用户管理权限的 group_name 从"系统管理"更正为"权限管理"
+        try {
+            int updated = jdbcTemplate.update(
+                "UPDATE t_permission SET group_name = '权限管理' WHERE code IN ('user:view', 'user:create', 'user:edit', 'user:delete') AND group_name = '系统管理'"
+            );
+            if (updated > 0) {
+                log.info("已修正 {} 条用户管理权限的 group_name 从'系统管理'到'权限管理'", updated);
+            }
+        } catch (Exception e) {
+            log.warn("修正用户管理权限 group_name 失败: {}", e.getMessage());
         }
     }
 }

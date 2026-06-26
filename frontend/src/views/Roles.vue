@@ -8,7 +8,7 @@
   <div class="roles">
     <div class="page-header">
       <h1>{{ $t('permission.role.title') }}</h1>
-      <el-button type="primary" @click="handleCreate" v-if="isAdmin">
+      <el-button type="primary" @click="handleCreate" v-if="canCreateRole">
         <Plus />
         {{ $t('permission.role.createRole') }}
       </el-button>
@@ -38,19 +38,19 @@
         </el-table-column>
         <el-table-column :label="$t('permission.role.actions')" width="260" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)" :disabled="!isAdmin">{{ $t('permission.role.edit') }}</el-button>
+            <el-button type="primary" link @click="handleEdit(row)" :disabled="!canEditRole">{{ $t('permission.role.edit') }}</el-button>
             <el-button
               v-if="!row.isDefault"
               type="success"
               link
               @click="handleSetDefault(row)"
-              :disabled="!isAdmin"
+              :disabled="!canEditRole"
             >{{ $t('permission.role.setDefault') }}</el-button>
             <el-button
               type="danger"
               link
               @click="handleDelete(row)"
-              :disabled="!isAdmin || row.code === 'ROLE_ADMIN'"
+              :disabled="!canDeleteRole || row.code === 'ROLE_ADMIN'"
             >{{ $t('permission.role.delete') }}</el-button>
           </template>
         </el-table-column>
@@ -95,6 +95,9 @@ const { t } = useI18n()
 const userStore = useUserStore()
 
 const isAdmin = computed(() => userStore.isAdmin)
+const canCreateRole = computed(() => userStore.hasPermission('role:create'))
+const canEditRole = computed(() => userStore.hasPermission('role:edit'))
+const canDeleteRole = computed(() => userStore.hasPermission('role:delete'))
 
 const loading = ref(false)
 const roleList = ref([])

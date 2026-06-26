@@ -172,8 +172,8 @@ router.beforeEach((to, from, next) => {
       return
     }
     
-    // 检查是否需要管理员权限
-    if (to.meta.requiresAdmin && !userStore.isAdmin) {
+    // 检查是否需要管理员权限（hasPermission 内部会检查 isAdmin，确保管理员始终通过）
+    if (to.meta.requiresAdmin && !userStore.hasPermission(to.meta.requiredPermission || 'dashboard:view')) {
       next(getFallbackRoute())
       return
     }

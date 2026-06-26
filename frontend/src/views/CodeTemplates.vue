@@ -9,7 +9,7 @@
     <div class="page-header">
       <h1>{{ $t('codeTemplate.title') }}</h1>
       <div style="display: flex; gap: 8px;">
-        <el-button v-if="isAdmin && selectedRows.length > 0" type="danger" @click="handleBatchDelete">
+        <el-button v-if="canBatchDelete && selectedRows.length > 0" type="danger" @click="handleBatchDelete">
           {{ $t('codeTemplate.batchDelete') }} ({{ selectedRows.length }})
         </el-button>
         <el-button type="primary" @click="handleCreate">
@@ -56,7 +56,7 @@
         :header-cell-style="{ background: '#f5f7fa' }"
         @selection-change="handleSelectionChange"
       >
-        <el-table-column v-if="isAdmin" type="selection" width="50" />
+        <el-table-column v-if="canBatchDelete" type="selection" width="50" />
         <el-table-column prop="id" :label="$t('codeTemplate.id')" width="80" />
         <el-table-column prop="name" :label="$t('codeTemplate.name')" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">
@@ -119,7 +119,7 @@
     <!-- 创建/编辑对话框 -->
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="800px" @close="handleDialogClose">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
-        <el-form-item v-if="!isEdit && isAdmin" :label="$t('codeTemplate.systemDefault')">
+        <el-form-item v-if="!isEdit && canManageSystemTemplates" :label="$t('codeTemplate.systemDefault')">
           <el-switch v-model="form.isSystem" :active-text="$t('codeTemplate.isSystemTemplate')" :inactive-text="$t('codeTemplate.isProjectTemplate')" />
         </el-form-item>
         <el-form-item :label="$t('codeTemplate.project')" prop="projectId" v-if="!isEdit && !form.isSystem">
@@ -133,20 +133,20 @@
           </el-select>
         </el-form-item>
         <el-form-item :label="$t('codeTemplate.name')" prop="name">
-          <el-input v-model="form.name" :placeholder="$t('codeTemplate.namePlaceholder')" :disabled="form.isSystem && !isAdmin" />
+          <el-input v-model="form.name" :placeholder="$t('codeTemplate.namePlaceholder')" :disabled="form.isSystem && !canManageSystemTemplates" />
         </el-form-item>
         <el-form-item :label="$t('codeTemplate.description')" prop="description">
-          <el-input v-model="form.description" type="textarea" :rows="2" :placeholder="$t('codeTemplate.descriptionPlaceholder')" :disabled="form.isSystem && !isAdmin" />
+          <el-input v-model="form.description" type="textarea" :rows="2" :placeholder="$t('codeTemplate.descriptionPlaceholder')" :disabled="form.isSystem && !canManageSystemTemplates" />
         </el-form-item>
         <el-form-item :label="$t('codeTemplate.status')" prop="enabled">
-          <el-switch v-model="form.enabled" :active-text="$t('codeTemplate.enabled')" :inactive-text="$t('codeTemplate.disabled')" :disabled="form.isSystem && !isAdmin" />
+          <el-switch v-model="form.enabled" :active-text="$t('codeTemplate.enabled')" :inactive-text="$t('codeTemplate.disabled')" :disabled="form.isSystem && !canManageSystemTemplates" />
         </el-form-item>
         <el-divider content-position="left">
           <span style="font-size: 14px; font-weight: 600; color: #303133;">{{ $t('codeTemplate.javaSourceCode') }}</span>
-          <el-tag v-if="form.isSystem && !isAdmin" type="danger" size="small" style="margin-left: 8px;">{{ $t('codeTemplate.systemReadonly') }}</el-tag>
+          <el-tag v-if="form.isSystem && !canManageSystemTemplates" type="danger" size="small" style="margin-left: 8px;">{{ $t('codeTemplate.systemReadonly') }}</el-tag>
         </el-divider>
         <!-- AI 生成代码模板区域 -->
-        <div v-if="!form.isSystem || isAdmin" style="margin-bottom: 12px; padding: 12px; background: #fafbfc; border: 1px solid #e4e7ed; border-radius: 6px;">
+        <div v-if="!form.isSystem || canManageSystemTemplates" style="margin-bottom: 12px; padding: 12px; background: #fafbfc; border: 1px solid #e4e7ed; border-radius: 6px;">
           <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
             <span style="font-size: 13px; font-weight: 600; color: #606266; white-space: nowrap;">{{ $t('ai.transformerType') }}：</span>
             <el-select v-model="aiTransformerType" :placeholder="$t('ai.selectTransformerType')" size="small" style="width: 220px;">
@@ -165,7 +165,7 @@
           </div>
         </div>
         <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-          <el-button v-if="!form.isSystem || isAdmin" size="small" @click="loadDefaultTemplateCode">{{ $t('codeTemplate.useDefaultTemplate') }}</el-button>
+          <el-button v-if="!form.isSystem || canManageSystemTemplates" size="small" @click="loadDefaultTemplateCode">{{ $t('codeTemplate.useDefaultTemplate') }}</el-button>
           <el-button size="small" type="success" @click="validateTemplateCode" :loading="validatingCode">{{ $t('codeTemplate.compileValidate') }}</el-button>
           <span v-if="validationResult" :style="{ color: validationResult.success ? '#67C23A' : '#F56C6C', fontSize: '13px', marginLeft: '8px' }">
             {{ validationResult.success ? $t('codeTemplate.validatePassed') : $t('codeTemplate.validateFailed') + validationResult.message }}
@@ -176,14 +176,14 @@
         </div>
         <el-form-item prop="sourceCode" label-width="0" :class="{ 'code-fullscreen': codeFullscreen }">
           <div v-if="codeFullscreen" class="fullscreen-toolbar">
-            <el-button v-if="!form.isSystem || isAdmin" size="small" @click="loadDefaultTemplateCode">{{ $t('codeTemplate.useDefaultTemplate') }}</el-button>
+            <el-button v-if="!form.isSystem || canManageSystemTemplates" size="small" @click="loadDefaultTemplateCode">{{ $t('codeTemplate.useDefaultTemplate') }}</el-button>
             <el-button size="small" type="success" @click="validateTemplateCode" :loading="validatingCode">{{ $t('codeTemplate.compileValidate') }}</el-button>
             <el-button size="small" style="margin-left: auto;" @click="codeFullscreen = false">{{ $t('common.exitFullscreen') }}</el-button>
           </div>
           <MonacoEditor
             ref="monacoEditorRef"
             v-model="form.sourceCode"
-            :read-only="form.isSystem && !isAdmin"
+            :read-only="form.isSystem && !canManageSystemTemplates"
             :height="codeFullscreen ? 'calc(100vh - 60px)' : '420px'"
           />
         </el-form-item>
@@ -246,6 +246,8 @@ const MonacoEditor = defineAsyncComponent(() => import('@/components/MonacoEdito
 const { t } = useI18n()
 const userStore = useUserStore()
 const isAdmin = computed(() => userStore.isAdmin)
+const canManageSystemTemplates = computed(() => userStore.hasPermission('code-template:edit'))
+const canBatchDelete = computed(() => userStore.hasPermission('code-template:delete'))
 
 // 搜索表单
 const searchForm = reactive({
@@ -783,7 +785,7 @@ const handleDialogClose = () => {
 
 // 判断用户是否可以编辑/删除模板
 const canEditTemplate = (template) => {
-  if (isAdmin.value) return true
+  if (userStore.hasPermission('code-template:edit')) return true
   const projectId = template.project?.id
   if (!projectId) return false
   const role = projectRoleMap.value[projectId]

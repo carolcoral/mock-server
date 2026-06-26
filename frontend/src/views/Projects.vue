@@ -8,7 +8,7 @@
   <div class="projects">
     <div class="page-header">
       <h1>{{ $t('project.title') }}</h1>
-      <el-button type="primary" @click="handleCreate">
+      <el-button type="primary" @click="handleCreate" v-if="canCreateProject">
         <Plus :width="'1em'" :height="'1em'" />
         {{ $t('project.createProject') }}
       </el-button>
@@ -369,6 +369,19 @@ const router = useRouter()
 const { t } = useI18n()
 const userStore = useUserStore()
 const isAdmin = computed(() => userStore.isAdmin)
+// 管理员或拥有 project:view 权限的用户可以看到所有项目
+const canViewAllProjects = computed(() => userStore.hasPermission('project:view'))
+const canCreateProject = computed(() => userStore.hasPermission('project:create'))
+const canEditProject = (project) => {
+  if (userStore.hasPermission('project:edit')) return true
+  const role = project.userRole
+  return role === 'ADMIN' || role === 'CREATOR'
+}
+const canDeleteProject = (project) => {
+  if (userStore.hasPermission('project:delete')) return true
+  const role = project.userRole
+  return role === 'ADMIN' || role === 'CREATOR'
+}
 
 const searchForm = reactive({
   name: '',
@@ -414,7 +427,7 @@ const rules = computed(() => ({
 const fetchProjects = async () => {
   loading.value = true
   try {
-    const url = isAdmin.value ? '/projects' : '/projects/accessible'
+    const url = canViewAllProjects.value ? '/projects' : '/projects/accessible'
     const params = {
       page: pagination.current - 1,
       size: pagination.pageSize
@@ -993,23 +1006,12 @@ const handleConflictResolve = async () => {
   }
 }
 
-const canEditProject = (project) => {
-  if (isAdmin.value) return true
-  const role = project.userRole
-  return role === 'ADMIN' || role === 'CREATOR'
-}
-
 const canManageMembers = (project) => {
-  if (isAdmin.value) return true
-  const role = project.userRole
-  return role === 'ADMIN' || role === 'CREATOR'
+  if (canEditProject(project)) return true
+  return false
 }
 
-const canDeleteProject = (project) => {
-  if (isAdmin.value) return true
-  const role = project.userRole
-  return role === 'ADMIN' || role === 'CREATOR'
-}
+// 注意: canEditProject 和 canDeleteProject 已在 computed 区域重新定义（见上方）
 
 onMounted(async () => {
   await loadDateFormat()

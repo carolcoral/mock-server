@@ -8,7 +8,7 @@
   <div class="users">
     <div class="page-header">
       <h1>{{ $t('userManagement.title') }}</h1>
-      <el-button type="primary" @click="handleCreate" v-if="isAdmin">
+      <el-button type="primary" @click="handleCreate" v-if="canCreateUsers">
         <Plus :width="'1em'" :height="'1em'" />
         {{ $t('userManagement.createUser') }}
       </el-button>
@@ -58,7 +58,7 @@
         <el-table-column prop="email" :label="$t('userManagement.email')" min-width="180" />
         <el-table-column prop="role" :label="$t('userManagement.role')" width="120" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.role === 'ADMIN' ? 'danger' : 'primary'">
+            <el-tag effect="plain" class="role-tag" :style="getRoleTagStyle(row.roleId, row.role)">
               {{ getRoleName(row.roleId, row.role) || row.role }}
             </el-tag>
           </template>
@@ -77,8 +77,8 @@
         </el-table-column>
         <el-table-column :label="$t('userManagement.actions')" width="200" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link @click="handleEdit(row)" :disabled="!isAdmin">{{ $t('userManagement.edit') }}</el-button>
-            <el-button type="danger" link @click="handleDelete(row)" :disabled="!isAdmin">{{ $t('userManagement.delete') }}</el-button>
+            <el-button type="primary" link @click="handleEdit(row)" :disabled="!canEditUsers">{{ $t('userManagement.edit') }}</el-button>
+            <el-button type="danger" link @click="handleDelete(row)" :disabled="!canDeleteUsers">{{ $t('userManagement.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -145,6 +145,10 @@ const { t } = useI18n()
 const userStore = useUserStore()
 
 const isAdmin = computed(() => userStore.isAdmin)
+const canViewUsers = computed(() => userStore.hasPermission('user:view'))
+const canEditUsers = computed(() => userStore.hasPermission('user:edit'))
+const canDeleteUsers = computed(() => userStore.hasPermission('user:delete'))
+const canCreateUsers = computed(() => userStore.hasPermission('user:create'))
 
 // 从API获取的角色列表（含自定义角色，搜索和编辑共用）
 const roleOptions = ref([])
@@ -222,11 +226,6 @@ const rules = computed(() => ({
 }))
 
 const fetchUsers = async () => {
-  if (!isAdmin.value) {
-    ElMessage.error(t('userManagement.noPermission'))
-    return
-  }
-
   loading.value = true
   try {
     const params = {
@@ -281,6 +280,10 @@ const handleCurrentChange = (page) => {
 }
 
 const handleCreate = () => {
+  if (!canCreateUsers.value) {
+    ElMessage.error(t('userManagement.noPermission'))
+    return
+  }
   dialogTitle.value = t('userManagement.createUser')
   isEdit.value = false
   form.id = null
@@ -295,7 +298,7 @@ const handleCreate = () => {
 }
 
 const handleEdit = (row) => {
-  if (!isAdmin.value) {
+  if (!canEditUsers.value) {
     ElMessage.error(t('userManagement.noEditPermission'))
     return
   }
@@ -315,7 +318,7 @@ const handleEdit = (row) => {
 }
 
 const handleDelete = async (row) => {
-  if (!isAdmin.value) {
+  if (!canDeleteUsers.value) {
     ElMessage.error(t('userManagement.noDeletePermission'))
     return
   }
@@ -424,8 +427,32 @@ const getRoleName = (roleId, roleCode) => {
   return role ? role.name : null
 }
 
+// 根据角色名称字符串生成稳定的 HSL 颜色，保证同一角色颜色一致、不同角色颜色不同
+const getRoleTagStyle = (roleId, roleCode) => {
+  const roleName = getRoleName(roleId, roleCode) || roleCode || ''
+  const hue = hashString(roleName) % 360
+  return {
+    color: `hsl(${hue}, 55%, 35%)`,
+    backgroundColor: `hsl(${hue}, 55%, 92%)`,
+    borderColor: `hsl(${hue}, 50%, 78%)`
+  }
+}
+
+// 简单字符串 hash：每个字符累加，保证相同输入得到相同 hash
+const hashString = (str) => {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0
+  }
+  return Math.abs(hash)
+}
+
 onMounted(async () => {
   await loadDateFormat()
+  if (!canViewUsers.value) {
+    ElMessage.error(t('userManagement.noPermission'))
+    return
+  }
   await fetchRoles()
   fetchUsers()
 })

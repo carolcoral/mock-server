@@ -1455,8 +1455,8 @@ const sendTestEmail = async () => {
     ElMessage.warning(t('settings.testEmailPlaceholder'))
     return
   }
-  if (!userStore.isAdmin) {
-    ElMessage.error('权限不足，需要管理员权限才能发送测试邮件')
+  if (!userStore.hasPermission('settings:view')) {
+    ElMessage.error('权限不足，需要系统设置权限才能发送测试邮件')
     return
   }
   testEmailLoading.value = true

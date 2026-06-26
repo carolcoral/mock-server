@@ -447,8 +447,8 @@ const syncingSiteUrl = ref(false)
 
 // 检测并提示同步系统访问地址
 const checkAndSyncSiteUrl = async () => {
-  // 仅管理员执行此检测
-  if (!userStore.isAdmin) return
+  // 仅拥有系统设置权限的用户执行此检测
+  if (!userStore.hasPermission('settings:view')) return
 
   try {
     const response = await request.get('/system-config')
@@ -776,12 +776,13 @@ const destroySidebarCanvas = () => {
 }
 
 // 同步 AI 超时配置到 localStorage（供 request.js 拦截器动态读取）
+// 使用 /ai-config/enabled 接口（所有认证用户可访问），避免普通用户调用 /ai-config 触发 403
 async function syncAiTimeout() {
   try {
-    const res = await request.get('/ai-config')
+    const res = await request.get('/ai-config/enabled')
     if (res.code === 200 && res.data) {
-      const enabled = res.data.find(c => c.enabled)
-      if (enabled && enabled.timeout) {
+      const enabled = res.data
+      if (enabled.timeout) {
         localStorage.setItem('aiTimeout', enabled.timeout * 1000)
       }
     }
