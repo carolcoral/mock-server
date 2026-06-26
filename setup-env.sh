@@ -840,20 +840,39 @@ install_maven_manual() {
     MAVEN_DOWNLOAD_URL="https://dlcdn.apache.org/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz"
     MAVEN_INSTALL_DIR="/opt/maven"
     
+    # 尝试下载，优先 wget，失败则回退到 curl
+    local downloaded=false
+
     if command -v wget >/dev/null 2>&1; then
         print_info "使用 wget 下载..."
-        sudo wget -q --show-progress "$MAVEN_DOWNLOAD_URL" -O /tmp/apache-maven.tar.gz 2>/dev/null || \
-        wget -q "$MAVEN_DOWNLOAD_URL" -O /tmp/apache-maven.tar.gz
-    elif command -v curl >/dev/null 2>&1; then
-        print_info "使用 curl 下载..."
-        curl -sL "$MAVEN_DOWNLOAD_URL" -o /tmp/apache-maven.tar.gz
-    else
-        print_error "未找到 wget 或 curl，无法下载 Maven"
-        return 1
+        if sudo wget -q --show-progress "$MAVEN_DOWNLOAD_URL" -O /tmp/apache-maven.tar.gz 2>/dev/null; then
+            downloaded=true
+        else
+            print_warning "wget 下载失败（尝试无 sudo）..."
+            if wget -q "$MAVEN_DOWNLOAD_URL" -O /tmp/apache-maven.tar.gz 2>/dev/null; then
+                downloaded=true
+            else
+                print_warning "wget 下载失败，尝试 curl..."
+            fi
+        fi
     fi
-    
-    if [ ! -f /tmp/apache-maven.tar.gz ] || [ ! -s /tmp/apache-maven.tar.gz ]; then
-        print_error "Maven 下载失败，请手动安装 Maven $REQUIRED_MAVEN_MAJOR.$REQUIRED_MAVEN_MINOR+: https://maven.apache.org/download.cgi"
+
+    if [ "$downloaded" = false ] && command -v curl >/dev/null 2>&1; then
+        print_info "使用 curl 下载..."
+        if curl -sL --retry 3 --retry-delay 2 "$MAVEN_DOWNLOAD_URL" -o /tmp/apache-maven.tar.gz; then
+            downloaded=true
+        else
+            print_warning "curl 下载也失败"
+        fi
+    fi
+
+    if [ "$downloaded" = false ]; then
+        if ! command -v wget >/dev/null 2>&1 && ! command -v curl >/dev/null 2>&1; then
+            print_error "未找到 wget 或 curl，无法下载 Maven"
+        else
+            print_error "Maven 下载失败（wget 和 curl 均失败）"
+        fi
+        print_info "请手动安装 Maven $REQUIRED_MAVEN_MAJOR.$REQUIRED_MAVEN_MINOR+: https://maven.apache.org/download.cgi"
         return 1
     fi
     
@@ -1100,7 +1119,25 @@ check_nodejs_installed() {
     print_step "检查 Node.js 环境..."
     
     if command -v node >/dev/null 2>&1; then
-        NODE_VERSION_OUTPUT=$(node --version 2>&1 | sed 's/v//')
+        local node_version_raw
+        node_version_raw=$(node --version 2>&1)
+
+        # 检测 glibc 不兼容问题（CentOS 7 glibc 2.17 无法运行 Node.js 18+）
+        if echo "$node_version_raw" | grep -q "GLIBC"; then
+            print_error "Node.js 无法运行：系统 glibc 版本过低"
+            print_info "错误详情: $node_version_raw"
+            print_info ""
+            print_info "原因: 当前系统 glibc 版本过低（CentOS 7 为 glibc 2.17），"
+            print_info "      Node.js 18+ 预编译二进制需要 glibc 2.28+ 才能运行。"
+            print_info ""
+            print_info "解决方案:"
+            print_info "  1. 升级系统到 CentOS 8+ / Ubuntu 20.04+ / Debian 11+"
+            print_info "  2. 使用 Docker 运行: docker-compose up -d"
+            print_info "  3. 从源码编译 Node.js（耗时较长，不推荐）"
+            return 2  # glibc 不兼容
+        fi
+
+        NODE_VERSION_OUTPUT=$(echo "$node_version_raw" | sed 's/v//')
         NODE_MAJOR=$(echo "$NODE_VERSION_OUTPUT" | cut -d'.' -f1)
         
         if [ "$NODE_MAJOR" -ge "$REQUIRED_NODE_MAJOR" ] 2>/dev/null; then
@@ -1444,8 +1481,27 @@ install_nodejs_nvm() {
         nvm use $REQUIRED_NODE_MAJOR
         nvm alias default $REQUIRED_NODE_MAJOR
         
+        # 验证 Node.js 是否可正常运行（检测 glibc 不兼容）
+        local node_check
+        node_check=$(node --version 2>&1)
+        if echo "$node_check" | grep -q "GLIBC"; then
+            print_error "nvm 安装的 Node.js 无法运行：系统 glibc 版本过低"
+            echo ""
+            print_info "错误详情: $node_check"
+            echo ""
+            print_info "原因: 当前系统 glibc 版本过低（CentOS 7 为 glibc 2.17），"
+            print_info "      Node.js 18+ 预编译二进制需要 glibc 2.28+ 才能运行。"
+            print_info "      nvm 下载的也是同样的预编译二进制，因此同样无法运行。"
+            echo ""
+            print_info "解决方案:"
+            print_info "  1. 升级系统到 CentOS 8+ / Ubuntu 20.04+ / Debian 11+"
+            print_info "  2. 使用 Docker 运行（推荐）: docker-compose up -d"
+            print_info "  3. 从源码编译 Node.js（耗时较长，不推荐）"
+            return 1
+        fi
+
         print_success "Node.js 安装完成"
-        NODE_VERSION_OUTPUT=$(node --version 2>&1)
+        NODE_VERSION_OUTPUT=$node_check
         print_info "Node.js: $NODE_VERSION_OUTPUT"
         NPM_VERSION_OUTPUT=$(npm --version 2>&1)
         print_info "npm: v$NPM_VERSION_OUTPUT"
@@ -1568,8 +1624,14 @@ echo ""
 # ==========================================
 # 3. 检查 Node.js
 # ==========================================
-if check_nodejs_installed; then
+check_nodejs_installed
+NODE_CHECK_RESULT=$?
+if [ $NODE_CHECK_RESULT -eq 0 ]; then
     NODE_READY=true
+elif [ $NODE_CHECK_RESULT -eq 2 ]; then
+    # glibc 不兼容，已打印错误信息，跳过安装
+    NODE_READY=false
+    INSTALL_HAS_ERROR=true
 else
     NEED_INSTALL=true
 fi

@@ -386,8 +386,27 @@ check_nodejs() {
 
     # 方法1: 检查当前 PATH 中的 node 版本
     if command -v node >/dev/null 2>&1; then
+        local node_version_output
+        node_version_output=$(node --version 2>&1)
+
+        # 检测 glibc 不兼容问题（CentOS 7 glibc 2.17 无法运行 Node.js 18+）
+        if echo "$node_version_output" | grep -q "GLIBC"; then
+            print_error "Node.js 无法运行：系统 glibc 版本过低"
+            echo ""
+            print_info "错误详情: $node_version_output"
+            echo ""
+            print_info "原因: 当前系统 glibc 版本过低（CentOS 7 为 glibc 2.17），"
+            print_info "      Node.js 18+ 预编译二进制需要 glibc 2.28+ 才能运行。"
+            echo ""
+            print_info "解决方案:"
+            print_info "  1. 升级系统到 CentOS 8+ / Ubuntu 20.04+ / Debian 11+"
+            print_info "  2. 使用 Docker 运行（推荐）: docker-compose up -d"
+            print_info "  3. 从源码编译 Node.js（耗时较长，不推荐）"
+            exit 1
+        fi
+
         local node_ver
-        node_ver=$(node --version 2>&1 | sed 's/v//')
+        node_ver=$(echo "$node_version_output" | sed 's/v//')
         local node_major
         node_major=$(echo "$node_ver" | cut -d'.' -f1)
         if [ "$node_major" -ge "$REQUIRED_NODE_MAJOR" ] 2>/dev/null; then
@@ -426,22 +445,36 @@ check_nodejs() {
         if nvm ls "$REQUIRED_NODE_MAJOR" >/dev/null 2>&1; then
             nvm use "$REQUIRED_NODE_MAJOR" 2>/dev/null
             if [ $? -eq 0 ]; then
-                local node_ver
-                node_ver=$(node --version 2>&1 | sed 's/v//')
-                print_success "Node.js $node_ver 已就绪 (nvm 切换)"
-                print_info "  $(node --version 2>&1)"
-                return 0
+                local nvm_node_check
+                nvm_node_check=$(node --version 2>&1)
+                if echo "$nvm_node_check" | grep -q "GLIBC"; then
+                    print_warning "nvm Node.js 无法运行：系统 glibc 版本过低，跳过 nvm 路径"
+                    print_info "  $nvm_node_check"
+                else
+                    local node_ver
+                    node_ver=$(echo "$nvm_node_check" | sed 's/v//')
+                    print_success "Node.js $node_ver 已就绪 (nvm 切换)"
+                    print_info "  $nvm_node_check"
+                    return 0
+                fi
             fi
         else
             print_info "nvm 中未安装 Node.js $REQUIRED_NODE_MAJOR，尝试安装..."
             nvm install "$REQUIRED_NODE_MAJOR" 2>/dev/null
             if [ $? -eq 0 ]; then
                 nvm use "$REQUIRED_NODE_MAJOR" 2>/dev/null
-                local node_ver
-                node_ver=$(node --version 2>&1 | sed 's/v//')
-                print_success "Node.js $node_ver 已就绪 (nvm 安装)"
-                print_info "  $(node --version 2>&1)"
-                return 0
+                local nvm_node_check
+                nvm_node_check=$(node --version 2>&1)
+                if echo "$nvm_node_check" | grep -q "GLIBC"; then
+                    print_warning "nvm 安装的 Node.js 无法运行：系统 glibc 版本过低，跳过 nvm 路径"
+                    print_info "  $nvm_node_check"
+                else
+                    local node_ver
+                    node_ver=$(echo "$nvm_node_check" | sed 's/v//')
+                    print_success "Node.js $node_ver 已就绪 (nvm 安装)"
+                    print_info "  $nvm_node_check"
+                    return 0
+                fi
             fi
         fi
     fi
@@ -507,8 +540,15 @@ check_nodejs() {
         nvm install "$REQUIRED_NODE_MAJOR" 2>/dev/null
         if [ $? -eq 0 ]; then
             nvm use "$REQUIRED_NODE_MAJOR" 2>/dev/null
-            print_success "Node.js $(node --version 2>&1 | sed 's/v//') 已就绪 (nvm 安装)"
-            return 0
+            local nvm_final_check
+            nvm_final_check=$(node --version 2>&1)
+            if echo "$nvm_final_check" | grep -q "GLIBC"; then
+                print_warning "nvm 安装的 Node.js 无法运行：系统 glibc 版本过低"
+                print_info "  $nvm_final_check"
+            else
+                print_success "Node.js $(echo "$nvm_final_check" | sed 's/v//') 已就绪 (nvm 安装)"
+                return 0
+            fi
         fi
     fi
 
@@ -516,7 +556,17 @@ check_nodejs() {
     print_error "未找到 Node.js ${REQUIRED_NODE_MAJOR}+"
     echo ""
     if command -v node >/dev/null 2>&1; then
-        print_info "系统当前 Node.js 版本: $(node --version 2>&1)"
+        local final_check
+        final_check=$(node --version 2>&1)
+        if echo "$final_check" | grep -q "GLIBC"; then
+            print_info "系统当前 Node.js 状态: glibc 版本过低，无法运行"
+            print_info "错误详情: $final_check"
+            echo ""
+            print_info "原因: Node.js 18+ 需要 glibc 2.28+，当前系统版本过低"
+            print_info "解决方案: 升级系统或使用 Docker 运行"
+        else
+            print_info "系统当前 Node.js 版本: $final_check"
+        fi
     fi
     if [ "$nvm_loaded" != true ]; then
         print_info "提示: 安装 nvm 可方便管理多版本 Node.js"
