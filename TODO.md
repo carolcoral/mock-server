@@ -94,7 +94,7 @@
 - [ ] **CI/CD 集成插件** — 提供 Jenkins/GitHub Actions 插件，流水线中自动部署 Mock 服务
 
 ### 性能与可靠性
-- [ ] **支持外部数据库** — MySQL/PostgreSQL 替代 SQLite，适用于生产环境
+- [ ] **支持外部数据库** — 保留 SQLite 的条件下，新增支持 MySQL/PostgreSQL ，适用于生产环境
 - [ ] **请求限流** — 基于项目和 API 维度的 QPS 限流
 - [ ] **Mock 服务高可用** — 支持多实例部署 + 配置同步
 
