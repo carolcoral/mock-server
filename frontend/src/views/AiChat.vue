@@ -20,6 +20,10 @@
         <el-tag v-if="modelName" size="small" type="info" effect="plain">{{ modelName }}</el-tag>
       </div>
       <div class="chat-header-right">
+        <el-button size="small" text @click="clearMemory" :disabled="messages.length === 0" type="warning">
+          <el-icon><Delete /></el-icon>
+          {{ $t('aiChat.clearMemory') }}
+        </el-button>
         <el-button size="small" text @click="clearChat" :disabled="messages.length === 0">
           <el-icon><Delete /></el-icon>
           {{ $t('aiChat.clearChat') }}
@@ -28,7 +32,7 @@
     </div>
 
     <!-- 消息列表 -->
-    <div class="chat-messages" ref="messagesRef">
+    <div class="chat-messages" ref="messagesRef" @click="handleCodeCopyClick">
       <!-- 空状态 -->
       <div v-if="messages.length === 0" class="chat-empty">
         <div class="empty-icon">
@@ -137,10 +141,13 @@
 <script setup>
 import { ref, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import request from '@/utils/request'
 import { marked } from 'marked'
+import hljs from 'highlight.js'
+import 'highlight.js/styles/atom-one-dark.css'
+import mermaid from 'mermaid'
 import {
   Delete, CopyDocument, Position, ChatDotRound
 } from '@element-plus/icons-vue'
@@ -148,7 +155,40 @@ import {
 const { t } = useI18n()
 const userStore = useUserStore()
 
-// 按用户隔离的对话历史 key
+// ============ highlight.js 配置 ============
+marked.setOptions({
+  highlight: function (code, lang) {
+    if (lang && hljs.getLanguage(lang)) {
+      try {
+        return hljs.highlight(code, { language: lang }).value
+      } catch {
+        // ignore highlighting errors
+      }
+    }
+    // 自动检测语言
+    try {
+      return hljs.highlightAuto(code).value
+    } catch {
+      return code
+    }
+  }
+})
+
+// ============ Mermaid 配置 ============
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'default',
+  securityLevel: 'loose',
+  fontFamily: 'inherit',
+  flowchart: { useMaxWidth: true, htmlLabels: true },
+  sequence: { useMaxWidth: true },
+  gantt: { useMaxWidth: true }
+})
+
+// 已渲染过的 mermaid 代码缓存（避免重复渲染）
+const mermaidRenderedCache = new Set()
+
+// ============ 对话历史 ============
 const CHAT_STORAGE_PREFIX = 'ai_chat_history_'
 
 const messages = ref([])
@@ -158,26 +198,22 @@ const messagesRef = ref(null)
 const textareaRef = ref(null)
 const modelName = ref('')
 
-// 建议问题（从后端获取，后端基于 README + CHANGELOG 生成并缓存）
 const suggestions = ref([])
 
-// 获取当前用户的 localStorage key
 const getStorageKey = () => {
   const uid = userStore.userId || userStore.username || 'unknown'
   return CHAT_STORAGE_PREFIX + uid
 }
 
-// 保存对话历史到 localStorage（按用户隔离）
 const saveHistory = () => {
   try {
     const key = getStorageKey()
     localStorage.setItem(key, JSON.stringify(messages.value))
   } catch (e) {
-    // localStorage 可能满
+    // ignore
   }
 }
 
-// 从 localStorage 恢复对话历史
 const loadHistory = () => {
   try {
     const key = getStorageKey()
@@ -189,29 +225,167 @@ const loadHistory = () => {
       }
     }
   } catch (e) {
-    // 忽略解析错误
+    // ignore
   }
 }
 
-// 渲染 Markdown
+// ============ Markdown 渲染（含代码高亮 + Mermaid 检测） ============
+const escapeHtml = (str) => {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+// 处理代码块：添加 header（语言标签 + 复制按钮）+ 行号
+const wrapCodeBlocks = (html) => {
+  return html.replace(
+    /<pre><code(?:\s+class="language-(\w+)")?>([\s\S]*?)<\/code><\/pre>/g,
+    (match, lang, code) => {
+      // unescape HTML entities that marked already escaped
+      const rawCode = code
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+
+      const langLabel = lang || (hljs.highlightAuto(rawCode).language || 'code')
+      const escapedCode = escapeHtml(rawCode)
+      const encodedCode = encodeURIComponent(rawCode)
+
+      if (lang === 'mermaid') {
+        return `<div class="mermaid-block" data-mermaid="${encodedCode}">${escapedCode}</div>`
+      }
+
+      // 生成行号
+      const lines = rawCode.split('\n')
+      const lineCount = lines.length
+      let lineNumbersHtml = ''
+      for (let i = 1; i <= lineCount; i++) {
+        lineNumbersHtml += `<span>${i}</span>`
+      }
+
+      return `
+        <div class="code-block-wrapper">
+          <div class="code-block-header">
+            <span class="code-lang-label">${langLabel}</span>
+            <button class="code-copy-btn" data-code="${encodedCode}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>${t('aiChat.copyCode')}</span>
+            </button>
+          </div>
+          <div class="code-block-body">
+            <div class="code-line-numbers">${lineNumbersHtml}</div>
+            <pre class="code-pre"><code>${escapedCode}</code></pre>
+          </div>
+        </div>`
+    }
+  )
+}
+
 const renderMarkdown = (text) => {
   if (!text) return ''
   try {
-    return marked(text)
+    let html = marked(text)
+    html = wrapCodeBlocks(html)
+    return html
   } catch {
     return text
   }
 }
 
-// 滚动到底部
-const scrollToBottom = async () => {
+// ============ Mermaid 异步渲染 ============
+const renderMermaidBlocks = async () => {
+  await nextTick()
+  if (!messagesRef.value) return
+
+  const mermaidDivs = messagesRef.value.querySelectorAll('.mermaid-block[data-mermaid]')
+  for (const div of mermaidDivs) {
+    const code = decodeURIComponent(div.dataset.mermaid)
+    // 避免重复渲染同一个 mermaid 块
+    const cacheKey = div.dataset.mermaid
+    if (mermaidRenderedCache.has(cacheKey)) continue
+
+    try {
+      const { svg } = await mermaid.render(`mermaid-${Math.random().toString(36).slice(2, 9)}`, code)
+      const container = document.createElement('div')
+      container.className = 'mermaid-rendered'
+      container.innerHTML = svg
+      div.replaceWith(container)
+      mermaidRenderedCache.add(cacheKey)
+    } catch (e) {
+      // Mermaid 语法错误时保留原始代码，添加错误提示
+      div.className = 'mermaid-block mermaid-error'
+      div.insertAdjacentHTML('beforebegin',
+        '<div class="mermaid-error-hint">⚠ Mermaid 语法错误，请检查图表代码</div>')
+    }
+  }
+}
+
+// ============ 代码块复制按钮（事件委托） ============
+const handleCodeCopyClick = async (event) => {
+  const btn = event.target.closest('.code-copy-btn')
+  if (!btn) return
+
+  const encodedCode = btn.dataset.code
+  if (!encodedCode) return
+
+  try {
+    const code = decodeURIComponent(encodedCode)
+    await navigator.clipboard.writeText(code)
+    // 短暂显示"已复制"
+    const span = btn.querySelector('span')
+    if (span) {
+      const originalText = span.textContent
+      span.textContent = t('aiChat.copied')
+      setTimeout(() => {
+        span.textContent = originalText
+      }, 1500)
+    }
+  } catch {
+    // 兼容旧浏览器：使用 fallback
+    const textarea = document.createElement('textarea')
+    textarea.value = decodeURIComponent(encodedCode)
+    textarea.style.position = 'fixed'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.select()
+    try {
+      document.execCommand('copy')
+      const span = btn.querySelector('span')
+      if (span) {
+        const originalText = span.textContent
+        span.textContent = t('aiChat.copied')
+        setTimeout(() => { span.textContent = originalText }, 1500)
+      }
+    } catch {
+      ElMessage.error(t('aiChat.copyFailed'))
+    }
+    document.body.removeChild(textarea)
+  }
+}
+
+// ============ 滚动 ============
+const doScrollToBottom = async () => {
   await nextTick()
   if (messagesRef.value) {
     messagesRef.value.scrollTop = messagesRef.value.scrollHeight
   }
 }
 
-// 复制内容
+// 滚动并渲染 Mermaid
+const scrollToBottom = async () => {
+  await doScrollToBottom()
+  // 延迟一点确保 DOM 完全更新
+  setTimeout(() => renderMermaidBlocks(), 50)
+}
+
+// ============ 复制 ============
 const copyContent = async (text) => {
   try {
     await navigator.clipboard.writeText(text)
@@ -221,7 +395,7 @@ const copyContent = async (text) => {
   }
 }
 
-// textarea 自动调整高度
+// ============ textarea ============
 const autoResize = () => {
   if (textareaRef.value) {
     textareaRef.value.style.height = 'auto'
@@ -229,7 +403,7 @@ const autoResize = () => {
   }
 }
 
-// 获取建议问题（后端基于 README + CHANGELOG 生成并缓存）
+// ============ API ============
 const fetchSuggestions = async () => {
   try {
     const response = await request.get('/ai/chat-suggestions')
@@ -237,7 +411,6 @@ const fetchSuggestions = async () => {
       suggestions.value = response.data
     }
   } catch {
-    // 静默失败，使用默认值
     suggestions.value = [
       t('aiChat.suggest1'),
       t('aiChat.suggest2'),
@@ -247,7 +420,6 @@ const fetchSuggestions = async () => {
   }
 }
 
-// 获取模型名称
 const fetchModelName = async () => {
   try {
     const response = await request.get('/ai-config/enabled')
@@ -255,11 +427,11 @@ const fetchModelName = async () => {
       modelName.value = response.data.defaultModel || ''
     }
   } catch {
-    // 静默失败
+    // ignore
   }
 }
 
-// 发送消息（流式 SSE）
+// ============ 发送消息 ============
 const sendMessage = async (text) => {
   const content = typeof text === 'string' ? text.trim() : inputText.value.trim()
   if (!content || loading.value) return
@@ -269,26 +441,19 @@ const sendMessage = async (text) => {
     textareaRef.value.style.height = 'auto'
   }
 
-  // 添加用户消息
   messages.value.push({ role: 'user', content })
   saveHistory()
   await scrollToBottom()
 
   loading.value = true
 
-  // 先插入一条空的 assistant 消息，后续逐 token 追加
   const assistantIdx = messages.value.length
   messages.value.push({ role: 'assistant', content: '' })
   await scrollToBottom()
 
   try {
-    const apiMessages = messages.value
-      .filter(m => m.role !== 'assistant' || m.content !== '') // 过滤空的 assistant
-      .map(m => ({ role: m.role, content: m.content }))
-    // 修正：将刚插入的空 assistant 也计入 context（content 为空，AI 也能理解）
-    // 实际上我们只需要 user + 之前的 assistant，但当前这条空 assistant 不应发送
     const reqMessages = messages.value
-      .slice(0, assistantIdx) // 不包含当前空的 assistant
+      .slice(0, assistantIdx)
       .map(m => ({ role: m.role, content: m.content }))
 
     const token = userStore.token
@@ -304,10 +469,8 @@ const sendMessage = async (text) => {
     })
 
     if (!response.ok) {
-      // 尝试读取错误信息
       const errorText = await response.text()
       let errorMsg = t('aiChat.networkError')
-      // 从 SSE 数据中提取错误
       const errorMatch = errorText.match(/\[ERROR\]\s*(.+)/)
       if (errorMatch) {
         errorMsg = errorMatch[1]
@@ -317,7 +480,6 @@ const sendMessage = async (text) => {
       throw new Error(errorMsg)
     }
 
-    // 流式读取 SSE
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
@@ -327,18 +489,13 @@ const sendMessage = async (text) => {
       if (done) break
 
       buffer += decoder.decode(value, { stream: true })
-
-      // 按行解析 SSE
       const lines = buffer.split('\n')
-      // 保留最后一个可能不完整的行
       buffer = lines.pop() || ''
 
       for (const line of lines) {
         if (line.startsWith('data: ')) {
           const data = line.substring(6).trim()
-          if (data === '[DONE]') {
-            continue
-          }
+          if (data === '[DONE]') continue
           if (data.startsWith('[ERROR]')) {
             const errMsg = data.substring(8).trim()
             throw new Error(errMsg || t('aiChat.error'))
@@ -357,7 +514,6 @@ const sendMessage = async (text) => {
       }
     }
 
-    // 处理 buffer 中剩余的数据
     if (buffer.startsWith('data: ')) {
       const data = buffer.substring(6).trim()
       if (data !== '[DONE]' && !data.startsWith('[ERROR]')) {
@@ -372,14 +528,14 @@ const sendMessage = async (text) => {
       }
     }
 
-    // 如果 AI 返回空内容（异常情况）
     if (!messages.value[assistantIdx].content) {
       messages.value[assistantIdx].content = t('aiChat.emptyReply')
     }
     saveHistory()
+    // 渲染 Mermaid 图表
+    await renderMermaidBlocks()
   } catch (error) {
     console.error('AI 流式对话失败:', error)
-    // 移除空的 assistant 消息
     if (messages.value[assistantIdx] && !messages.value[assistantIdx].content) {
       messages.value.splice(assistantIdx, 1)
     }
@@ -390,10 +546,11 @@ const sendMessage = async (text) => {
   }
 }
 
-// 清空对话
+// ============ 清空对话 ============
 const clearChat = () => {
   messages.value = []
   inputText.value = ''
+  mermaidRenderedCache.clear()
   if (textareaRef.value) {
     textareaRef.value.style.height = 'auto'
   }
@@ -402,22 +559,54 @@ const clearChat = () => {
   } catch (e) {}
 }
 
-// 监听消息变化自动滚动
+// ============ 清除记忆 ============
+const clearMemory = () => {
+  ElMessageBox.confirm(
+    t('aiChat.clearMemoryConfirm'),
+    t('aiChat.clearMemoryTitle'),
+    {
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
+      type: 'warning'
+    }
+  ).then(() => {
+    messages.value = []
+    inputText.value = ''
+    mermaidRenderedCache.clear()
+    if (textareaRef.value) {
+      textareaRef.value.style.height = 'auto'
+    }
+    try {
+      localStorage.removeItem(getStorageKey())
+    } catch (e) {}
+    ElMessage.success(t('aiChat.clearMemorySuccess'))
+  }).catch(() => {
+    // 取消
+  })
+}
+
+// ============ 监听 ============
 watch(() => messages.value.length, () => {
   scrollToBottom()
+  // 当新消息添加完成后，渲染 Mermaid 图表
+  nextTick(() => renderMermaidBlocks())
 })
 
-onMounted(() => {
+watch(() => messages.value, () => {
+  // 当消息内容更新时（流式追加），也尝试渲染 Mermaid
+  renderMermaidBlocks()
+}, { deep: true })
+
+onMounted(async () => {
   fetchModelName()
   fetchSuggestions()
   loadHistory()
-  // 恢复后滚动到底部
   if (messages.value.length > 0) {
-    scrollToBottom()
+    await scrollToBottom()
+    await renderMermaidBlocks()
   }
 })
 
-// 组件卸载前保存（切换路由时）
 onBeforeUnmount(() => {
   if (messages.value.length > 0) {
     saveHistory()
@@ -429,7 +618,6 @@ onBeforeUnmount(() => {
 .ai-chat-page {
   display: flex;
   flex-direction: column;
-  /* 使用 100% 高度自适应，由父容器 el-main 决定实际高度（含页脚时自动缩小） */
   height: 100%;
   max-width: 800px;
   margin: 0 auto;
@@ -450,6 +638,12 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   color: #303133;
+}
+
+.chat-header-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .header-icon {
@@ -641,19 +835,13 @@ onBeforeUnmount(() => {
   color: #d63384;
 }
 
-.message-content :deep(pre) {
-  background: #282a36;
-  border-radius: 8px;
-  padding: 14px 16px;
-  overflow-x: auto;
-  margin: 8px 0;
-}
-
-.message-content :deep(pre code) {
+/* 覆盖 code-block-wrapper 内的 inline code 样式 */
+.message-content :deep(.code-block-body code) {
   background: none;
-  color: #f8f8f2;
+  color: inherit;
   padding: 0;
   font-size: 13px;
+  font-family: inherit;
 }
 
 .message-content :deep(blockquote) {
@@ -697,6 +885,137 @@ onBeforeUnmount(() => {
 
 .message-content :deep(a:hover) {
   text-decoration: underline;
+}
+
+/* ============ 代码块样式（含行号 + 复制按钮） ============ */
+.message-content :deep(.code-block-wrapper) {
+  margin: 10px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e4e7ed;
+}
+
+.message-content :deep(.code-block-header) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: #f0f2f5;
+  border-bottom: 1px solid #e4e7ed;
+  font-size: 12px;
+}
+
+.message-content :deep(.code-lang-label) {
+  color: #909399;
+  font-weight: 500;
+  text-transform: lowercase;
+}
+
+.message-content :deep(.code-copy-btn) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background: #fff;
+  color: #606266;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.message-content :deep(.code-copy-btn:hover) {
+  border-color: #409EFF;
+  color: #409EFF;
+}
+
+.message-content :deep(.code-copy-btn:active) {
+  background: #ecf5ff;
+}
+
+.message-content :deep(.code-block-body) {
+  display: flex;
+  background: #282a36;
+}
+
+.message-content :deep(.code-line-numbers) {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 0;
+  background: #21222c;
+  color: #636d83;
+  font-size: 13px;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  line-height: 1.6;
+  text-align: right;
+  user-select: none;
+  flex-shrink: 0;
+  min-width: 40px;
+}
+
+.message-content :deep(.code-line-numbers span) {
+  padding: 0 10px;
+}
+
+.message-content :deep(.code-pre) {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  flex: 1;
+  min-width: 0;
+}
+
+.message-content :deep(.code-pre code) {
+  background: none;
+  color: #f8f8f2;
+  padding: 0;
+  font-size: 13px;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+/* ============ Mermaid 图表样式 ============ */
+.message-content :deep(.mermaid-rendered) {
+  margin: 10px 0;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.message-content :deep(.mermaid-rendered svg) {
+  max-width: 100%;
+  height: auto;
+}
+
+.message-content :deep(.mermaid-block) {
+  display: none;
+}
+
+.message-content :deep(.mermaid-error) {
+  display: block;
+  padding: 14px 16px;
+  background: #fef0f0;
+  border: 1px solid #fde2e2;
+  border-radius: 8px;
+  margin: 10px 0;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 13px;
+  color: #f56c6c;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.message-content :deep(.mermaid-error-hint) {
+  color: #e6a23c;
+  font-size: 12px;
+  padding: 4px 0;
+  font-style: italic;
 }
 
 .message-actions {
@@ -807,6 +1126,18 @@ onBeforeUnmount(() => {
   .suggestion-chip {
     font-size: 12px;
     padding: 6px 12px;
+  }
+
+  .chat-header-right {
+    gap: 2px;
+  }
+
+  .message-content :deep(.code-line-numbers) {
+    min-width: 32px;
+  }
+
+  .message-content :deep(.code-pre) {
+    padding: 14px 10px;
   }
 }
 </style>

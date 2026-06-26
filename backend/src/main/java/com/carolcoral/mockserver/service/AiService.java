@@ -966,11 +966,14 @@ public class AiService {
             throw new RuntimeException("未配置 AI 服务或未启用，请先在 AI 设置中配置并启用");
         }
 
+        // 注入系统提示词（含项目文档知识），确保 AI 回答基于真实项目内容
+        List<Map<String, String>> enrichedMessages = enrichWithSystemPrompt(messages);
+
         String apiUrl = config.getApiUrl();
         String chatUrl = buildChatUrl(apiUrl);
         String model = getEffectiveModel(config);
 
-        Map<String, Object> requestBody = buildChatRequestBody(config, model, messages, false);
+        Map<String, Object> requestBody = buildChatRequestBody(config, model, enrichedMessages, false);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -1089,8 +1092,12 @@ public class AiService {
         if (config == null) {
             throw new RuntimeException("未配置 AI 服务或未启用，请先在 AI 设置中配置并启用");
         }
-        log.info("AI Chat Stream 请求: model={}, messagesCount={}", getEffectiveModel(config), messages.size());
-        return doStreamRequest(config, messages);
+
+        // 注入系统提示词（含项目文档知识），确保 AI 回答基于真实项目内容
+        List<Map<String, String>> enrichedMessages = enrichWithSystemPrompt(messages);
+
+        log.info("AI Chat Stream 请求: model={}, messagesCount={}", getEffectiveModel(config), enrichedMessages.size());
+        return doStreamRequest(config, enrichedMessages);
     }
 
     /**
@@ -1109,6 +1116,28 @@ public class AiService {
     private String getEffectiveModel(AiConfig config) {
         String model = config.getDefaultModel();
         return (model != null && !model.isBlank()) ? model : "gpt-4o";
+    }
+
+    /**
+     * 在消息列表最前面注入系统提示词（含项目文档知识），
+     * 确保 AI 对话始终基于真实的 README + CHANGELOG + 使用说明内容回答。
+     * 如果消息列表中已包含 system 角色消息，则不重复注入。
+     */
+    private List<Map<String, String>> enrichWithSystemPrompt(List<Map<String, String>> messages) {
+        // 检查是否已有 system 消息，避免重复注入
+        for (Map<String, String> msg : messages) {
+            if ("system".equals(msg.get("role"))) {
+                return messages; // 已存在，不重复注入
+            }
+        }
+
+        List<Map<String, String>> enriched = new ArrayList<>();
+        Map<String, String> sysMsg = new LinkedHashMap<>();
+        sysMsg.put("role", "system");
+        sysMsg.put("content", getChatSystemPrompt());
+        enriched.add(sysMsg);
+        enriched.addAll(messages);
+        return enriched;
     }
 
     /**
@@ -1143,6 +1172,149 @@ public class AiService {
     /** 缓存的建议问题列表 */
     private List<String> cachedSuggestions = null;
 
+    /** 缓存的系统提示词（含 README + CHANGELOG + 使用说明），注入到每次 AI 对话中 */
+    private String cachedSystemPrompt = null;
+
+    /**
+     * 构建 AI 对话的系统提示词，注入项目知识（README + CHANGELOG + 使用说明），
+     * 确保 AI 回答基于真实的项目文档内容而非凭空编造。
+     * 首次调用时从文档构建并缓存，后续直接返回缓存。
+     */
+    private String getChatSystemPrompt() {
+        if (cachedSystemPrompt != null) return cachedSystemPrompt;
+
+        String readme = readStaticFile("README.md");
+        String changelog = readStaticFile("CHANGELOG.md");
+        String guide = readStaticFile("USER_GUIDE.md");
+
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("你是 Mock Server 的智能助手。你必须严格根据以下项目文档回答用户问题，禁止编造文档中不存在的信息。\n\n");
+
+        // 从 README 提取关键信息
+        if (readme != null && !readme.isBlank()) {
+            prompt.append("=== Mock Server 系统说明 ===\n");
+            // 提取系统简介（前几行）和核心特性表格
+            String readmeCore = extractCoreInfo(readme);
+            prompt.append(readmeCore).append("\n\n");
+        }
+
+        // 从 CHANGELOG 提取最新版本变更
+        if (changelog != null && !changelog.isBlank()) {
+            prompt.append("=== 最新版本变更 ===\n");
+            String latestChanges = extractLatestChanges(changelog);
+            prompt.append(latestChanges).append("\n\n");
+        }
+
+        // 从 USER_GUIDE 提取使用说明
+        if (guide != null && !guide.isBlank()) {
+            prompt.append("=== 使用说明 ===\n");
+            String guideSummary = truncateText(guide, 2000);
+            prompt.append(guideSummary).append("\n\n");
+        }
+
+        // 行为约束
+        prompt.append("=== 回答规则 ===\n");
+        prompt.append("1. 所有回答必须基于上述文档内容，如果你不确定或文档中没有相关信息，请诚实告知用户\n");
+        prompt.append("2. 回答简洁清晰，优先使用中文\n");
+        prompt.append("3. 如果用户问的是上述文档中明确描述的功能，请引用具体的使用方法\n");
+        prompt.append("4. 如果用户问的问题与 Mock Server 无关，你可以简短回应但不要展开\n");
+        prompt.append("5. 代码示例优先使用文档中的真实示例\n");
+
+        cachedSystemPrompt = prompt.toString();
+        log.info("AI 对话系统提示词已构建，长度={} 字符", cachedSystemPrompt.length());
+        return cachedSystemPrompt;
+    }
+
+    /**
+     * 从 README 提取核心信息：系统简介 + 功能特性表格
+     */
+    private String extractCoreInfo(String readme) {
+        StringBuilder core = new StringBuilder();
+        String[] lines = readme.split("\\n");
+        boolean inFeatureSection = false;
+        int featureLines = 0;
+
+        for (String line : lines) {
+            String trimmed = line.trim();
+            // 保留标题和简介行（跳过 badges/p 标签内的图片行）
+            if (trimmed.startsWith("<h1") || trimmed.startsWith("Mock Server") && !trimmed.startsWith("Mock Server 有哪些")) {
+                core.append(line.replaceAll("<[^>]+>", "")).append("\n");
+                continue;
+            }
+            // 保留介绍段落（p align="center" 的文本行）
+            if (trimmed.matches("^HTTP.*Mock.*$") || trimmed.matches("^Spring.*$")) {
+                core.append(line.replaceAll("<[^>]+>", "")).append("\n");
+                continue;
+            }
+            // 进入核心特性表格
+            if (trimmed.contains("核心特性") || trimmed.contains("Core Features")) {
+                inFeatureSection = true;
+                core.append("\n## 核心功能模块\n\n");
+                continue;
+            }
+            // 收集表格行
+            if (inFeatureSection && trimmed.startsWith("|") && trimmed.endsWith("|")) {
+                if (trimmed.matches("\\|[-: |]+\\|")) continue; // 跳过分隔行
+                if (trimmed.contains("模块") || trimmed.contains("Module")) continue; // 跳过表头
+                // 清理表格行：去掉 HTML 标签和图片标记，保留纯文本
+                String cleaned = line.replaceAll("<[^>]+>", "");
+                core.append(cleaned).append("\n");
+                featureLines++;
+                if (featureLines >= 15) break; // 最多收集15行
+                continue;
+            }
+            // 表格结束后停止
+            if (inFeatureSection && (trimmed.startsWith("##") || trimmed.startsWith("---"))
+                    && featureLines > 0) {
+                break;
+            }
+        }
+        return core.toString();
+    }
+
+    /**
+     * 从 CHANGELOG 提取最新版本的变更摘要（前两个版本）
+     */
+    private String extractLatestChanges(String changelog) {
+        StringBuilder summary = new StringBuilder();
+        String[] lines = changelog.split("\\n");
+        int versionsFound = 0;
+        boolean inVersion = false;
+
+        for (String line : lines) {
+            String trimmed = line.trim();
+            // 找到版本标题
+            if (trimmed.matches("^##\\s+v\\d+\\.\\d+.*")) {
+                if (versionsFound >= 2) break; // 最多两个版本
+                versionsFound++;
+                inVersion = true;
+                summary.append("\n").append(trimmed).append("\n");
+                continue;
+            }
+            if (!inVersion) continue;
+            // 停止条件
+            if (versionsFound >= 2 && trimmed.matches("^##\\s+v\\d+\\.\\d+.*")) break;
+
+            // 收集：版本描述行（> xxx）、三级标题、带粗体的列表项
+            if (trimmed.startsWith("> ")) {
+                summary.append(trimmed).append("\n");
+            } else if (trimmed.startsWith("### ")) {
+                summary.append(trimmed).append("\n");
+            } else if (trimmed.startsWith("- **")) {
+                summary.append(trimmed).append("\n");
+            } else if (trimmed.equals("---") && versionsFound >= 2) {
+                break;
+            }
+
+            // 限制总长度
+            if (summary.length() > 3000) {
+                summary.append("...\n");
+                break;
+            }
+        }
+        return summary.toString();
+    }
+
     /**
      * 应用启动后异步预生成建议问题缓存，避免前端首次请求时长时间等待。
      */
@@ -1156,6 +1328,9 @@ public class AiService {
                 getChatSuggestions();
                 log.info("AI 对话建议问题预生成完成，共 {} 条", 
                         cachedSuggestions != null ? cachedSuggestions.size() : 0);
+                // 同时预构建系统提示词
+                getChatSystemPrompt();
+                log.info("AI 对话系统提示词预构建完成");
             } catch (Exception e) {
                 log.warn("预生成 AI 对话建议问题失败: {}", e.getMessage());
             }
@@ -1285,12 +1460,15 @@ public class AiService {
      */
     private List<String> generateSuggestionsWithAI(AiConfig config, String readme, String changelog) {
         try {
-            String prompt = "你是一个 AI 助手。请根据以下系统文档，生成 6 个用户最可能提问的建议问题。\n\n" +
-                    "要求：\n" +
-                    "1. 问题应该覆盖系统的核心功能和最新变更\n" +
-                    "2. 问题简洁明了，15字以内\n" +
-                    "3. 返回纯 JSON 数组格式，如：[\"问题1\",\"问题2\",\"问题3\"]\n" +
-                    "4. 不要包含 markdown 代码块标记，不要包含任何解释文字\n\n" +
+            String prompt = "你是 Mock Server 的智能助手。请严格根据以下系统文档（README 和 CHANGELOG），" +
+                    "生成 6 个用户最可能提问的建议问题。\n\n" +
+                    "重要约束：\n" +
+                    "1. 每个问题必须直接来源于下面文档中提到的具体功能/特性/变更，禁止凭空编造\n" +
+                    "2. 覆盖 README 中的 3~4 个核心功能模块 + CHANGELOG 中的 2~3 个最新变更\n" +
+                    "3. 问题简洁明了，20字以内，以问号结尾\n" +
+                    "4. 问题使用中文，风格自然如用户真实提问\n" +
+                    "5. 返回纯 JSON 数组格式，如：[\"问题1\",\"问题2\",\"问题3\"]\n" +
+                    "6. 不要包含 markdown 代码块标记，不要包含任何解释文字\n\n" +
                     "=== 系统说明（README） ===\n" + readme + "\n\n" +
                     "=== 最新变更（CHANGELOG） ===\n" + changelog;
 
@@ -1316,54 +1494,36 @@ public class AiService {
     }
 
     /**
-     * 基于规则从 README/CHANGELOG 提取建议问题（不依赖 AI）
+     * 基于规则从 README/CHANGELOG 提取建议问题（不依赖 AI）。
+     * 解析 README 核心特性表格和 CHANGELOG 最新版本变更条目，
+     * 确保生成的问题真实反映文档内容。
      */
     private List<String> generateSuggestionsByRule(String readme, String changelog) {
         List<String> questions = new ArrayList<>();
 
-        // 从 README 关键词提取
-        if (readme != null) {
-            if (readme.contains("接口模拟") || readme.contains("Mock")) {
-                questions.add("如何创建和配置 Mock 接口？");
+        // 1. 从 README 核心特性表格提取功能模块名称
+        List<String> readmeTopics = extractReadmeTopics(readme);
+        List<String> topicQuestions = generateQuestionsFromTopics(readmeTopics, "readme");
+        questions.addAll(topicQuestions);
+
+        // 2. 从 CHANGELOG 提取最新版本的新增功能
+        List<String> changelogEntries = extractChangelogFeatures(changelog);
+        List<String> changelogQuestions = generateQuestionsFromTopics(changelogEntries, "changelog");
+        for (String q : changelogQuestions) {
+            if (questions.size() >= 6) break;
+            // 去重：避免与 README 生成的问题高度重复
+            boolean duplicate = false;
+            for (String existing : questions) {
+                if (similarQuestion(existing, q)) { duplicate = true; break; }
             }
-            if (readme.contains("AI 智能生成") || readme.contains("AI")) {
-                questions.add("AI 智能生成功能如何使用？");
-            }
-            if (readme.contains("Swagger") || readme.contains("导入")) {
-                questions.add("如何导入 Swagger 文档生成接口？");
-            }
-            if (readme.contains("邮件") || readme.contains("邮件系统")) {
-                questions.add("如何配置邮件通知和模板？");
-            }
-            if (readme.contains("项目管理") || readme.contains("项目")) {
-                questions.add("如何管理项目和成员权限？");
-            }
-            if (readme.contains("代码模板") || readme.contains("代码处理器")) {
-                questions.add("代码模板和自定义处理器怎么用？");
-            }
-            if (readme.contains("WebSocket")) {
-                questions.add("WebSocket Mock 如何配置？");
-            }
-            if (readme.contains("国际化") || readme.contains("语言")) {
-                questions.add("如何切换系统语言？");
-            }
-            if (readme.contains("Docker") || readme.contains("部署")) {
-                questions.add("如何使用 Docker 部署系统？");
-            }
+            if (!duplicate) questions.add(q);
         }
 
-        // 从 CHANGELOG 提取最新版本变更
-        if (changelog != null) {
-            if (changelog.contains("AI") && !questions.stream().anyMatch(q -> q.contains("AI"))) {
-                questions.add("最新的 AI 功能有哪些？");
-            }
-        }
-
-        // 确保至少有 4 条
+        // 3. 确保至少有 4 条，最多 6 条
         List<String> defaults = Arrays.asList(
                 "Mock Server 有哪些核心功能？",
                 "如何快速创建一个 Mock 接口？",
-                "AI 智能生成功能怎么使用？",
+                "AI 智能平台怎么使用？",
                 "如何进行项目管理和权限分配？"
         );
 
@@ -1375,7 +1535,189 @@ public class AiService {
             }
         }
 
-        // 最多 6 条
-        return questions.size() > 6 ? questions.subList(0, 6) : questions;
+        if (questions.size() > 6) {
+            questions = questions.subList(0, 6);
+        }
+
+        log.info("基于文档规则生成建议问题 {} 条: {}", questions.size(), questions);
+        return questions;
+    }
+
+    /**
+     * 解析 README 核心特性表格，提取功能模块名称。
+     * 匹配格式：| emoji 模块名 | 描述 |
+     */
+    private List<String> extractReadmeTopics(String readme) {
+        List<String> topics = new ArrayList<>();
+        if (readme == null || readme.isBlank()) return topics;
+
+        String[] lines = readme.split("\\n");
+        boolean inFeatureTable = false;
+        for (String line : lines) {
+            String trimmed = line.trim();
+            // 检测进入核心特性表格
+            if (trimmed.contains("核心特性") || trimmed.contains("Core Features")) {
+                inFeatureTable = true;
+                continue;
+            }
+            // 表格结束（遇到空行后的非表格行，或下一个 ## 标题）
+            if (inFeatureTable && (trimmed.startsWith("##") || trimmed.startsWith("---"))) {
+                break;
+            }
+            if (inFeatureTable && trimmed.startsWith("|") && trimmed.endsWith("|")) {
+                // 跳过表头分隔行
+                if (trimmed.matches("\\|[-: |]+\\|")) continue;
+                // 跳过表头行（包含 --- 的）
+                if (trimmed.contains("---") && trimmed.contains("|")) continue;
+
+                String[] cols = trimmed.split("\\|");
+                if (cols.length >= 2) {
+                    // 第1列是 emoji + 模块名，第2列是描述
+                    String topicRaw = cols[1].trim();
+                    // 去掉 emoji 前缀（Unicode 表情符号）
+                    String topic = cleanTopicName(topicRaw);
+                    if (!topic.isEmpty() && topic.length() >= 2 && !topic.startsWith("-")) {
+                        topics.add(topic);
+                    }
+                }
+            }
+        }
+        return topics;
+    }
+
+    /**
+     * 解析 CHANGELOG 最新版本的新增功能条目。
+     * 匹配格式：- **功能名**：描述
+     */
+    private List<String> extractChangelogFeatures(String changelog) {
+        List<String> features = new ArrayList<>();
+        if (changelog == null || changelog.isBlank()) return features;
+
+        String[] lines = changelog.split("\\n");
+        boolean inLatestVersion = false;
+        boolean foundVersion = false;
+
+        for (String line : lines) {
+            String trimmed = line.trim();
+            // 找到第一个版本标题（## vX.Y.Z）
+            if (!foundVersion && trimmed.matches("^##\\s+v\\d+\\.\\d+.*")) {
+                inLatestVersion = true;
+                foundVersion = true;
+                continue;
+            }
+            // 遇到下一个版本标题，停止
+            if (foundVersion && inLatestVersion && trimmed.matches("^##\\s+v\\d+\\.\\d+.*")) {
+                break;
+            }
+            // 遇到 --- 分隔线也停止
+            if (foundVersion && inLatestVersion && trimmed.equals("---")) {
+                break;
+            }
+
+            if (inLatestVersion) {
+                // 提取三级标题（### 标题）作为功能类别
+                if (trimmed.startsWith("### ")) {
+                    String heading = trimmed.substring(4).trim();
+                    // 去掉 emoji 前缀
+                    heading = cleanTopicName(heading);
+                    if (heading.length() >= 2 && !heading.startsWith("-")) {
+                        features.add(heading);
+                    }
+                }
+                // 提取列表项（- **功能名**：描述）
+                if (trimmed.startsWith("- **")) {
+                    int boldEnd = trimmed.indexOf("**", 4);
+                    if (boldEnd > 4) {
+                        String featureName = trimmed.substring(4, boldEnd).trim();
+                        if (featureName.length() >= 2 && !featureName.equals("修复")
+                                && !featureName.equals("升级说明") && !featureName.equals("新增")
+                                && !featureName.equals("优化") && !featureName.equals("安全")) {
+                            features.add(featureName);
+                        }
+                    }
+                }
+            }
+        }
+        return features;
+    }
+
+    /**
+     * 清理模块名称：去掉 emoji、特殊符号、markdown 标记、括号内容
+     */
+    private String cleanTopicName(String raw) {
+        if (raw == null || raw.isBlank()) return "";
+        // 去掉 markdown 粗体标记
+        raw = raw.replaceAll("\\*\\*", "");
+        // 去掉常见的 markdown/HTML 标记
+        raw = raw.replaceAll("</?[a-z]+>", "");
+        // 去掉 emoji（Unicode 范围：\uD83C-\uDBFF\uDC00-\uDFFF 和常见符号）
+        raw = raw.replaceAll("[\\uD83C-\\uDBFF\\uDC00-\\uDFFF]", "");
+        raw = raw.replaceAll("[\\u2600-\\u27BF]", "");
+        raw = raw.replaceAll("[\\u2B50\\u2705\\u274C\\u2795-\\u2797\\u23CF\\u23E9-\\u23F3\\u23F8-\\u23FA\\u200D\\uFE0F]", "");
+        // 去掉括号内的英文缩写说明，如 "细粒度权限控制 (RBAC)" → "细粒度权限控制"
+        raw = raw.replaceAll("\\s*\\([A-Za-z0-9 /&]+\\)", "");
+        // 去掉常见的中文标点符号和特殊字符前缀
+        raw = raw.replaceAll("^[：:，,。；;！!？?\\s]+", "");
+        raw = raw.replaceAll("[：:，,。；;！!？?\\s]+$", "");
+        return raw.trim();
+    }
+
+    /**
+     * 从模块名称列表生成自然语言问题。
+     * 使用多样化的提问模板，避免所有问题都是同一种句式。
+     */
+    private List<String> generateQuestionsFromTopics(List<String> topics, String source) {
+        List<String> questions = new ArrayList<>();
+
+        // 多样化提问模板（轮换使用）
+        String[][] readmeTemplates = {
+            {"如何创建和配置%s？", "如何配置%s？", "%s怎么使用？"},
+            {"%s有哪些功能？", "%s支持哪些模式？", "%s能做什么？"},
+            {"%s如何设置？", "如何使用%s？", "%s功能怎么配置？"},
+            {"%s是什么？怎么用？", "如何使用%s功能？", "%s在哪里配置？"},
+        };
+
+        String[][] changelogTemplates = {
+            {"最新版%s有什么新功能？", "%s新增了什么？", "%s怎么用？"},
+            {"%s功能如何使用？", "%s有什么变化？", "如何使用新版%s？"},
+        };
+
+        String[][] templates = "changelog".equals(source) ? changelogTemplates : readmeTemplates;
+
+        for (int i = 0; i < topics.size() && questions.size() < 6; i++) {
+            String topic = topics.get(i);
+            if (topic.length() <= 1) continue;
+            // 跳过纯英文缩写
+            if (topic.matches("^[A-Z/&\\s]+$")) continue;
+            // 轮换使用不同模板
+            String[] tmplSet = templates[i % templates.length];
+            String tmpl = tmplSet[i % tmplSet.length];
+            String question = String.format(tmpl, topic);
+            // 确保以问号结尾
+            if (!question.endsWith("？") && !question.endsWith("?")) {
+                question += "？";
+            }
+            questions.add(question);
+        }
+
+        return questions;
+    }
+
+    /**
+     * 判断两个问题是否高度相似（用于去重）
+     */
+    private boolean similarQuestion(String a, String b) {
+        if (a == null || b == null) return false;
+        // 简单相似度：提取核心关键词比较
+        String coreA = a.replaceAll("[？?！!。，,、\\s]", "");
+        String coreB = b.replaceAll("[？?！!。，,、\\s]", "");
+        if (coreA.length() < 2 || coreB.length() < 2) return false;
+        // 计算公共子串长度占比
+        int commonChars = 0;
+        for (char c : coreA.toCharArray()) {
+            if (coreB.indexOf(c) >= 0) commonChars++;
+        }
+        double ratio = (double) commonChars / Math.max(coreA.length(), coreB.length());
+        return ratio > 0.6;
     }
 }

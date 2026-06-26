@@ -698,11 +698,52 @@ else
 fi
 
 # ==========================================
-# 第3.5步：同步 README.md 和 CHANGELOG.md 到静态资源
+# 第3.5步：下载 shields.io 版本图标到本地 badges/ 目录
 # ==========================================
 print_info ""
 print_info "=========================================="
-print_info "第3.5步：同步 README 和 CHANGELOG 文档..."
+print_info "第3.5步：下载 shields.io 版本图标..."
+print_info "=========================================="
+
+# 项目根目录 badges 目录
+BADGES_DIR="$PROJECT_ROOT/badges"
+mkdir -p "$BADGES_DIR"
+
+# 定义图标下载列表: "文件名=shields.io_URL"
+BADGE_URLS=(
+  "version.svg=https://img.shields.io/badge/Version-2.3.0-blue?style=flat-square"
+  "license.svg=https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square"
+  "jdk.svg=https://img.shields.io/badge/JDK-21-red?style=flat-square&logo=openjdk"
+  "node.svg=https://img.shields.io/badge/Node.js-18+-green?style=flat-square&logo=nodedotjs"
+  "springboot.svg=https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen?style=flat-square&logo=springboot"
+  "vue.svg=https://img.shields.io/badge/Vue-3.x-brightgreen?style=flat-square&logo=vuedotjs"
+)
+
+for entry in "${BADGE_URLS[@]}"; do
+  FILENAME="${entry%%=*}"
+  URL="${entry#*=}"
+  print_info "下载 $FILENAME ..."
+  if curl -sSfL -o "$BADGES_DIR/$FILENAME" "$URL" 2>/dev/null; then
+    print_success "$FILENAME 下载完成"
+  else
+    print_warning "$FILENAME 下载失败，跳过"
+  fi
+done
+
+# 同步 badges 到后端静态资源目录
+BACKEND_BADGES_DIR="$BACKEND_STATIC/badges"
+mkdir -p "$BACKEND_BADGES_DIR"
+if [ -d "$BADGES_DIR" ]; then
+  cp "$BADGES_DIR"/*.svg "$BACKEND_BADGES_DIR/" 2>/dev/null
+  print_success "badges 已同步到后端静态资源目录"
+fi
+
+# ==========================================
+# 第4步：同步 README.md 和 CHANGELOG.md 到静态资源
+# ==========================================
+print_info ""
+print_info "=========================================="
+print_info "第4步：同步 README 和 CHANGELOG 文档..."
 print_info "=========================================="
 
 PROJECT_README="$PROJECT_ROOT/README.md"
@@ -731,11 +772,11 @@ else
 fi
 
 # ==========================================
-# 第四步：Maven 打包
+# 第五步：Maven 打包
 # ==========================================
 print_info ""
 print_info "=========================================="
-print_info "第四步：Maven 打包..."
+print_info "第五步：Maven 打包..."
 print_info "=========================================="
 
 cd "$BACKEND_DIR"

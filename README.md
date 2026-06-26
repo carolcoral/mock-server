@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="badges/version.svg" alt="Version">
-  <img src="badges/license.svg" alt="License">
-  <img src="badges/jdk.svg" alt="JDK">
-  <img src="badges/node.svg" alt="Node">
-  <img src="badges/springboot.svg" alt="Spring Boot">
-  <img src="badges/vue.svg" alt="Vue">
+  <img src="https://img.shields.io/badge/Version-2.3.0-blue?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square" alt="License">
+  <img src="https://img.shields.io/badge/JDK-21-red?style=flat-square&logo=openjdk" alt="JDK">
+  <img src="https://img.shields.io/badge/Node.js-18+-green?style=flat-square&logo=nodedotjs" alt="Node">
+  <img src="https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen?style=flat-square&logo=springboot" alt="Spring Boot">
+  <img src="https://img.shields.io/badge/Vue-3.x-brightgreen?style=flat-square&logo=vuedotjs" alt="Vue">
 </p>
 
 <h1 align="center">Mock Server</h1>

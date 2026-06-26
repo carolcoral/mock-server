@@ -28,6 +28,10 @@ print_warning() {
     echo -e "${YELLOW}[警告]${NC} $1"
 }
 
+# 获取脚本所在目录的绝对路径（项目根目录）
+PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+cd "$PROJECT_ROOT"
+
 # 内部JAVA_HOME变量（不污染全局环境）
 INTERNAL_JAVA_HOME=""
 
@@ -271,6 +275,47 @@ cd ..
 print_success "构建完成！"
 
 # ==========================================
+# 下载 shields.io 版本图标到本地 badges/ 目录
+# ==========================================
+print_info ""
+print_info "=========================================="
+print_info "下载 shields.io 版本图标..."
+print_info "=========================================="
+
+# 项目根目录 badges 目录
+BADGES_DIR="$PROJECT_ROOT/badges"
+mkdir -p "$BADGES_DIR"
+
+# 定义图标下载列表: "文件名=shields.io_URL"
+BADGE_URLS=(
+  "version.svg=https://img.shields.io/badge/Version-2.3.0-blue?style=flat-square"
+  "license.svg=https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square"
+  "jdk.svg=https://img.shields.io/badge/JDK-21-red?style=flat-square&logo=openjdk"
+  "node.svg=https://img.shields.io/badge/Node.js-18+-green?style=flat-square&logo=nodedotjs"
+  "springboot.svg=https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen?style=flat-square&logo=springboot"
+  "vue.svg=https://img.shields.io/badge/Vue-3.x-brightgreen?style=flat-square&logo=vuedotjs"
+)
+
+for entry in "${BADGE_URLS[@]}"; do
+  FILENAME="${entry%%=*}"
+  URL="${entry#*=}"
+  print_info "下载 $FILENAME ..."
+  if curl -sSfL -o "$BADGES_DIR/$FILENAME" "$URL" 2>/dev/null; then
+    print_success "$FILENAME 下载完成"
+  else
+    print_warning "$FILENAME 下载失败，跳过"
+  fi
+done
+
+# 同步 badges 到前端 public 目录
+FRONTEND_BADGES_DIR="$PROJECT_ROOT/frontend/public/badges"
+mkdir -p "$FRONTEND_BADGES_DIR"
+if [ -d "$BADGES_DIR" ]; then
+  cp "$BADGES_DIR"/*.svg "$FRONTEND_BADGES_DIR/" 2>/dev/null
+  print_success "badges 已同步到前端 public/badges/"
+fi
+
+# ==========================================
 # 同步 README.md 和 CHANGELOG.md 到前后端
 # ==========================================
 print_info ""
@@ -294,6 +339,14 @@ if [ -f "$PROJECT_ROOT/CHANGELOG.md" ]; then
     print_success "CHANGELOG.md 已同步到后端静态资源目录"
 else
     print_warning "项目根目录未找到 CHANGELOG.md"
+fi
+
+# 同步 badges 到后端静态资源目录
+BACKEND_BADGES_DIR="$BACKEND_STATIC_DIR/badges"
+mkdir -p "$BACKEND_BADGES_DIR"
+if [ -d "$BADGES_DIR" ]; then
+  cp "$BADGES_DIR"/*.svg "$BACKEND_BADGES_DIR/" 2>/dev/null
+  print_success "badges 已同步到后端静态资源目录"
 fi
 
 print_info "后端jar包: backend/target/mock-server-2.1.2.jar"
