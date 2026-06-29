@@ -68,16 +68,16 @@ public class DatabaseDialectProvider {
      * 将 epoch 毫秒列格式化为日期字符串（替代 SQLite strftime）
      * SQLite:  strftime('%Y-%m-%d', col / 1000, 'unixepoch')
      * MySQL:   DATE_FORMAT(FROM_UNIXTIME(col / 1000), '%Y-%m-%d')
-     * PG:      TO_CHAR(TO_TIMESTAMP(col / 1000), 'YYYY-MM-DD')
+     * PG:      TO_CHAR(col, 'YYYY-MM-DD')  — 注意：PostgreSQL 中该列是 timestamp 类型，直接用 TO_CHAR
      *
-     * @param columnExpr  epoch 毫秒列表达式
+     * @param columnExpr 列表达式（SQLite 中是 epoch 毫秒整数，PostgreSQL 中是 timestamp）
      * @param strftimePattern SQLite strftime 格式字符串（%Y/%m/%d/%H/%M/%S）
      */
     public String formatEpochMillisToDate(String columnExpr, String strftimePattern) {
         return switch (detectDbType()) {
             case MYSQL -> "DATE_FORMAT(FROM_UNIXTIME(" + columnExpr + " / 1000), '"
                 + strftimeToMysql(strftimePattern) + "')";
-            case POSTGRESQL -> "TO_CHAR(TO_TIMESTAMP(" + columnExpr + "::double precision / 1000), '"
+            case POSTGRESQL -> "TO_CHAR(" + columnExpr + ", '"
                 + strftimeToPg(strftimePattern) + "')";
             default -> "strftime('" + strftimePattern + "', " + columnExpr + " / 1000, 'unixepoch')"; // SQLite
         };
@@ -100,6 +100,16 @@ public class DatabaseDialectProvider {
                 + strftimeToPg(strftimePattern) + "')";
             default -> "strftime('" + strftimePattern + "', " + columnExpr + ")"; // SQLite
         };
+    }
+
+    /**
+     * 判断当前数据库的时间列是否为原生类型（TIMESTAMP/DATETIME 而非 epoch 毫秒整数）
+     * PostgreSQL: true（timestamp 类型）
+     * MySQL: true（DATETIME 类型）
+     * SQLite: false（epoch 毫秒整数存储）
+     */
+    public boolean isNativeDateTimeColumn() {
+        return detectDbType() == DbType.POSTGRESQL || detectDbType() == DbType.MYSQL;
     }
 
     /**
@@ -149,13 +159,39 @@ public class DatabaseDialectProvider {
     }
 
     /**
-     * 插入或忽略的完整 SQL 前缀（自动处理 PostgreSQL ON CONFLICT）
+     * 插入或忽略的完整 SQL 前缀（自动处理数据库方言差异）
+     * <p>注意：PostgreSQL 的 ON CONFLICT 必须在 VALUES 之后，因此调用方需要
+     * 使用 {@link #buildInsertOrIgnoreFull} 或自行将 ON CONFLICT 拼接在末尾。</p>
+     *
+     * @deprecated 使用 {@link #buildInsertOrIgnoreFull} 代替，PostgreSQL 语法要求 ON CONFLICT 在 VALUES 之后
      */
+    @Deprecated
     public String buildInsertOrIgnore(String table, String columns, String conflictColumn) {
         return switch (detectDbType()) {
             case MYSQL -> "INSERT IGNORE INTO " + table + " " + columns + " ";
-            case POSTGRESQL -> "INSERT INTO " + table + " " + columns + " ON CONFLICT (" + conflictColumn + ") DO NOTHING ";
+            case POSTGRESQL -> "INSERT INTO " + table + " " + columns + " "; // ON CONFLICT 需要放在 VALUES 后面
             default -> "INSERT OR IGNORE INTO " + table + " " + columns + " "; // SQLite
+        };
+    }
+
+    /**
+     * 构建完整的 INSERT OR IGNORE 语句（自动处理数据库方言差异）
+     * <p>PostgreSQL: INSERT INTO table (cols) VALUES (...) ON CONFLICT (col) DO NOTHING
+     * <br>MySQL: INSERT IGNORE INTO table (cols) VALUES (...)
+     * <br>SQLite: INSERT OR IGNORE INTO table (cols) VALUES (...)</p>
+     *
+     * @param table          表名
+     * @param columns        列名部分，如 "(name, code, create_time)"
+     * @param conflictColumn 冲突列（仅 PostgreSQL 使用）
+     * @param values         值部分，如 "VALUES ('admin', 'ROLE_ADMIN', NOW())"
+     * @return 完整 SQL 语句
+     */
+    public String buildInsertOrIgnoreFull(String table, String columns, String conflictColumn, String values) {
+        return switch (detectDbType()) {
+            case MYSQL -> "INSERT IGNORE INTO " + table + " " + columns + " " + values;
+            case POSTGRESQL -> "INSERT INTO " + table + " " + columns + " " + values
+                + " ON CONFLICT (" + conflictColumn + ") DO NOTHING";
+            default -> "INSERT OR IGNORE INTO " + table + " " + columns + " " + values; // SQLite
         };
     }
 

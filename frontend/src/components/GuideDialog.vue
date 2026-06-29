@@ -7,10 +7,11 @@
 <template>
   <el-dialog
     v-model="visible"
-    title=""
+    title=" "
     width="90%"
     :close-on-click-modal="false"
     :show-close="true"
+    :destroy-on-close="false"
     class="guide-dialog"
     top="3vh"
     @close="handleClose"
@@ -35,7 +36,7 @@
             @click="currentStep = idx"
           >
             <div class="step-nav-number" :class="{ completed: idx < currentStep, active: idx === currentStep }">
-              <el-icon v-if="idx < currentStep" :size="14"><Check /></el-icon>
+              <el-icon v-if="idx < currentStep" :size="14"><CircleCheck /></el-icon>
               <span v-else>{{ idx + 1 }}</span>
             </div>
             <div class="step-nav-text">
@@ -56,11 +57,11 @@
           <p class="step-summary">{{ steps[currentStep]?.summary }}</p>
         </div>
 
-        <div class="content-body">
+        <div class="content-body" ref="contentBodyRef">
           <!-- 步骤内容插槽 -->
-          <div class="step-detail" :key="currentStep">
+          <div class="step-detail">
             <!-- 步骤1: 创建项目 -->
-            <div v-if="currentStep === 0" class="step-section">
+            <div v-if="currentStep === 0" :key="'step0'" class="step-section">
               <div class="illustration-card">
                 <div class="illus-icon" style="background: linear-gradient(135deg, #667eea, #764ba2);">
                   <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -110,7 +111,7 @@
             </div>
 
             <!-- 步骤2: 导入/新增接口 -->
-            <div v-if="currentStep === 1" class="step-section">
+            <div v-else-if="currentStep === 1" :key="'step1'" class="step-section">
               <div class="two-col">
                 <div class="col-card import-card">
                   <div class="col-card-header">
@@ -167,7 +168,7 @@
             </div>
 
             <!-- 步骤3: 配置响应数据 -->
-            <div v-if="currentStep === 2" class="step-section">
+            <div v-else-if="currentStep === 2" :key="'step2'" class="step-section">
               <div class="illustration-card">
                 <div class="illus-icon" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
                   <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -228,7 +229,7 @@
             </div>
 
             <!-- 步骤4: 请求参数匹配 -->
-            <div v-if="currentStep === 3" class="step-section">
+            <div v-else-if="currentStep === 3" :key="'step3'" class="step-section">
               <div class="illustration-card">
                 <div class="illus-icon" style="background: linear-gradient(135deg, #43e97b, #38f9d7);">
                   <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -301,7 +302,7 @@
             </div>
 
             <!-- 步骤5: AI 智能生成 -->
-            <div v-if="currentStep === 4" class="step-section">
+            <div v-else-if="currentStep === 4" :key="'step4'" class="step-section">
               <div class="illustration-card">
                 <div class="illus-icon" style="background: linear-gradient(135deg, #f6d365, #fda085);">
                   <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -385,7 +386,7 @@
             </div>
 
             <!-- 步骤6: 调用与监控 -->
-            <div v-if="currentStep === 5" class="step-section">
+            <div v-else-if="currentStep === 5" :key="'step6'" class="step-section">
               <div class="illustration-card">
                 <div class="illus-icon" style="background: linear-gradient(135deg, #667eea, #764ba2);">
                   <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -393,8 +394,8 @@
                   </svg>
                 </div>
                 <div class="illus-body">
-                  <h4>{{ $t('guide.step6Heading') }}</h4>
-                  <p>{{ $t('guide.step6Desc') }}</p>
+                  <h4>{{ t('guide.step6Heading') }}</h4>
+                  <p>{{ t('guide.step6Desc') }}</p>
                 </div>
               </div>
               <div class="info-cards">
@@ -405,8 +406,8 @@
                     </svg>
                   </div>
                   <div class="info-card-text">
-                    <strong>{{ $t('guide.step6UrlTitle') }}</strong>
-                    <p>{{ $t('guide.step6UrlDesc') }}</p>
+                    <strong>{{ t('guide.step6UrlTitle') }}</strong>
+                    <p>{{ t('guide.step6UrlDesc') }}</p>
                   </div>
                 </div>
                 <div class="info-card">
@@ -416,8 +417,8 @@
                     </svg>
                   </div>
                   <div class="info-card-text">
-                    <strong>{{ $t('guide.step6StatsTitle') }}</strong>
-                    <p>{{ $t('guide.step6StatsDesc') }}</p>
+                    <strong>{{ t('guide.step6StatsTitle') }}</strong>
+                    <p>{{ t('guide.step6StatsDesc') }}</p>
                   </div>
                 </div>
                 <div class="info-card">
@@ -427,19 +428,19 @@
                     </svg>
                   </div>
                   <div class="info-card-text">
-                    <strong>{{ $t('guide.step6SecurityTitle') }}</strong>
-                    <p>{{ $t('guide.step6SecurityDesc') }}</p>
+                    <strong>{{ t('guide.step6SecurityTitle') }}</strong>
+                    <p>{{ t('guide.step6SecurityDesc') }}</p>
                   </div>
                 </div>
               </div>
               <div class="quick-start-box">
-                <h4>{{ $t('guide.step6ChecklistHeading') }}</h4>
+                <h4>{{ t('guide.step6ChecklistHeading') }}</h4>
                 <div class="checklist">
-                  <div class="checklist-item"><el-icon :size="16" color="#67c23a"><Check /></el-icon> {{ $t('guide.step6CheckItem1') }}</div>
-                  <div class="checklist-item"><el-icon :size="16" color="#67c23a"><Check /></el-icon> {{ $t('guide.step6CheckItem2') }}</div>
-                  <div class="checklist-item"><el-icon :size="16" color="#67c23a"><Check /></el-icon> {{ $t('guide.step6CheckItem3') }}</div>
-                  <div class="checklist-item"><el-icon :size="16" color="#67c23a"><Check /></el-icon> {{ $t('guide.step6CheckItem4') }}</div>
-                  <div class="checklist-item"><el-icon :size="16" color="#67c23a"><Check /></el-icon> {{ $t('guide.step6CheckItem5') }}</div>
+                  <div class="checklist-item"><span class="check-icon">✓</span> {{ t('guide.step6CheckItem1') }}</div>
+                  <div class="checklist-item"><span class="check-icon">✓</span> {{ t('guide.step6CheckItem2') }}</div>
+                  <div class="checklist-item"><span class="check-icon">✓</span> {{ t('guide.step6CheckItem3') }}</div>
+                  <div class="checklist-item"><span class="check-icon">✓</span> {{ t('guide.step6CheckItem4') }}</div>
+                  <div class="checklist-item"><span class="check-icon">✓</span> {{ t('guide.step6CheckItem5') }}</div>
                 </div>
               </div>
             </div>
@@ -464,7 +465,7 @@
             {{ $t('guide.next') }} <el-icon><ArrowRight /></el-icon>
           </el-button>
           <el-button v-else type="success" @click="handleClose">
-            <el-icon><Check /></el-icon> {{ $t('guide.start') }}
+            <el-icon><CircleCheck /></el-icon> {{ $t('guide.start') }}
           </el-button>
         </div>
       </div>
@@ -473,9 +474,9 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ArrowLeft, ArrowRight, Check } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, CircleCheck } from '@element-plus/icons-vue'
 
 const { t } = useI18n()
 
@@ -489,6 +490,8 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue'])
 
 const visible = ref(props.modelValue)
+const currentStep = ref(0)
+const contentBodyRef = ref(null)
 
 watch(() => props.modelValue, (val) => {
   visible.value = val
@@ -497,19 +500,34 @@ watch(() => props.modelValue, (val) => {
   }
 })
 
-const currentStep = ref(0)
+// 切换步骤时滚动到顶部
+watch(currentStep, () => {
+  nextTick(() => {
+    if (contentBodyRef.value) {
+      contentBodyRef.value.scrollTop = 0
+    }
+  })
+})
 
-const steps = computed(() => [
-  { title: t('guide.step1Title'), subtitle: t('guide.step1Subtitle'), summary: t('guide.step1Summary') },
-  { title: t('guide.step2Title'), subtitle: t('guide.step2Subtitle'), summary: t('guide.step2Summary') },
-  { title: t('guide.step3Title'), subtitle: t('guide.step3Subtitle'), summary: t('guide.step3Summary') },
-  { title: t('guide.step4Title'), subtitle: t('guide.step4Subtitle'), summary: t('guide.step4Summary') },
-  { title: t('guide.step5Title'), subtitle: t('guide.step5Subtitle'), summary: t('guide.step5Summary') },
-  { title: t('guide.step6Title'), subtitle: t('guide.step6Subtitle'), summary: t('guide.step6Summary') }
-])
+const steps = computed(() => {
+  try {
+    return [
+      { title: t('guide.step1Title'), subtitle: t('guide.step1Subtitle'), summary: t('guide.step1Summary') },
+      { title: t('guide.step2Title'), subtitle: t('guide.step2Subtitle'), summary: t('guide.step2Summary') },
+      { title: t('guide.step3Title'), subtitle: t('guide.step3Subtitle'), summary: t('guide.step3Summary') },
+      { title: t('guide.step4Title'), subtitle: t('guide.step4Subtitle'), summary: t('guide.step4Summary') },
+      { title: t('guide.step5Title'), subtitle: t('guide.step5Subtitle'), summary: t('guide.step5Summary') },
+      { title: t('guide.step6Title'), subtitle: t('guide.step6Subtitle'), summary: t('guide.step6Summary') }
+    ]
+  } catch (e) {
+    console.error('GuideDialog steps computed error:', e)
+    return []
+  }
+})
 
 const nextStep = () => {
-  if (currentStep.value < steps.length - 1) {
+  const maxStep = (steps.value?.length || 6) - 1
+  if (currentStep.value < maxStep) {
     currentStep.value++
   }
 }
@@ -530,7 +548,17 @@ const handleClose = () => {
 <style scoped>
 /* 弹窗整体 */
 .guide-dialog :deep(.el-dialog__header) {
-  display: none;
+  padding: 0;
+  margin: 0;
+  height: 0;
+  overflow: hidden;
+  border: none;
+}
+
+.guide-dialog :deep(.el-dialog__headerbtn) {
+  top: 12px;
+  right: 16px;
+  z-index: 10;
 }
 
 .guide-dialog :deep(.el-dialog__body) {
@@ -1021,7 +1049,7 @@ const handleClose = () => {
 .checklist {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .checklist-item {
@@ -1030,6 +1058,18 @@ const handleClose = () => {
   gap: 8px;
   font-size: 14px;
   color: #303133;
+}
+
+.check-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #67c23a;
+  flex-shrink: 0;
 }
 
 /* 底部导航 */

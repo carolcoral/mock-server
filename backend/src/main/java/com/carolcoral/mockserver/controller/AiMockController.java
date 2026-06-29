@@ -86,8 +86,6 @@ public class AiMockController {
         return 0L;
     }
 
-    private static final DateTimeFormatter DB_DATETIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-
     /**
      * 记录 AI 调用日志（使用 JdbcTemplate 直接 INSERT，避免 JPA ID 生成策略与数据库的兼容问题）
      */
@@ -98,8 +96,8 @@ public class AiMockController {
                 getCurrentUserId(),
                 getCurrentUsername(),
                 apiType,
-                LocalDateTime.now().format(DB_DATETIME_FMT),
-                success ? 1 : 0,
+                LocalDateTime.now(),
+                success,
                 errorMessage != null && errorMessage.length() > 500 ? errorMessage.substring(0, 500) : errorMessage
             );
         } catch (Exception e) {

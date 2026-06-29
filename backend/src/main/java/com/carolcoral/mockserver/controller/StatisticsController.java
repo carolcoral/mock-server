@@ -51,6 +51,22 @@ public class StatisticsController {
     }
 
     /**
+     * 根据数据库类型设置时间参数
+     * SQLite：传 epoch 毫秒（Long）
+     * PostgreSQL/MySQL：传 LocalDateTime（原生 timestamp/datetime 列）
+     */
+    private void setTimeParameter(Query query, String paramName, LocalDateTime dateTime) {
+        if (dialect.isNativeDateTimeColumn()) {
+            // PostgreSQL timestamp / MySQL DATETIME 列，直接传 LocalDateTime
+            query.setParameter(paramName, dateTime);
+        } else {
+            // SQLite epoch 毫秒
+            long epochMillis = dateTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+            query.setParameter(paramName, epochMillis);
+        }
+    }
+
+    /**
      * 获取请求频率统计（按天或按小时）
      *
      * @param days        统计天数
@@ -76,9 +92,6 @@ public class StatisticsController {
                 startTime = LocalDateTime.now().minusDays(days).with(LocalTime.MIN);
             }
 
-            // request_time 存储为 epoch 毫秒
-            long startTimeMillis = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
-
             String groupBy;
             if ("hourly".equals(granularity)) {
                 groupBy = dialect.formatEpochMillisToDate("r.request_time", "%Y-%m-%d %H:00");
@@ -97,7 +110,7 @@ public class StatisticsController {
                     "ORDER BY timeKey ASC";
 
             Query query = entityManager.createNativeQuery(sql);
-            query.setParameter("startTime", startTimeMillis);
+            setTimeParameter(query, "startTime", startTime);
 
             List<Object[]> rows = query.getResultList();
             List<String> labels = new ArrayList<>();
@@ -138,7 +151,6 @@ public class StatisticsController {
 
         try {
             LocalDateTime startTime = LocalDateTime.now().minusDays(days).with(LocalTime.MIN);
-            long startTimeMillis = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
 
             // 按粒度选择时间格式化
             String timeFormat;
@@ -159,7 +171,7 @@ public class StatisticsController {
                     "ORDER BY cnt DESC " +
                     "LIMIT 15";
             Query topIpQuery = entityManager.createNativeQuery(topIpSql);
-            topIpQuery.setParameter("startTime", startTimeMillis);
+            setTimeParameter(topIpQuery, "startTime", startTime);
             List<Object[]> topIpRows = topIpQuery.getResultList();
             List<String> topIps = new ArrayList<>();
             for (Object[] row : topIpRows) {
@@ -184,7 +196,7 @@ public class StatisticsController {
                     "GROUP BY r.request_ip, timeKey " +
                     "ORDER BY timeKey ASC, cnt DESC";
             Query statsQuery = entityManager.createNativeQuery(statsSql);
-            statsQuery.setParameter("startTime", startTimeMillis);
+            setTimeParameter(statsQuery, "startTime", startTime);
             statsQuery.setParameter("topIps", topIps);
             List<Object[]> statsRows = statsQuery.getResultList();
 
@@ -288,24 +300,22 @@ public class StatisticsController {
             } else {
                 startTime = LocalDateTime.now().minusDays(rangeCount).with(LocalTime.MIN);
             }
-            long startTimeMillis = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
-
-            // 查询项目新增（create_time 存储为 epoch 毫秒）
+            // 查询项目新增
             String projectSql = "SELECT " + dialect.formatEpochMillisToDate("p.create_time", timeFormat) + " as dt, COUNT(*) as cnt " +
                     "FROM t_project p " +
                     "WHERE p.create_time >= :startTime " +
                     "GROUP BY dt ORDER BY dt ASC";
             Query projectQuery = entityManager.createNativeQuery(projectSql);
-            projectQuery.setParameter("startTime", startTimeMillis);
+            setTimeParameter(projectQuery, "startTime", startTime);
             List<Object[]> projectRows = projectQuery.getResultList();
 
-            // 查询接口新增（create_time 存储为 epoch 毫秒）
+            // 查询接口新增
             String apiSql = "SELECT " + dialect.formatEpochMillisToDate("a.create_time", timeFormat) + " as dt, COUNT(*) as cnt " +
                     "FROM t_mock_api a " +
                     "WHERE a.create_time >= :startTime " +
                     "GROUP BY dt ORDER BY dt ASC";
             Query apiQuery = entityManager.createNativeQuery(apiSql);
-            apiQuery.setParameter("startTime", startTimeMillis);
+            setTimeParameter(apiQuery, "startTime", startTime);
             List<Object[]> apiRows = apiQuery.getResultList();
 
             // 构建完整时间范围标签
@@ -360,8 +370,6 @@ public class StatisticsController {
             if (minutes > 1440) minutes = 1440; // 最多24小时
 
             LocalDateTime startTime = LocalDateTime.now().minusMinutes(minutes);
-            // LocalDateTime 存储为毫秒时间戳
-            long startTimeMillis = startTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
 
             // 短时间窗口（≤60分钟）按秒分组，长窗口按分钟分组
             String timeFormat;
@@ -386,7 +394,7 @@ public class StatisticsController {
                     "ORDER BY timeKey ASC";
 
             Query query = entityManager.createNativeQuery(sql);
-            query.setParameter("startTime", startTimeMillis);
+            setTimeParameter(query, "startTime", startTime);
 
             List<Object[]> rows = query.getResultList();
             List<String> labels = new ArrayList<>();

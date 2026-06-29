@@ -7,19 +7,26 @@
 package com.carolcoral.mockserver.controller;
 
 import com.carolcoral.mockserver.dto.ApiResponse;
+import com.carolcoral.mockserver.util.DatabaseDialectProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.sql.DataSource;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.InputStream;
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.RuntimeMXBean;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -40,6 +47,12 @@ public class SystemInfoController {
 
     /** 缓存的版本号，避免重复解析 POM */
     private static volatile String cachedVersion;
+
+    @Autowired(required = false)
+    private DataSource dataSource;
+
+    @Autowired
+    private DatabaseDialectProvider databaseDialectProvider;
 
     /**
      * 从 META-INF/maven 目录下的 pom.properties 读取版本号
@@ -182,24 +195,33 @@ public class SystemInfoController {
             info.put("startTime", LocalDateTime.now().minus(uptime).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 
             // ========== 数据库信息 ==========
-            info.put("databaseType", "SQLite");
-            // 尝试获取 SQLite 版本
-            try {
-                java.sql.Connection conn = java.sql.DriverManager.getConnection(
-                    "jdbc:sqlite::memory:");
-                java.sql.Statement stmt = conn.createStatement();
-                java.sql.ResultSet rs = stmt.executeQuery("SELECT sqlite_version()");
-                if (rs.next()) {
-                    info.put("databaseVersion", rs.getString(1));
-                } else {
-                    info.put("databaseVersion", "N/A");
+            // 通过 DatabaseDialectProvider 动态检测实际数据库类型
+            DatabaseDialectProvider.DbType dbType = databaseDialectProvider.detectDbType();
+            info.put("databaseType", dbType.name());
+
+            // 从真实 DataSource 获取数据库产品名称和版本
+            String dbProductName = null;
+            String dbProductVersion = null;
+            try (Connection conn = dataSource.getConnection()) {
+                DatabaseMetaData meta = conn.getMetaData();
+                dbProductName = meta.getDatabaseProductName();
+                dbProductVersion = meta.getDatabaseProductVersion();
+
+                // 对于 PostgreSQL，同时获取详细版本信息
+                if (dbType == DatabaseDialectProvider.DbType.POSTGRESQL) {
+                    try (Statement stmt = conn.createStatement();
+                         ResultSet rs = stmt.executeQuery("SELECT version()")) {
+                        if (rs.next()) {
+                            info.put("databaseFullVersion", rs.getString(1));
+                        }
+                    }
                 }
-                rs.close();
-                stmt.close();
-                conn.close();
             } catch (Exception e) {
-                info.put("databaseVersion", "N/A");
+                log.warn("无法获取数据库元信息: {}", e.getMessage());
             }
+
+            info.put("databaseProductName", dbProductName != null ? dbProductName : dbType.name());
+            info.put("databaseVersion", dbProductVersion != null ? dbProductVersion : "N/A");
 
             // ========== JVM 内存 ==========
             long heapMax = runtime.maxMemory();

@@ -166,9 +166,12 @@ public class DatabaseMigration implements CommandLineRunner {
             dialect.idColumnDefinition() + "," +
             "role_id BIGINT NOT NULL," +
             "permission_id BIGINT NOT NULL)", "t_role_permission");
+        // PostgreSQL/MySQL: 确保 role_id + permission_id 有唯一约束（支持 ON CONFLICT）
+        safeExecute("CREATE UNIQUE INDEX IF NOT EXISTS uk_role_permission ON t_role_permission(role_id, permission_id)",
+            "uk_role_permission");
         // 给管理员角色分配所有权限
-        String assignPerms = dialect.buildInsertOrIgnore("t_role_permission", "(role_id, permission_id)", "role_id,permission_id")
-            + "SELECT 1, id FROM t_permission";
+        String assignPerms = dialect.buildInsertOrIgnoreFull("t_role_permission", "(role_id, permission_id)",
+            "role_id,permission_id", "SELECT 1, id FROM t_permission");
         safeExecute(assignPerms, "管理员权限分配");
 
         // 更新用户的role_id
@@ -193,15 +196,19 @@ public class DatabaseMigration implements CommandLineRunner {
         safeExecute(dialect.createIndexIfNotExists("idx_ai_call_username", "t_ai_call_log", "username"), "idx_ai_call_username");
 
         // 补全项目创建者的成员记录
+        // 先确保有唯一索引（PostgreSQL ON CONFLICT 需要）
+        safeExecute("CREATE UNIQUE INDEX IF NOT EXISTS uk_project_member ON t_project_member(project_id, user_id)",
+            "uk_project_member");
         try {
-            String insertMembers = dialect.buildInsertOrIgnore("t_project_member", "(project_id, user_id, role, create_time, update_time)", "project_id,user_id")
-                + "SELECT p.id, p.create_user_id, 1, " + now + ", " + now
+            String insertMembers = dialect.buildInsertOrIgnoreFull("t_project_member",
+                "(project_id, user_id, role, create_time, update_time)", "project_id,user_id",
+                "SELECT p.id, p.create_user_id, 1, " + now + ", " + now
                 + " FROM t_project p"
                 + " WHERE p.create_user_id IS NOT NULL"
                 + " AND NOT EXISTS ("
                 + " SELECT 1 FROM t_project_member pm"
                 + " WHERE pm.project_id = p.id AND pm.user_id = p.create_user_id"
-                + ")";
+                + ")");
             int migratedCount = jdbcTemplate.update(insertMembers);
             log.info("补全项目创建者成员记录: 迁移 {} 条", migratedCount);
 
@@ -242,11 +249,21 @@ public class DatabaseMigration implements CommandLineRunner {
     }
 
     /**
-     * 安全的执行 SQL（忽略表已存在的错误）
+     * 安全的执行 SQL（自动选择 execute/update，忽略表已存在的错误）
      */
     private void safeExecute(String sql, String name) {
         try {
-            jdbcTemplate.execute(sql);
+            // DML 语句（INSERT/UPDATE/DELETE/SELECT）使用 Statement.execute，DDL 使用 execute
+            String trimmed = sql.trim().toUpperCase();
+            if (trimmed.startsWith("INSERT") || trimmed.startsWith("UPDATE")
+                || trimmed.startsWith("DELETE") || trimmed.startsWith("SELECT")) {
+                jdbcTemplate.execute((java.sql.Statement stmt) -> {
+                    stmt.execute(sql);
+                    return null;
+                });
+            } else {
+                jdbcTemplate.execute(sql);
+            }
             log.info("成功执行: {}", name);
         } catch (Exception e) {
             String errorMsg = e.getMessage();
@@ -263,8 +280,11 @@ public class DatabaseMigration implements CommandLineRunner {
      */
     private void safeInsertOrIgnore(String table, String columns, String conflictColumn, String values) {
         try {
-            String sql = dialect.buildInsertOrIgnore(table, columns, conflictColumn) + values;
-            jdbcTemplate.execute(sql);
+            String sql = dialect.buildInsertOrIgnoreFull(table, columns, conflictColumn, values);
+            jdbcTemplate.execute((java.sql.Statement stmt) -> {
+                stmt.execute(sql);
+                return null;
+            });
         } catch (Exception e) {
             log.warn("插入数据到{}失败: {}", table, e.getMessage());
         }
@@ -318,9 +338,9 @@ public class DatabaseMigration implements CommandLineRunner {
             {"系统设置-页面访问", "settings:view", "系统管理", "PAGE", "100"},
         };
 
-        String sql = dialect.buildInsertOrIgnore("t_permission",
-            "(name, code, group_name, type, sort_order, create_time, update_time)", "code")
-            + "VALUES (?, ?, ?, ?, ?, " + now + ", " + now + ")";
+        String valuesClause = "VALUES (?, ?, ?, ?, ?, " + now + ", " + now + ")";
+        String sql = dialect.buildInsertOrIgnoreFull("t_permission",
+            "(name, code, group_name, type, sort_order, create_time, update_time)", "code", valuesClause);
         for (String[] perm : perms) {
             try {
                 jdbcTemplate.update(sql, perm[0], perm[1], perm[2], perm[3], Integer.parseInt(perm[4]));
