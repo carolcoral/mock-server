@@ -1,0 +1,47 @@
+# ========================================
+# PostgreSQL 数据库 - Docker Compose
+# Mock Server 生产环境数据源
+# ========================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mock-server-pgsql
+    restart: unless-stopped
+    ports:
+      - "${PGSQL_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_USER=${PGSQL_USERNAME:-postgres}
+      - POSTGRES_PASSWORD=${PGSQL_PASSWORD:-postgres123}
+      - POSTGRES_DB=${PGSQL_DATABASE:-mock_server}
+      - TZ=Asia/Shanghai
+      # 性能调优
+      - POSTGRES_SHARED_BUFFERS=256MB
+      - POSTGRES_EFFECTIVE_CACHE_SIZE=768MB
+      - POSTGRES_MAINTENANCE_WORK_MEM=64MB
+    volumes:
+      - pgsql_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGSQL_USERNAME:-postgres} -d ${PGSQL_DATABASE:-mock_server}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - mock-network
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+volumes:
+  pgsql_data:
+    driver: local
+
+networks:
+  mock-network:
+    driver: bridge

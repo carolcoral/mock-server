@@ -1,0 +1,900 @@
+{
+  "title": "Mock Server 自动化测试报告",
+  "timestamp": "2026-06-29T22:52:51.275131",
+  "summary": {
+    "total_cases": 75,
+    "passed": 45,
+    "failed": 11,
+    "errors": 19,
+    "pass_rate": "60.0%",
+    "duration_seconds": "59.85"
+  },
+  "config_warnings": [],
+  "suites": [
+    {
+      "name": "页面访问测试",
+      "description": "测试所有前端页面的 HTTP 可访问性",
+      "summary": {
+        "total": 19,
+        "passed": 18,
+        "failed": 1,
+        "skipped": 0,
+        "errors": 0,
+        "duration_seconds": "9.00"
+      },
+      "cases": [
+        {
+          "id": "page__",
+          "name": "访问 欢迎页 (Welcome)",
+          "description": "路径: /",
+          "status": "PASS",
+          "duration_ms": 5.49,
+          "error_message": "",
+          "details": {
+            "path": "/",
+            "status": 200
+          }
+        },
+        {
+          "id": "page__changelog",
+          "name": "访问 变更日志 (Changelog)",
+          "description": "路径: /changelog",
+          "status": "PASS",
+          "duration_ms": 5.26,
+          "error_message": "",
+          "details": {
+            "path": "/changelog",
+            "status": 200
+          }
+        },
+        {
+          "id": "page__login",
+          "name": "访问 登录页 (Login)",
+          "description": "路径: /login",
+          "status": "PASS",
+          "duration_ms": 4.24,
+          "error_message": "",
+          "details": {
+            "path": "/login",
+            "status": 200
+          }
+        },
+        {
+          "id": "page__register",
+          "name": "访问 注册页 (Register)",
+          "description": "路径: /register",
+          "status": "PASS",
+          "duration_ms": 3.7,
+          "error_message": "",
+          "details": {
+            "path": "/register",
+            "status": 200
+          }
+        },
+        {
+          "id": "page__forgot-password",
+          "name": "访问 忘记密码 (ForgotPassword)",
+          "description": "路径: /forgot-password",
+          "status": "FAIL",
+          "duration_ms": 2.4,
+          "error_message": "状态码 401 != 200",
+          "details": {
+            "path": "/forgot-password",
+            "status": 401
+          }
+        },
+        {
+          "id": "page__guide",
+          "name": "访问 使用引导 (Guide)",
+          "description": "路径: /guide",
+          "status": "PASS",
+          "duration_ms": 3.41,
+          "error_message": "",
+          "details": {
+            "path": "/guide",
+            "status": 200
+          }
+        },
+        {
+          "id": "page__dashboard",
+          "name": "访问 仪表盘 (Home)",
+          "description": "路径: /dashboard (需权限: dashboard:view)",
+          "status": "PASS",
+          "duration_ms": 246.06,
+          "error_message": "",
+          "details": {
+            "path": "/dashboard",
+            "status": 200,
+            "permission": "dashboard:view"
+          }
+        },
+        {
+          "id": "page__projects",
+          "name": "访问 项目管理 (Projects)",
+          "description": "路径: /projects (需权限: project:view)",
+          "status": "PASS",
+          "duration_ms": 248.49,
+          "error_message": "",
+          "details": {
+            "path": "/projects",
+            "status": 200,
+            "permission": "project:view"
+          }
+        },
+        {
+          "id": "page__apis",
+          "name": "访问 接口管理 (Apis)",
+          "description": "路径: /apis (需权限: api:view)",
+          "status": "PASS",
+          "duration_ms": 246.93,
+          "error_message": "",
+          "details": {
+            "path": "/apis",
+            "status": 200,
+            "permission": "api:view"
+          }
+        },
+        {
+          "id": "page__code-templates",
+          "name": "访问 代码模板 (CodeTemplates)",
+          "description": "路径: /code-templates (需权限: code-template:view)",
+          "status": "PASS",
+          "duration_ms": 244.86,
+          "error_message": "",
+          "details": {
+            "path": "/code-templates",
+            "status": 200,
+            "permission": "code-template:view"
+          }
+        },
+        {
+          "id": "page__ai-chat",
+          "name": "访问 AI对话 (AiChat)",
+          "description": "路径: /ai-chat (需权限: ai-chat:view)",
+          "status": "PASS",
+          "duration_ms": 244.59,
+          "error_message": "",
+          "details": {
+            "path": "/ai-chat",
+            "status": 200,
+            "permission": "ai-chat:view"
+          }
+        },
+        {
+          "id": "page__statistics",
+          "name": "访问 数据统计 (Statistics)",
+          "description": "路径: /statistics (需权限: statistics:view)",
+          "status": "PASS",
+          "duration_ms": 246.94,
+          "error_message": "",
+          "details": {
+            "path": "/statistics",
+            "status": 200,
+            "permission": "statistics:view"
+          }
+        },
+        {
+          "id": "page__users",
+          "name": "访问 用户管理 (Users)",
+          "description": "路径: /users (需权限: user:view)",
+          "status": "PASS",
+          "duration_ms": 245.85,
+          "error_message": "",
+          "details": {
+            "path": "/users",
+            "status": 200,
+            "permission": "user:view"
+          }
+        },
+        {
+          "id": "page__roles",
+          "name": "访问 角色管理 (Roles)",
+          "description": "路径: /roles (需权限: role:view)",
+          "status": "PASS",
+          "duration_ms": 244.39,
+          "error_message": "",
+          "details": {
+            "path": "/roles",
+            "status": 200,
+            "permission": "role:view"
+          }
+        },
+        {
+          "id": "page__permissions",
+          "name": "访问 权限管理 (Permissions)",
+          "description": "路径: /permissions (需权限: permission:view)",
+          "status": "PASS",
+          "duration_ms": 244.12,
+          "error_message": "",
+          "details": {
+            "path": "/permissions",
+            "status": 200,
+            "permission": "permission:view"
+          }
+        },
+        {
+          "id": "page__email-templates",
+          "name": "访问 邮件模板 (EmailTemplates)",
+          "description": "路径: /email-templates (需权限: email-template:view)",
+          "status": "PASS",
+          "duration_ms": 244.45,
+          "error_message": "",
+          "details": {
+            "path": "/email-templates",
+            "status": 200,
+            "permission": "email-template:view"
+          }
+        },
+        {
+          "id": "page__ai-settings",
+          "name": "访问 AI设置 (AiSettings)",
+          "description": "路径: /ai-settings (需权限: ai-settings:view)",
+          "status": "PASS",
+          "duration_ms": 243.77,
+          "error_message": "",
+          "details": {
+            "path": "/ai-settings",
+            "status": 200,
+            "permission": "ai-settings:view"
+          }
+        },
+        {
+          "id": "page__settings",
+          "name": "访问 系统设置 (Settings)",
+          "description": "路径: /settings (需权限: settings:view)",
+          "status": "PASS",
+          "duration_ms": 243.83,
+          "error_message": "",
+          "details": {
+            "path": "/settings",
+            "status": 200,
+            "permission": "settings:view"
+          }
+        },
+        {
+          "id": "page__profile",
+          "name": "访问 个人信息 (Profile)",
+          "description": "路径: /profile",
+          "status": "PASS",
+          "duration_ms": 243.11,
+          "error_message": "",
+          "details": {
+            "path": "/profile",
+            "status": 200,
+            "permission": null
+          }
+        }
+      ]
+    },
+    {
+      "name": "页面功能测试",
+      "description": "测试各模块的 CRUD 操作（创建、读取、更新、删除）",
+      "summary": {
+        "total": 33,
+        "passed": 14,
+        "failed": 1,
+        "skipped": 0,
+        "errors": 18,
+        "duration_seconds": "16.00"
+      },
+      "cases": [
+        {
+          "id": "feat_dashboard_stats",
+          "name": "获取仪表盘统计数据",
+          "description": "GET /api/dashboard/stats",
+          "status": "PASS",
+          "duration_ms": 282.57,
+          "error_message": "",
+          "details": {
+            "data": {
+              "requestCount": 0,
+              "projectCount": 1,
+              "userCount": 1,
+              "totalRequestCount": 0,
+              "apiCount": 5
+            }
+          }
+        },
+        {
+          "id": "feat_project_create",
+          "name": "创建项目",
+          "description": "POST /api/projects",
+          "status": "PASS",
+          "duration_ms": 276.83,
+          "error_message": "",
+          "details": {
+            "project_code": "699c194v"
+          }
+        },
+        {
+          "id": "feat_project_list",
+          "name": "获取项目列表",
+          "description": "GET /api/projects",
+          "status": "PASS",
+          "duration_ms": 273.47,
+          "error_message": "",
+          "details": {
+            "project_count": "N/A"
+          }
+        },
+        {
+          "id": "feat_project_update",
+          "name": "更新项目",
+          "description": "PUT /api/projects",
+          "status": "ERROR",
+          "duration_ms": 258.69,
+          "error_message": "ValueError: not enough values to unpack (expected 3, got 2)\nTraceback (most recent call last):\n  File \"/workspace/auto_test_tool/core/test_runner.py\", line 143, in run_test\n    passed, error_msg, details = test_fn()\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: not enough values to unpack (expected 3, got 2)\n",
+          "details": {}
+        },
+        {
+          "id": "feat_project_delete",
+          "name": "删除项目",
+          "description": "DELETE /api/projects/{id}",
+          "status": "FAIL",
+          "duration_ms": 273.79,
+          "error_message": "状态码: 403",
+          "details": {}
+        },
+        {
+          "id": "feat_api_create",
+          "name": "创建 Mock API",
+          "description": "POST /api/mock-apis",
+          "status": "PASS",
+          "duration_ms": 256.02,
+          "error_message": "",
+          "details": {
+            "api_path": "/test/f7u299"
+          }
+        },
+        {
+          "id": "feat_api_list",
+          "name": "获取接口列表",
+          "description": "GET /api/mock-apis",
+          "status": "ERROR",
+          "duration_ms": 261.93,
+          "error_message": "ValueError: not enough values to unpack (expected 3, got 2)\nTraceback (most recent call last):\n  File \"/workspace/auto_test_tool/core/test_runner.py\", line 143, in run_test\n    passed, error_msg, details = test_fn()\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: not enough values to unpack (expected 3, got 2)\n",
+          "details": {}
+        },
+        {
+          "id": "feat_api_update",
+          "name": "更新接口",
+          "description": "PUT /api/mock-apis",
+          "status": "ERROR",
+          "duration_ms": 253.06,
+          "error_message": "ValueError: not enough values to unpack (expected 3, got 2)\nTraceback (most recent call last):\n  File \"/workspace/auto_test_tool/core/test_runner.py\", line 143, in run_test\n    passed, error_msg, details = test_fn()\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: not enough values to unpack (expected 3, got 2)\n",
+          "details": {}
+        },
+        {
+          "id": "feat_api_toggle",
+          "name": "切换接口状态",
+          "description": "PUT /api/mock-apis/{id}/toggle",
+          "status": "ERROR",
+          "duration_ms": 249.08,
+          "error_message": "ValueError: not enough values to unpack (expected 3, got 2)\nTraceback (most recent call last):\n  File \"/workspace/auto_test_tool/core/test_runner.py\", line 143, in run_test\n    passed, error_msg, details = test_fn()\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: not enough values to unpack (expected 3, got 2)\n",
+          "details": {}
+        },
+        {
+          "id": "feat_api_response_add",
+          "name": "添加接口响应",
+          "description": "POST /api/mock-apis/{id}/responses",
+          "status": "ERROR",
+          "duration_ms": 257.08,
+          "error_message": "ValueError: not enough values to unpack (expected 3, got 2)\nTraceback (most recent call last):\n  File \"/workspace/auto_test_tool/core/test_runner.py\", line 143, in run_test\n    passed, error_msg, details = test_fn()\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: not enough values to unpack (expected 3, got 2)\n",
+          "details": {}
+        },
+        {
+          "id": "feat_api_delete",
+          "name": "删除接口",
+          "description": "DELETE /api/mock-apis/{id}",
+          "status": "PASS",
+          "duration_ms": 262.96,
+          "error_message": "",
+          "details": {}
+        },
+        {
+          "id": "feat_template_create",
+          "name": "创建代码模板",
+          "description": "POST /api/code-templates",
+          "status": "PASS",
+          "duration_ms": 250.37,
+          "error_message": "",
+          "details": {
+            "template_name": "测试模板_caozla"
+          }
+        },
+        {
+          "id": "feat_template_list",
+          "name": "获取代码模板列表",
+          "description": "GET /api/code-templates",
+          "status": "ERROR",
+          "duration_ms": 254.2,
+          "error_message": "ValueError: not enough values to unpack (expected 3, got 2)\nTraceback (most recent call last):\n  File \"/workspace/auto_test_tool/core/test_runner.py\", line 143, in run_test\n    passed, error_msg, details = test_fn()\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: not enough values to unpack (expected 3, got 2)\n",
+          "details": {}
+        },
+        {
+          "id": "feat_template_validate",
+          "name": "验证模板编译",
+          "description": "POST /api/code-templates/validate",
+          "status": "ERROR",
+          "duration_ms": 440.38,
+          "error_message": "ValueError: not enough values to unpack (expected 3, got 2)\nTraceback (most recent call last):\n  File \"/workspace/auto_test_tool/core/test_runner.py\", line 143, in run_test\n    passed, error_msg, details = test_fn()\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: not enough values to unpack (expected 3, got 2)\n",
+          "details": {}
+        },
+        {
+          "id": "feat_template_delete",
+          "name": "删除代码模板",
+          "description": "DELETE /api/code-templates/{id}",
+          "status": "PASS",
+          "duration_ms": 241.7,
+          "error_message": "",
+          "details": {
+            "note": "无待删除模板"
+          }
+        },
+        {
+          "id": "feat_user_list",
+          "name": "获取用户列表",
+          "description": "GET /api/users",
+          "status": "ERROR",
+          "duration_ms": 257.72,
+          "error_message": "ValueError: not enough values to unpack (expected 3, got 2)\nTraceback (most recent call last):\n  File \"/workspace/auto_test_tool/core/test_runner.py\", line 143, in run_test\n    passed, error_msg, details = test_fn()\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: not enough values to unpack (expected 3, got 2)\n",
+          "details": {}
+        },
+        {
+          "id": "feat_user_get_profile",
+          "name": "获取个人信息",
+          "description": "GET /api/users/profile",
+          "status": "ERROR",
+          "duration_ms": 257.6,
+          "error_message": "ValueError: not enough values to unpack (expected 3, got 2)\nTraceback (most recent call last):\n  File \"/workspace/auto_test_tool/core/test_runner.py\", line 143, in run_test\n    passed, error_msg, details = test_fn()\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: not enough values to unpack (expected 3, got 2)\n",
+          "details": {}
+        },
+        {
+          "id": "feat_user_change_password",
+          "name": "修改密码",
+          "description": "POST /api/users/change-password",
+          "status": "ERROR",
+          "duration_ms": 480.45,
+          "error_message": "ValueError: not enough values to unpack (expected 3, got 2)\nTraceback (most recent call last):\n  File \"/workspace/auto_test_tool/core/test_runner.py\", line 143, in run_test\n    passed, error_msg, details = test_fn()\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: not enough values to unpack (expected 3, got 2)\n",
+          "details": {}
+        },
+        {
+          "id": "feat_user_create",
+          "name": "创建用户",
+          "description": "POST /api/users",
+          "status": "PASS",
+          "duration_ms": 491.98,
+          "error_message": "",
+          "details": {
+            "username": "autotest_uwju5r33"
+          }
+        },
+        {
+          "id": "feat_user_delete",
+          "name": "删除用户",
+          "description": "DELETE /api/users/{id}",
+          "status": "PASS",
+          "duration_ms": 257.16,
+          "error_message": "",
+          "details": {}
+        },
+        {
+          "id": "feat_role_list",
+          "name": "获取角色列表",
+          "description": "GET /api/roles",
+          "status": "ERROR",
+          "duration_ms": 249.31,
+          "error_message": "ValueError: not enough values to unpack (expected 3, got 2)\nTraceback (most recent call last):\n  File \"/workspace/auto_test_tool/core/test_runner.py\", line 143, in run_test\n    passed, error_msg, details = test_fn()\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: not enough values to unpack (expected 3, got 2)\n",
+          "details": {}
+        },
+        {
+          "id": "feat_role_create",
+          "name": "创建角色",
+          "description": "POST /api/roles",
+          "status": "PASS",
+          "duration_ms": 255.47,
+          "error_message": "",
+          "details": {
+            "role_code": "TEST_ROLE_AX6W"
+          }
+        },
+        {
+          "id": "feat_role_update",
+          "name": "更新角色",
+          "description": "PUT /api/roles/{id}",
+          "status": "ERROR",
+          "duration_ms": 253.1,
+          "error_message": "ValueError: not enough values to unpack (expected 3, got 2)\nTraceback (most recent call last):\n  File \"/workspace/auto_test_tool/core/test_runner.py\", line 143, in run_test\n    passed, error_msg, details = test_fn()\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: not enough values to unpack (expected 3, got 2)\n",
+          "details": {}
+        },
+        {
+          "id": "feat_role_delete",
+          "name": "删除角色",
+          "description": "DELETE /api/roles/{id}",
+          "status": "PASS",
+          "duration_ms": 248.58,
+          "error_message": "",
+          "details": {}
+        },
+        {
+          "id": "feat_permission_list",
+          "name": "获取权限列表",
+          "description": "GET /api/permissions",
+          "status": "ERROR",
+          "duration_ms": 253.93,
+          "error_message": "ValueError: not enough values to unpack (expected 3, got 2)\nTraceback (most recent call last):\n  File \"/workspace/auto_test_tool/core/test_runner.py\", line 143, in run_test\n    passed, error_msg, details = test_fn()\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: not enough values to unpack (expected 3, got 2)\n",
+          "details": {}
+        },
+        {
+          "id": "feat_permission_assign",
+          "name": "分配角色权限",
+          "description": "PUT /api/roles/{id}/permissions",
+          "status": "PASS",
+          "duration_ms": 240.03,
+          "error_message": "",
+          "details": {
+            "note": "无角色可分配权限"
+          }
+        },
+        {
+          "id": "feat_email_template_list",
+          "name": "获取邮件模板列表",
+          "description": "GET /api/email-templates",
+          "status": "ERROR",
+          "duration_ms": 251.14,
+          "error_message": "ValueError: not enough values to unpack (expected 3, got 2)\nTraceback (most recent call last):\n  File \"/workspace/auto_test_tool/core/test_runner.py\", line 143, in run_test\n    passed, error_msg, details = test_fn()\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: not enough values to unpack (expected 3, got 2)\n",
+          "details": {}
+        },
+        {
+          "id": "feat_email_template_create",
+          "name": "创建邮件模板",
+          "description": "POST /api/email-templates",
+          "status": "PASS",
+          "duration_ms": 247.88,
+          "error_message": "",
+          "details": {
+            "template_name": "测试邮件模板_fn9w"
+          }
+        },
+        {
+          "id": "feat_email_template_delete",
+          "name": "删除邮件模板",
+          "description": "DELETE /api/email-templates/{id}",
+          "status": "PASS",
+          "duration_ms": 237.88,
+          "error_message": "",
+          "details": {
+            "note": "无待删除邮件模板"
+          }
+        },
+        {
+          "id": "feat_system_config_get",
+          "name": "获取系统配置",
+          "description": "GET /api/system-configs",
+          "status": "ERROR",
+          "duration_ms": 250.51,
+          "error_message": "ValueError: not enough values to unpack (expected 3, got 2)\nTraceback (most recent call last):\n  File \"/workspace/auto_test_tool/core/test_runner.py\", line 143, in run_test\n    passed, error_msg, details = test_fn()\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: not enough values to unpack (expected 3, got 2)\n",
+          "details": {}
+        },
+        {
+          "id": "feat_public_config",
+          "name": "获取公开配置",
+          "description": "GET /api/public-configs",
+          "status": "ERROR",
+          "duration_ms": 2.03,
+          "error_message": "ValueError: not enough values to unpack (expected 3, got 2)\nTraceback (most recent call last):\n  File \"/workspace/auto_test_tool/core/test_runner.py\", line 143, in run_test\n    passed, error_msg, details = test_fn()\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: not enough values to unpack (expected 3, got 2)\n",
+          "details": {}
+        },
+        {
+          "id": "feat_statistics_request",
+          "name": "获取请求统计",
+          "description": "GET /api/statistics/request-frequency",
+          "status": "ERROR",
+          "duration_ms": 272.58,
+          "error_message": "ValueError: not enough values to unpack (expected 3, got 2)\nTraceback (most recent call last):\n  File \"/workspace/auto_test_tool/core/test_runner.py\", line 143, in run_test\n    passed, error_msg, details = test_fn()\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: not enough values to unpack (expected 3, got 2)\n",
+          "details": {}
+        },
+        {
+          "id": "feat_system_info",
+          "name": "获取系统信息",
+          "description": "GET /api/system-info",
+          "status": "ERROR",
+          "duration_ms": 247.37,
+          "error_message": "ValueError: not enough values to unpack (expected 3, got 2)\nTraceback (most recent call last):\n  File \"/workspace/auto_test_tool/core/test_runner.py\", line 143, in run_test\n    passed, error_msg, details = test_fn()\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^\nValueError: not enough values to unpack (expected 3, got 2)\n",
+          "details": {}
+        }
+      ]
+    },
+    {
+      "name": "RBAC 权限控制测试",
+      "description": "测试基于角色的访问控制（从 README/CHANGELOG v2.3.0 提取）",
+      "summary": {
+        "total": 10,
+        "passed": 3,
+        "failed": 7,
+        "skipped": 0,
+        "errors": 0,
+        "duration_seconds": "4.50"
+      },
+      "cases": [
+        {
+          "id": "rbac_unauthenticated_access",
+          "name": "未登录用户无法访问受保护 API",
+          "description": "验证未登录用户访问 /api/users 返回 401",
+          "status": "PASS",
+          "duration_ms": 2.89,
+          "error_message": "",
+          "details": {
+            "status": 401
+          }
+        },
+        {
+          "id": "rbac_unauthenticated_page",
+          "name": "未登录用户访问需认证页面重定向到登录页",
+          "description": "验证未登录访问 /dashboard 返回登录页或 302",
+          "status": "FAIL",
+          "duration_ms": 2.7,
+          "error_message": "预期 302/401/403，实际 200",
+          "details": {
+            "status": 200
+          }
+        },
+        {
+          "id": "rbac_admin_all_permissions",
+          "name": "管理员拥有全部权限（含细粒度 30+ 项）",
+          "description": "验证管理员可访问所有受保护 API（CHANGELOG v2.3.0）",
+          "status": "FAIL",
+          "duration_ms": 467.71,
+          "error_message": "管理员权限不足: POST /projects: HTTP 403; POST /roles: HTTP 403; PUT /roles/1/permissions: HTTP 403",
+          "details": {
+            "tested": 25,
+            "failed": 5,
+            "failed_apis": [
+              "POST /projects: HTTP 403",
+              "POST /roles: HTTP 403",
+              "PUT /roles/1/permissions: HTTP 403",
+              "POST /email-templates: HTTP 403",
+              "GET /system-configs: HTTP 403"
+            ]
+          }
+        },
+        {
+          "id": "rbac_admin_crud_operations",
+          "name": "管理员可执行所有 CRUD 操作",
+          "description": "验证管理员创建/编辑/删除权限（CHANGELOG v2.3.0）",
+          "status": "PASS",
+          "duration_ms": 256.48,
+          "error_message": "",
+          "details": {
+            "role_code": "ADMIN_CRUD_BCU6"
+          }
+        },
+        {
+          "id": "rbac_admin_manage_roles",
+          "name": "管理员可管理角色和分配权限",
+          "description": "验证管理员角色分配 30+ 项细粒度权限（CHANGELOG v2.3.0）",
+          "status": "PASS",
+          "duration_ms": 251.06,
+          "error_message": "",
+          "details": {
+            "role_count": 0,
+            "permission_count": 6
+          }
+        },
+        {
+          "id": "rbac_user_limited_access",
+          "name": "普通用户仅有有限权限",
+          "description": "验证普通用户无法访问角色管理、权限管理等管理页面",
+          "status": "FAIL",
+          "duration_ms": 248.13,
+          "error_message": "创建普通用户失败: 未找到角色: 普通用户",
+          "details": {}
+        },
+        {
+          "id": "rbac_user_no_admin_apis",
+          "name": "普通用户无法调用管理类 API",
+          "description": "验证普通用户调用 DELETE /api/users/{id} 返回 403",
+          "status": "FAIL",
+          "duration_ms": 246.38,
+          "error_message": "创建普通用户失败: 未找到角色: 普通用户",
+          "details": {}
+        },
+        {
+          "id": "rbac_user_can_access_profile",
+          "name": "普通用户可访问个人信息页",
+          "description": "验证所有认证用户可访问 /api/users/profile",
+          "status": "FAIL",
+          "duration_ms": 245.24,
+          "error_message": "创建普通用户失败: 未找到角色: 普通用户",
+          "details": {}
+        },
+        {
+          "id": "rbac_custom_role_isolation",
+          "name": "自定义角色按分配权限控制",
+          "description": "验证自定义角色只能访问分配的权限（CHANGELOG v2.3.0）",
+          "status": "FAIL",
+          "duration_ms": 292.06,
+          "error_message": "创建测试用户失败: 创建用户后无法获取用户信息",
+          "details": {}
+        },
+        {
+          "id": "rbac_permission_change_effect",
+          "name": "权限变更后实时生效",
+          "description": "验证修改用户角色后权限立即变更",
+          "status": "FAIL",
+          "duration_ms": 269.3,
+          "error_message": "创建用户失败: 创建用户后无法获取用户信息",
+          "details": {}
+        }
+      ]
+    },
+    {
+      "name": "安全特性测试",
+      "description": "测试 JWT、密码策略、登录锁定、CORS 等安全特性（README 安全章节 + CHANGELOG）",
+      "summary": {
+        "total": 13,
+        "passed": 10,
+        "failed": 2,
+        "skipped": 0,
+        "errors": 1,
+        "duration_seconds": "6.00"
+      },
+      "cases": [
+        {
+          "id": "sec_jwt_login_token",
+          "name": "JWT Token 签发",
+          "description": "验证登录成功后返回有效的 JWT Token",
+          "status": "PASS",
+          "duration_ms": 240.76,
+          "error_message": "",
+          "details": {
+            "token_prefix": "eyJhbGciOiJIUzUxMiJ9...",
+            "has_token": true,
+            "has_permissions": false
+          }
+        },
+        {
+          "id": "sec_jwt_invalid_token",
+          "name": "无效 Token 拒绝访问",
+          "description": "验证无效/伪造 Token 被拒绝",
+          "status": "PASS",
+          "duration_ms": 2.16,
+          "error_message": "",
+          "details": {
+            "status": 401
+          }
+        },
+        {
+          "id": "sec_jwt_no_token",
+          "name": "无 Token 拒绝访问",
+          "description": "验证无 Authorization 头时返回 401",
+          "status": "PASS",
+          "duration_ms": 1.24,
+          "error_message": "",
+          "details": {
+            "status": 401
+          }
+        },
+        {
+          "id": "sec_jwt_logout_invalidate",
+          "name": "登出后 Token 失效",
+          "description": "验证登出后原 Token 无法继续使用",
+          "status": "PASS",
+          "duration_ms": 248.66,
+          "error_message": "",
+          "details": {
+            "note": "JWT无状态，登出后Token仍有效（前端清除）",
+            "status": 200
+          }
+        },
+        {
+          "id": "sec_password_strong_policy",
+          "name": "强密码策略（大小写+数字+特殊字符）",
+          "description": "验证弱密码被拒绝（README：大小写+数字+特殊字符，最少8位）",
+          "status": "PASS",
+          "duration_ms": 1199.61,
+          "error_message": "",
+          "details": {
+            "login_weak_password_tests": [
+              "纯数字: 未拒绝!",
+              "纯小写: 未拒绝!",
+              "纯大写: 未拒绝!",
+              "缺少特殊字符: 未拒绝!",
+              "长度不足8位: 未拒绝!"
+            ],
+            "register_weak_password_rejected": false
+          }
+        },
+        {
+          "id": "sec_password_login_wrong",
+          "name": "错误密码登录失败",
+          "description": "验证错误密码无法登录",
+          "status": "FAIL",
+          "duration_ms": 238.46,
+          "error_message": "错误密码竟然登录成功!",
+          "details": {}
+        },
+        {
+          "id": "sec_login_lockout",
+          "name": "多次失败登录锁定",
+          "description": "验证多次错误密码后账号被锁定（README：多次失败后临时锁定）",
+          "status": "PASS",
+          "duration_ms": 5410.46,
+          "error_message": "",
+          "details": {
+            "failed_attempts": 0,
+            "locked_detected": false,
+            "note": "连续错误登录测试完成"
+          }
+        },
+        {
+          "id": "sec_sql_injection",
+          "name": "SQL 注入防护",
+          "description": "验证 SQL 注入参数被安全处理（README：SQL参数化）",
+          "status": "PASS",
+          "duration_ms": 249.98,
+          "error_message": "",
+          "details": {
+            "sql_injection_blocked": true,
+            "status": 200
+          }
+        },
+        {
+          "id": "sec_xss_protection",
+          "name": "XSS 过滤",
+          "description": "验证 XSS 脚本被过滤或转义（README：XSS过滤）",
+          "status": "PASS",
+          "duration_ms": 246.29,
+          "error_message": "",
+          "details": {
+            "xss_blocked": true
+          }
+        },
+        {
+          "id": "sec_register_flow",
+          "name": "注册流程测试",
+          "description": "验证用户注册流程（README：注册 + 验证码）",
+          "status": "ERROR",
+          "duration_ms": 9.18,
+          "error_message": "AttributeError: 'NoneType' object has no attribute 'get'\nTraceback (most recent call last):\n  File \"/workspace/auto_test_tool/core/test_runner.py\", line 143, in run_test\n    passed, error_msg, details = test_fn()\n                                 ~~~~~~~^^\n  File \"/workspace/auto_test_tool/tests/security_tests.py\", line 353, in _test_register_flow\n    ok2, err2 = self.runner.auth.login_as(username, password)\n                ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^\n  File \"/workspace/auto_test_tool/core/auth_manager.py\", line 75, in login_as\n    self.client.token = data.get(\"token\")\n                        ^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'get'\n",
+          "details": {}
+        },
+        {
+          "id": "sec_forgot_password",
+          "name": "忘记密码流程",
+          "description": "验证忘记密码接口（不泄露邮箱是否存在）",
+          "status": "PASS",
+          "duration_ms": 5.84,
+          "error_message": "",
+          "details": {
+            "email_privacy": true
+          }
+        },
+        {
+          "id": "sec_cors_headers",
+          "name": "CORS 跨域配置",
+          "description": "验证 CORS 头配置正确（README：跨域白名单控制）",
+          "status": "PASS",
+          "duration_ms": 7.16,
+          "error_message": "",
+          "details": {
+            "allow_origin": "http://example.com",
+            "allow_methods": "GET,POST,PUT,DELETE,OPTIONS,PATCH,HEAD",
+            "allow_headers": "Content-Type, Authorization"
+          }
+        },
+        {
+          "id": "sec_swagger_disabled",
+          "name": "Swagger 文档已禁用",
+          "description": "验证 Swagger 文档不可公开访问（CHANGELOG v2.3.0：全面禁用）",
+          "status": "FAIL",
+          "duration_ms": 2.81,
+          "error_message": "Swagger 仍可访问，状态码: 401",
+          "details": {
+            "status": 401
+          }
+        }
+      ]
+    }
+  ]
+}

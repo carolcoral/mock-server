@@ -66,5 +66,11 @@ docker/dev-build/
 # 构建时从 shields.io 下载的图标（自动生成，不纳入版本控制）
 /badges/
 
-# 数据源
-datasource
+# 数据源（只保留 docker-compose.yml）
+datasource/
+# datasources 目录下的 compose 文件保留，其他忽略
+/datasources/*
+!/datasources/docker-compose.yml
+!/datasources/docker-compose.yaml
+# Docker 数据卷目录
+/datasources/pgsql_data/
