@@ -71,10 +71,26 @@ public class StartupConfig implements CommandLineRunner {
     private final SystemConfigRepository systemConfigRepository;
     private final CustomCodeTemplateRepository customCodeTemplateRepository;
 
-    // 从系统属性（由.env文件加载）获取管理员配置
-    private String adminUsername = System.getProperty("ADMIN_USERNAME", "admin");
-    private String adminPassword = System.getProperty("ADMIN_PASSWORD", "!CHANGE_ME!");
-    private String adminEmail = System.getProperty("ADMIN_EMAIL", "admin@example.com");
+    // 从系统属性/环境变量获取管理员配置（优先环境变量，兼容 -D 系统属性）
+    // 优先级：-D 系统属性 > 环境变量 > 代码默认值
+    private String adminUsername = getConfigValue("ADMIN_USERNAME", "admin");
+    private String adminPassword = getConfigValue("ADMIN_PASSWORD", "!CHANGE_ME!");
+    private String adminEmail = getConfigValue("ADMIN_EMAIL", "admin@example.com");
+
+    /**
+     * 获取配置值，优先级：System.getProperty > System.getenv > 默认值
+     */
+    private static String getConfigValue(String key, String defaultValue) {
+        String prop = System.getProperty(key);
+        if (prop != null && !prop.isEmpty()) {
+            return prop;
+        }
+        String env = System.getenv(key);
+        if (env != null && !env.isEmpty()) {
+            return env;
+        }
+        return defaultValue;
+    }
 
     @Override
     @Operation(summary = "初始化数据", description = "应用启动时初始化管理员账号和示例数据")

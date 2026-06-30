@@ -752,6 +752,13 @@ PROJECT_CHANGELOG="$PROJECT_ROOT/CHANGELOG.md"
 
 if [ -f "$PROJECT_README" ]; then
     cp "$PROJECT_README" "$BACKEND_STATIC/README.md"
+    # 替换 shields.io 图标为本地离线图标，避免内网/离线环境不显示
+    sed -i 's|https://img.shields.io/badge/Version-2.3.1-blue?style=flat-square|/badges/version.svg|g' "$BACKEND_STATIC/README.md"
+    sed -i 's|https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square|/badges/license.svg|g' "$BACKEND_STATIC/README.md"
+    sed -i 's|https://img.shields.io/badge/JDK-21-red?style=flat-square&logo=openjdk|/badges/jdk.svg|g' "$BACKEND_STATIC/README.md"
+    sed -i 's|https://img.shields.io/badge/Node.js-18+-green?style=flat-square&logo=nodedotjs|/badges/node.svg|g' "$BACKEND_STATIC/README.md"
+    sed -i 's|https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen?style=flat-square&logo=springboot|/badges/springboot.svg|g' "$BACKEND_STATIC/README.md"
+    sed -i 's|https://img.shields.io/badge/Vue-3.x-brightgreen?style=flat-square&logo=vuedotjs|/badges/vue.svg|g' "$BACKEND_STATIC/README.md"
     print_success "README.md 已同步到静态资源目录"
 else
     print_warning "项目根目录未找到 README.md"
@@ -759,6 +766,13 @@ fi
 
 if [ -f "$PROJECT_README_US" ]; then
     cp "$PROJECT_README_US" "$BACKEND_STATIC/README-US.md"
+    # 替换 shields.io 图标为本地离线图标，避免内网/离线环境不显示
+    sed -i 's|https://img.shields.io/badge/Version-2.3.1-blue?style=flat-square|/badges/version.svg|g' "$BACKEND_STATIC/README-US.md"
+    sed -i 's|https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square|/badges/license.svg|g' "$BACKEND_STATIC/README-US.md"
+    sed -i 's|https://img.shields.io/badge/JDK-21-red?style=flat-square&logo=openjdk|/badges/jdk.svg|g' "$BACKEND_STATIC/README-US.md"
+    sed -i 's|https://img.shields.io/badge/Node.js-18+-green?style=flat-square&logo=nodedotjs|/badges/node.svg|g' "$BACKEND_STATIC/README-US.md"
+    sed -i 's|https://img.shields.io/badge/Spring%20Boot-3.x-brightgreen?style=flat-square&logo=springboot|/badges/springboot.svg|g' "$BACKEND_STATIC/README-US.md"
+    sed -i 's|https://img.shields.io/badge/Vue-3.x-brightgreen?style=flat-square&logo=vuedotjs|/badges/vue.svg|g' "$BACKEND_STATIC/README-US.md"
     print_success "README-US.md 已同步到静态资源目录"
 else
     print_warning "项目根目录未找到 README-US.md"
