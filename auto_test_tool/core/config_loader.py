@@ -67,6 +67,13 @@ class ConfigLoader:
         self.default_password = self._get_str("test_accounts", "default_password", "Test@123456")
         self.cleanup_after_test = self._get_bool("test_accounts", "cleanup_after_test", True)
 
+        # 邮箱配置
+        self.email_smtp_host = self._get_str("email", "smtp_host", "")
+        self.email_smtp_port = self._get_int("email", "smtp_port", 465)
+        self.email_from = self._get_str("email", "from_email", "")
+        self.email_auth_code = self._get_str("email", "auth_code", "")
+        self.email_use_ssl = self._get_bool("email", "use_ssl", True)
+
         # 报告配置
         self.output_dir = self._get_str("report", "output_dir", "./reports")
         self.report_formats = self._get_list("report", "formats", ["json", "html", "markdown"])

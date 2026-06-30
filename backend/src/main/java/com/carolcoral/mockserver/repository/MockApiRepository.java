@@ -182,6 +182,20 @@ public interface MockApiRepository extends JpaRepository<MockApi, Long>, JpaSpec
     boolean existsByPathAndMethod(String path, MockApi.HttpMethod method);
 
     /**
+     * 判断指定项目下接口路径和请求方法是否已存在
+     *
+     * @param projectId 项目ID
+     * @param path      接口路径
+     * @param method    请求方法
+     * @return 是否存在
+     */
+    @Operation(summary = "判断指定项目下接口路径和请求方法是否已存在")
+    @Query("SELECT CASE WHEN COUNT(a) > 0 THEN true ELSE false END FROM MockApi a WHERE a.project.id = :projectId AND a.path = :path AND a.method = :method")
+    boolean existsByProjectIdAndPathAndMethod(@Param("projectId") Long projectId,
+                                              @Param("path") String path,
+                                              @Param("method") MockApi.HttpMethod method);
+
+    /**
      * 根据项目ID删除接口
      *
      * @param projectId 项目ID

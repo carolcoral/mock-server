@@ -74,3 +74,7 @@ datasource/
 !/datasources/docker-compose.yaml
 # Docker 数据卷目录
 /datasources/pgsql_data/
+
+# 自动化测试工具
+auto_test_tool/reports
+auto_test_tool/**/__pycache__/

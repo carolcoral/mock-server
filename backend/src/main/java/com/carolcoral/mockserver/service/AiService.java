@@ -185,7 +185,8 @@ public class AiService {
      * @return 包含 subject 和 content 的 Map
      */
     public Map<String, String> generateEmailTemplate(String templateType, String templateName,
-                                                       String existingSubject, String existingContent) {
+                                                       String existingSubject, String existingContent,
+                                                       String customPrompt) {
         AiConfig config = aiConfigService.getEnabledConfig();
         if (config == null) {
             throw new RuntimeException("未启用任何 AI 服务商");
@@ -197,7 +198,7 @@ public class AiService {
             throw new RuntimeException("AI 服务商 API Key 未配置");
         }
 
-        String promptStr = buildEmailTemplatePrompt(templateType, templateName, existingSubject, existingContent);
+        String promptStr = buildEmailTemplatePrompt(templateType, templateName, existingSubject, existingContent, customPrompt);
         log.debug("AI 邮件模板 Prompt: {}", promptStr);
 
         try {
@@ -229,8 +230,9 @@ public class AiService {
      * 调用 AI 生成邮件模板（流式 SSE）
      */
     public java.io.BufferedReader generateEmailTemplateStream(String templateType, String templateName,
-                                                               String existingSubject, String existingContent) throws Exception {
-        String prompt = buildEmailTemplatePrompt(templateType, templateName, existingSubject, existingContent);
+                                                               String existingSubject, String existingContent,
+                                                               String customPrompt) throws Exception {
+        String prompt = buildEmailTemplatePrompt(templateType, templateName, existingSubject, existingContent, customPrompt);
         return callAiApiStream(prompt, "你是一个专业的邮件模板编写助手，只返回严格的 JSON 格式数据，不返回任何额外内容。");
     }
 
@@ -239,7 +241,8 @@ public class AiService {
      * 自动查询同类型已有模板作为风格参考
      */
     private String buildEmailTemplatePrompt(String templateType, String templateName,
-                                            String existingSubject, String existingContent) {
+                                            String existingSubject, String existingContent,
+                                            String customPrompt) {
         String typeLabel;
         switch (templateType) {
             case "REGISTER": typeLabel = "注册验证"; break;
@@ -309,6 +312,12 @@ public class AiService {
             }
         } catch (Exception e) {
             log.warn("查询同类型邮件模板参考失败，跳过: {}", e.getMessage());
+        }
+
+        // 用户自定义提示词（附加约束）
+        if (customPrompt != null && !customPrompt.isBlank()) {
+            prompt.append("\n【用户额外要求】请特别遵循以下指示：\n");
+            prompt.append(customPrompt.trim()).append("\n");
         }
 
         prompt.append("\n请在参考基础上改进优化，生成更专业的邮件模板。");
@@ -780,12 +789,8 @@ public class AiService {
      */
     private String callAiApi(AiConfig config, String prompt) throws Exception {
         String apiUrl = config.getApiUrl();
-        // 确保 URL 以 /v1 结尾（大多数 OpenAI 兼容 API 需要）
-        String chatUrl = apiUrl.endsWith("/") ? apiUrl + "chat/completions" : apiUrl + "/chat/completions";
-        // 如果 URL 已经包含 /chat/completions，则直接使用
-        if (apiUrl.endsWith("/chat/completions")) {
-            chatUrl = apiUrl;
-        }
+        // 标准化 API 地址并构建 chat/completions URL
+        String chatUrl = AiConfigService.buildChatCompletionsUrl(apiUrl);
 
         String model = config.getDefaultModel();
         if (model == null || model.isBlank()) {
@@ -1104,10 +1109,7 @@ public class AiService {
      * 构建 chat/completions URL
      */
     private String buildChatUrl(String apiUrl) {
-        if (apiUrl.endsWith("/chat/completions")) {
-            return apiUrl;
-        }
-        return apiUrl.endsWith("/") ? apiUrl + "chat/completions" : apiUrl + "/chat/completions";
+        return AiConfigService.buildChatCompletionsUrl(apiUrl);
     }
 
     /**

@@ -175,6 +175,7 @@ public class AiMockController {
         String templateName = params.get("templateName");
         String existingSubject = params.get("existingSubject");
         String existingContent = params.get("existingContent");
+        String customPrompt = params.get("customPrompt");
 
         if (templateType == null || templateType.isBlank()) {
             writeStreamError(response, "请提供模板类型 (templateType)");
@@ -182,7 +183,7 @@ public class AiMockController {
         }
 
         executeStreamRequest(response, "generate-email-template-stream",
-                () -> aiService.generateEmailTemplateStream(templateType, templateName, existingSubject, existingContent));
+                () -> aiService.generateEmailTemplateStream(templateType, templateName, existingSubject, existingContent, customPrompt));
     }
 
     /**

@@ -963,7 +963,11 @@ export default {
     deleteSuccess: 'Deleted successfully',
     preview: 'Preview',
     editContent: 'Edit',
-    previewHtml: 'HTML Preview'
+    previewHtml: 'HTML Preview',
+    customPromptTitle: 'Custom Prompt',
+    customPromptDescTemplate: 'Enter additional instructions to guide AI in generating email content, such as style, tone, or specific elements to include.',
+    customPromptDescSubject: 'Enter additional instructions to guide AI in generating email subject, such as style keywords.',
+    customPromptPlaceholder: 'e.g., Use a formal and professional tone, include company logo section, verification code highlight area, contact footer...'
   },
 
   // Permissions

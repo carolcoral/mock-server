@@ -48,6 +48,7 @@ class PageAccessTests:
             name = route["name"]
             requires_auth = route["auth"]
             required_perm = route["perm"]
+            accept_status = route.get("accept_status", [200])
 
             if requires_auth and not self.runner.config.test_authenticated_pages:
                 suite.cases.append(self.runner.run_test(
@@ -75,7 +76,7 @@ class PageAccessTests:
                 suite.cases.append(self.runner.run_test(
                     f"page_{path.replace('/', '_')}",
                     f"访问 {name}",
-                    lambda p=path, n=name, rp=required_perm: self._test_authenticated_page(p, n, rp),
+                    lambda p=path, n=name, rp=required_perm, a=accept_status: self._test_authenticated_page(p, n, rp, a),
                     description=f"路径: {path}" + (f" (需权限: {required_perm})" if required_perm else ""),
                     category="page_access"
                 ))
@@ -83,26 +84,30 @@ class PageAccessTests:
                 suite.cases.append(self.runner.run_test(
                     f"page_{path.replace('/', '_')}",
                     f"访问 {name}",
-                    lambda p=path, n=name: self._test_public_page(p, n),
+                    lambda p=path, n=name, a=accept_status: self._test_public_page(p, n, a),
                     description=f"路径: {path}",
                     category="page_access"
                 ))
 
         return suite
 
-    def _test_public_page(self, path: str, name: str):
+    def _test_public_page(self, path: str, name: str, accept_status: list = None):
         """测试公开页面"""
+        if accept_status is None:
+            accept_status = [200]
         # 清除认证
         self.runner.client.clear_auth()
         status, err = self.runner.client.visit_page(path)
         if err:
             return False, f"访问失败: {err}", {"path": path, "status": status}
-        if status != 200:
-            return False, f"状态码 {status} != 200", {"path": path, "status": status}
+        if status not in accept_status:
+            return False, f"状态码 {status} 不在预期范围内", {"path": path, "status": status}
         return True, None, {"path": path, "status": status}
 
-    def _test_authenticated_page(self, path: str, name: str, required_perm: str):
+    def _test_authenticated_page(self, path: str, name: str, required_perm: str, accept_status: list = None):
         """测试需认证页面"""
+        if accept_status is None:
+            accept_status = [200]
         # 确保已登录为管理员
         ok, err = self.runner.auth.login_as_admin()
         if not ok:
@@ -112,7 +117,7 @@ class PageAccessTests:
         if page_err:
             return False, f"访问失败: {page_err}", {"path": path, "status": status}
 
-        if status == 200:
+        if status in accept_status:
             return True, None, {"path": path, "status": status, "permission": required_perm}
         elif status == 403:
             return False, f"403 禁止访问（权限不足）", {"path": path, "status": status, "permission": required_perm}

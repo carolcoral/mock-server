@@ -130,7 +130,7 @@ public class DatabaseMigration implements CommandLineRunner {
             "default_model VARCHAR(100)," +
             "max_tokens INTEGER DEFAULT 4096," +
             "temperature REAL DEFAULT 0.7," +
-            "enabled BOOLEAN NOT NULL DEFAULT 0," +
+            "enabled BOOLEAN NOT NULL DEFAULT " + dialect.booleanLiteral(false) + "," +
             "create_time " + dialect.dateTimeType() + " NOT NULL," +
             "update_time " + dialect.dateTimeType() + " NOT NULL)", "t_ai_config");
 
@@ -140,14 +140,24 @@ public class DatabaseMigration implements CommandLineRunner {
             "name VARCHAR(50) NOT NULL UNIQUE," +
             "code VARCHAR(50) NOT NULL UNIQUE," +
             "description VARCHAR(200)," +
-            "is_default BOOLEAN NOT NULL DEFAULT 0," +
+            "is_default BOOLEAN NOT NULL DEFAULT " + dialect.booleanLiteral(false) + "," +
             "create_time " + dialect.dateTimeType() + " NOT NULL," +
             "update_time " + dialect.dateTimeType() + " NOT NULL)", "t_role");
         String now = dialect.nowExpression();
         safeInsertOrIgnore("t_role", "(id, name, code, description, is_default, create_time, update_time)", "id",
-            "VALUES (1, '管理员', 'ROLE_ADMIN', '系统管理员，拥有所有权限', 0, " + now + ", " + now + ")");
+            "VALUES (1, '管理员', 'ROLE_ADMIN', '系统管理员，拥有所有权限', " + dialect.booleanLiteral(false) + ", " + now + ", " + now + ")");
         safeInsertOrIgnore("t_role", "(id, name, code, description, is_default, create_time, update_time)", "id",
-            "VALUES (2, '普通用户', 'ROLE_USER', '默认注册用户角色', 1, " + now + ", " + now + ")");
+            "VALUES (2, '普通用户', 'ROLE_USER', '默认注册用户角色', " + dialect.booleanLiteral(true) + ", " + now + ", " + now + ")");
+
+        // PostgreSQL：同步 BIGSERIAL 序列，确保后续 INSERT 不与硬编码 ID 冲突
+        if (dialect.usesSequenceForId()) {
+            try {
+                jdbcTemplate.execute("SELECT setval(pg_get_serial_sequence('t_role', 'id'), COALESCE(MAX(id), 1)) FROM t_role");
+                log.info("已同步 t_role 序列值");
+            } catch (Exception e) {
+                log.warn("同步 t_role 序列失败（非致命）: {}", e.getMessage());
+            }
+        }
 
         // 创建t_permission表
         safeExecute("CREATE TABLE IF NOT EXISTS t_permission (" +
@@ -252,9 +262,9 @@ public class DatabaseMigration implements CommandLineRunner {
      * 安全的执行 SQL（自动选择 execute/update，忽略表已存在的错误）
      */
     private void safeExecute(String sql, String name) {
+        String trimmed = sql.trim().toUpperCase();
         try {
             // DML 语句（INSERT/UPDATE/DELETE/SELECT）使用 Statement.execute，DDL 使用 execute
-            String trimmed = sql.trim().toUpperCase();
             if (trimmed.startsWith("INSERT") || trimmed.startsWith("UPDATE")
                 || trimmed.startsWith("DELETE") || trimmed.startsWith("SELECT")) {
                 jdbcTemplate.execute((java.sql.Statement stmt) -> {
@@ -269,6 +279,9 @@ public class DatabaseMigration implements CommandLineRunner {
             String errorMsg = e.getMessage();
             if (errorMsg != null && (errorMsg.contains("already exists") || errorMsg.contains("no such table"))) {
                 log.info("{}已存在或无需迁移，跳过", name);
+            } else if (trimmed.startsWith("CREATE TABLE") || trimmed.startsWith("ALTER TABLE")) {
+                // DDL 建表失败通常是严重问题（如 PGSQL 类型不兼容），需要 ERROR 级别
+                log.error("执行{}失败（可能影响功能）: {}", name, errorMsg);
             } else {
                 log.warn("执行{}失败: {}", name, errorMsg);
             }
@@ -286,7 +299,7 @@ public class DatabaseMigration implements CommandLineRunner {
                 return null;
             });
         } catch (Exception e) {
-            log.warn("插入数据到{}失败: {}", table, e.getMessage());
+            log.error("插入默认数据到{}失败（可能影响功能）: {}", table, e.getMessage());
         }
     }
 

@@ -963,7 +963,11 @@ export default {
     deleteSuccess: '删除成功',
     preview: '预览',
     editContent: '编辑',
-    previewHtml: 'HTML 预览效果'
+    previewHtml: 'HTML 预览效果',
+    customPromptTitle: '自定义提示词',
+    customPromptDescTemplate: '输入额外的提示词来指导 AI 生成邮件模板内容，例如指定邮件风格、语气、包含的要素等。',
+    customPromptDescSubject: '输入额外的提示词来指导 AI 生成邮件主题，例如指定主题风格、关键词等。',
+    customPromptPlaceholder: '例如：使用正式严肃的语气，包含公司 Logo 区、验证码高亮区、底部联系方式...'
   },
 
   // 权限管理

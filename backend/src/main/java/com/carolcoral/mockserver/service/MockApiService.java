@@ -106,9 +106,9 @@ public class MockApiService {
 
             mockApi.setProject(projectOpt.get());
 
-            // 检查接口路径和请求方法是否已存在
-            if (mockApiRepository.existsByPathAndMethod(mockApi.getPath(), mockApi.getMethod())) {
-                return ApiResponse.error("接口路径和请求方法已存在");
+            // 检查当前项目下接口路径和请求方法是否已存在
+            if (mockApiRepository.existsByProjectIdAndPathAndMethod(projectId, mockApi.getPath(), mockApi.getMethod())) {
+                return ApiResponse.error("当前项目下接口路径和请求方法已存在");
             }
 
             // 设置创建人
@@ -170,11 +170,13 @@ public class MockApiService {
 
             MockApi existingApi = existingApiOpt.get();
 
-            // 检查接口路径和请求方法是否被其他接口使用
+            // 检查当前项目下接口路径和请求方法是否被其他接口使用
+            Long projectId = existingApi.getProject() != null ? existingApi.getProject().getId() : null;
             if (!existingApi.getPath().equals(mockApi.getPath()) ||
                     !existingApi.getMethod().equals(mockApi.getMethod())) {
-                if (mockApiRepository.existsByPathAndMethod(mockApi.getPath(), mockApi.getMethod())) {
-                    return ApiResponse.error("接口路径和请求方法已存在");
+                if (projectId != null && mockApiRepository.existsByProjectIdAndPathAndMethod(
+                        projectId, mockApi.getPath(), mockApi.getMethod())) {
+                    return ApiResponse.error("当前项目下接口路径和请求方法已存在");
                 }
             }
 

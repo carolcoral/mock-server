@@ -211,6 +211,60 @@
         scrolling="auto"
       ></iframe>
     </el-dialog>
+
+    <!-- AI 自定义提示词对话框 - 邮件主题 -->
+    <el-dialog
+      v-model="subjectCustomPromptVisible"
+      :title="$t('emailTemplate.customPromptTitle')"
+      width="500px"
+      :close-on-click-modal="false"
+      :append-to-body="true"
+    >
+      <div style="margin-bottom: 8px; color: #606266; font-size: 13px;">
+        {{ $t('emailTemplate.customPromptDescSubject') }}
+      </div>
+      <el-input
+        v-model="subjectCustomPrompt"
+        type="textarea"
+        :rows="5"
+        :placeholder="$t('emailTemplate.customPromptPlaceholder')"
+        maxlength="1000"
+        show-word-limit
+      />
+      <template #footer>
+        <el-button @click="subjectCustomPromptVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="executeAiGenerateSubject" :loading="aiSubjectLoading">
+          {{ $t('ai.generate') }}
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- AI 自定义提示词对话框 - 邮件内容 -->
+    <el-dialog
+      v-model="templateCustomPromptVisible"
+      :title="$t('emailTemplate.customPromptTitle')"
+      width="500px"
+      :close-on-click-modal="false"
+      :append-to-body="true"
+    >
+      <div style="margin-bottom: 8px; color: #606266; font-size: 13px;">
+        {{ $t('emailTemplate.customPromptDescTemplate') }}
+      </div>
+      <el-input
+        v-model="templateCustomPrompt"
+        type="textarea"
+        :rows="5"
+        :placeholder="$t('emailTemplate.customPromptPlaceholder')"
+        maxlength="1000"
+        show-word-limit
+      />
+      <template #footer>
+        <el-button @click="templateCustomPromptVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="executeAiGenerateTemplate" :loading="aiTemplateLoading">
+          {{ $t('ai.generate') }}
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -257,29 +311,52 @@ const pagination = reactive({
 // AI 辅助编写相关
 const aiSubjectLoading = ref(false)
 const aiTemplateLoading = ref(false)
+// 主题AI生成的独立提示词对话框
+const subjectCustomPromptVisible = ref(false)
+const subjectCustomPrompt = ref('')
+// 内容AI生成的独立提示词对话框
+const templateCustomPromptVisible = ref(false)
+const templateCustomPrompt = ref('')
 
-// AI 生成邮件主题（流式）
+// AI 生成邮件主题（流式）—— 先弹出提示词输入框
 const handleAiGenerateSubject = async () => {
   if (!form.name || !form.name.trim()) {
     ElMessage.warning(t('emailTemplate.nameRequired'))
     return
   }
+  subjectCustomPrompt.value = ''
+  subjectCustomPromptVisible.value = true
+}
 
+// AI 生成完整邮件模板（流式）—— 先弹出提示词输入框
+const handleAiGenerateTemplate = async () => {
+  if (!form.name || !form.name.trim()) {
+    ElMessage.warning(t('emailTemplate.nameRequired'))
+    return
+  }
+  templateCustomPrompt.value = ''
+  templateCustomPromptVisible.value = true
+}
+
+// 执行 AI 生成主题（弹窗确认后调用）
+const executeAiGenerateSubject = async () => {
+  subjectCustomPromptVisible.value = false
   aiSubjectLoading.value = true
   try {
-    const fullText = await generateEmailTemplateStream({
+    const params = {
       templateType: form.type,
       templateName: form.name.trim(),
       existingSubject: form.subject || undefined,
       existingContent: form.content || undefined
-    })
+    }
+    if (subjectCustomPrompt.value && subjectCustomPrompt.value.trim()) {
+      params.customPrompt = subjectCustomPrompt.value.trim()
+    }
 
-    // 解析流式返回的 JSON
+    const fullText = await generateEmailTemplateStream(params)
     const cleaned = cleanMarkdownJson(fullText)
     const parsed = JSON.parse(cleaned)
-    if (parsed.subject) {
-      form.subject = parsed.subject
-    }
+    if (parsed.subject) form.subject = parsed.subject
     ElMessage.success(t('ai.emailSubjectGenerated'))
   } catch (error) {
     console.error('AI 生成主题失败:', error)
@@ -289,34 +366,29 @@ const handleAiGenerateSubject = async () => {
   }
 }
 
-// AI 生成完整邮件模板（流式）
-const handleAiGenerateTemplate = async () => {
-  if (!form.name || !form.name.trim()) {
-    ElMessage.warning(t('emailTemplate.nameRequired'))
-    return
-  }
-
+// 执行 AI 生成内容（弹窗确认后调用）
+const executeAiGenerateTemplate = async () => {
+  templateCustomPromptVisible.value = false
   aiTemplateLoading.value = true
   try {
-    const fullText = await generateEmailTemplateStream({
+    const params = {
       templateType: form.type,
       templateName: form.name.trim(),
       existingSubject: form.subject || undefined,
       existingContent: form.content || undefined
-    })
+    }
+    if (templateCustomPrompt.value && templateCustomPrompt.value.trim()) {
+      params.customPrompt = templateCustomPrompt.value.trim()
+    }
 
-    // 解析流式返回的 JSON
+    const fullText = await generateEmailTemplateStream(params)
     const cleaned = cleanMarkdownJson(fullText)
     const parsed = JSON.parse(cleaned)
-    if (parsed.subject) {
-      form.subject = parsed.subject
-    }
-    if (parsed.content) {
-      form.content = parsed.content
-    }
+    if (parsed.subject) form.subject = parsed.subject
+    if (parsed.content) form.content = parsed.content
     ElMessage.success(t('ai.emailTemplateGenerated'))
   } catch (error) {
-    console.error('AI 生成邮件模板失败:', error)
+    console.error('AI 生成模板失败:', error)
     ElMessage.error(error.message || t('ai.generateFailed'))
   } finally {
     aiTemplateLoading.value = false

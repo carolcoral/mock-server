@@ -253,15 +253,25 @@ public class SwaggerImportService {
                 List<Map<String, Object>> newParams = extractRequestParams(operation);
                 String newParamsJson = JSON.toJSONString(newParams);
 
-                // 统一查找：先按 path+method 精确匹配，再按 path 模糊匹配
-                Optional<MockApi> existingByPathAndMethod = mockApiRepository.findByProjectIdAndPathAndMethod(
+                // 仅在当前项目内按 path+method 精确匹配，避免跨项目检测
+                Optional<MockApi> existingOpt = mockApiRepository.findByProjectIdAndPathAndMethod(
                         projectId, path, mockMethod);
-                Optional<MockApi> existingByPath = existingByPathAndMethod.isPresent()
-                        ? existingByPathAndMethod
-                        : mockApiRepository.findByProjectIdAndPath(projectId, path);
 
-                if (existingByPath.isPresent()) {
-                    MockApi existingApi = existingByPath.get();
+                if (existingOpt.isPresent()) {
+                    MockApi existingApi = existingOpt.get();
+                    // 防御性校验：确保查到的接口确实属于当前项目
+                    if (existingApi.getProject() == null || !projectId.equals(existingApi.getProject().getId())) {
+                        log.warn("导入时发现跨项目接口记录，已忽略: projectId={}, apiId={}, path={}, method={}",
+                                projectId, existingApi.getId(), path, mockMethod);
+                        result.failed++;
+                        ImportResult.ImportError err = new ImportResult.ImportError();
+                        err.path = path;
+                        err.method = swaggerMethod.name();
+                        err.reason = "接口归属项目异常";
+                        result.errors.add(err);
+                        continue;
+                    }
+
                     // 获取已有接口的现有数据
                     String existingDesc = existingApi.getDescription();
                     String existingResponseBody = getExistingDefaultResponseBody(existingApi.getId());

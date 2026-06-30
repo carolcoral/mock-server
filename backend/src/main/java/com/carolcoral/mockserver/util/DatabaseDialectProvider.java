@@ -196,6 +196,17 @@ public class DatabaseDialectProvider {
     }
 
     /**
+     * BOOLEAN 字面值（用于 DEFAULT 子句或 INSERT 值）
+     * PostgreSQL: TRUE/FALSE; MySQL/SQLite: 1/0
+     */
+    public String booleanLiteral(boolean value) {
+        return switch (detectDbType()) {
+            case POSTGRESQL -> value ? "TRUE" : "FALSE";
+            default -> value ? "1" : "0";
+        };
+    }
+
+    /**
      * CREATE TABLE 的 ID 列定义
      */
     public String idColumnDefinition() {

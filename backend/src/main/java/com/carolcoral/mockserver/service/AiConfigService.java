@@ -66,6 +66,10 @@ public class AiConfigService {
      */
     @Transactional
     public AiConfig saveConfig(AiConfig config) {
+        // 标准化 API 地址，避免包含非标准路径后缀
+        if (config.getApiUrl() != null) {
+            config.setApiUrl(normalizeApiUrl(config.getApiUrl()));
+        }
         AiConfig existing = aiConfigRepository.findByProvider(config.getProvider()).orElse(null);
         if (existing != null) {
             existing.setProviderName(config.getProviderName());
@@ -142,6 +146,39 @@ public class AiConfigService {
     }
 
     /**
+     * 标准化 API 地址：移除尾部斜杠及非标准路径后缀（/chat/completions、/responses 等），
+     * 确保后续拼接 /chat/completions 时不会产生重复或错误路径。
+     */
+    static String normalizeApiUrl(String apiUrl) {
+        if (apiUrl == null) return null;
+        String url = apiUrl.trim();
+        // 移除尾部斜杠
+        while (url.endsWith("/")) {
+            url = url.substring(0, url.length() - 1);
+        }
+        // 移除已知的 API 路径后缀，只保留 base URL
+        if (url.endsWith("/chat/completions")) {
+            url = url.substring(0, url.length() - "/chat/completions".length());
+        }
+        if (url.endsWith("/responses")) {
+            url = url.substring(0, url.length() - "/responses".length());
+        }
+        if (url.endsWith("/v1/responses")) {
+            url = url.substring(0, url.length() - "/v1/responses".length());
+        }
+        return url;
+    }
+
+    /**
+     * 构建 chat/completions 请求 URL
+     */
+    static String buildChatCompletionsUrl(String apiUrl) {
+        String base = normalizeApiUrl(apiUrl);
+        if (base == null) return null;
+        return base + "/chat/completions";
+    }
+
+    /**
      * 连通性验证 - 向 AI API 发送一个轻量请求验证配置是否正确
      *
      * @param apiUrl  API 地址
@@ -163,11 +200,8 @@ public class AiConfigService {
             return result;
         }
 
-        // 构建 chat completions URL
-        String chatUrl = apiUrl;
-        if (!apiUrl.endsWith("/chat/completions")) {
-            chatUrl = apiUrl.endsWith("/") ? apiUrl + "chat/completions" : apiUrl + "/chat/completions";
-        }
+        // 构建 chat completions URL（先标准化 apiUrl 再拼接）
+        String chatUrl = buildChatCompletionsUrl(apiUrl);
 
         String testModel = (model != null && !model.isBlank()) ? model : "gpt-4o";
 

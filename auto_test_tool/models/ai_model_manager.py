@@ -38,19 +38,18 @@ class AIModelManager:
         """
         测试指定模型是否可用
         返回: (是否可用, 错误信息)
+        兼容 OpenAI Chat Completions 和 Volces Ark Responses API 格式
         """
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}"
         }
 
+        # 先尝试 Responses API 格式（Volces Ark）
         payload = {
             "model": model,
-            "messages": [
-                {"role": "user", "content": "Hello, respond with 'OK' only."}
-            ],
-            "max_tokens": 10,
-            "stream": False
+            "input": "Hello, respond with 'OK' only.",
+            "max_output_tokens": 10,
         }
 
         try:
@@ -64,8 +63,17 @@ class AIModelManager:
             if response.status_code == 200:
                 return True, None
             else:
-                error_text = response.text[:200] if response.text else f"HTTP {response.status_code}"
-                return False, error_text
+                error_data = response.json() if response.text else {}
+                error_msg = ""
+                if isinstance(error_data, dict):
+                    err_info = error_data.get("error", {})
+                    if isinstance(err_info, dict):
+                        error_msg = err_info.get("message", "")
+                    else:
+                        error_msg = str(err_info)
+                if not error_msg:
+                    error_msg = response.text[:200] if response.text else f"HTTP {response.status_code}"
+                return False, error_msg
 
         except requests.exceptions.Timeout:
             return False, f"超时（{self.config.ai_timeout}s）"
@@ -122,6 +130,7 @@ class AIModelManager:
         """
         发送 AI 对话请求（自动模型切换）
         返回: (是否成功, 响应文本, 错误信息)
+        兼容 OpenAI Chat Completions 和 Volces Ark Responses API 格式
         """
         if not self.is_available():
             return False, None, "没有可用的 AI 模型"
@@ -139,13 +148,11 @@ class AIModelManager:
                 "Authorization": f"Bearer {self.api_key}"
             }
 
+            # 使用 Responses API 格式（Volces Ark）
             payload = {
                 "model": model,
-                "messages": [
-                    {"role": "user", "content": prompt}
-                ],
-                "max_tokens": max_tokens,
-                "stream": False
+                "input": prompt,
+                "max_output_tokens": max_tokens,
             }
 
             try:
@@ -158,15 +165,27 @@ class AIModelManager:
 
                 if response.status_code == 200:
                     data = response.json()
-                    # 尝试提取回复内容
+                    # 尝试提取回复内容 - Responses API 格式
                     content = None
+                    # Volces Ark Responses API 格式
                     try:
-                        content = data["choices"][0]["message"]["content"]
-                    except (KeyError, IndexError):
+                        # output 是一个数组，每项有 content 数组
+                        for item in data.get("output", []):
+                            for c in item.get("content", []):
+                                if c.get("type") == "output_text":
+                                    content = c.get("text", "")
+                                    break
+                    except:
+                        pass
+                    # 兼容 Chat Completions 格式
+                    if not content:
                         try:
-                            content = data.get("output", {}).get("text", "")
-                        except:
-                            content = str(data)
+                            content = data["choices"][0]["message"]["content"]
+                        except (KeyError, IndexError):
+                            try:
+                                content = data.get("output", {}).get("text", "")
+                            except:
+                                content = str(data)
 
                     return True, content, None
 

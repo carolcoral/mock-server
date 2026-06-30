@@ -122,6 +122,7 @@ public class SecurityConfig {
                                 // SPA 路由（Vue Router history 模式）
                                 "/login",
                                 "/register",
+                                "/forgot-password",
                                 "/dashboard",
                                 "/home",
                                 "/projects",

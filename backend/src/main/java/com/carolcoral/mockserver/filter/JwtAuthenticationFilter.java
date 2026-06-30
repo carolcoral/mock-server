@@ -178,7 +178,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // SPA 路由（Vue Router history 模式） - 直接放行，让前端处理
         if (requestUri.equals("/") ||
-            requestUri.equals("/login") || requestUri.equals("/register") ||
+            requestUri.equals("/login") || requestUri.equals("/register") || requestUri.equals("/forgot-password") ||
             requestUri.equals("/dashboard") ||
             requestUri.equals("/home") || requestUri.equals("/projects") ||
             requestUri.startsWith("/projects/") || requestUri.equals("/apis") ||

@@ -963,7 +963,11 @@ export default {
     deleteSuccess: '削除成功',
     preview: 'プレビュー',
     editContent: '編集',
-    previewHtml: 'HTMLプレビュー'
+    previewHtml: 'HTMLプレビュー',
+    customPromptTitle: 'カスタムプロンプト',
+    customPromptDescTemplate: 'メールテンプレートの生成をAIに指示するための追加プロンプトを入力してください（スタイル、トーン、含める要素など）。',
+    customPromptDescSubject: 'メール件名の生成をAIに指示するための追加プロンプトを入力してください。',
+    customPromptPlaceholder: '例：正式でプロフェッショナルなトーン、会社ロゴセクション、認証コード強調エリア、お問い合わせフッターを含めて...'
   },
 
   // 権限管理

@@ -534,6 +534,9 @@
                     style="width: 100%;"
                     clearable
                     filterable
+                    remote
+                    :remote-method="searchEmailTemplates"
+                    :loading="emailTemplateLoading"
                   >
                     <el-option
                       v-for="tpl in emailTemplates"
@@ -765,6 +768,7 @@ const emailConfig = reactive({
 
 // 邮件模板列表
 const emailTemplates = ref([])
+const emailTemplateLoading = ref(false)
 
 // 测试邮件
 const testEmailAddress = ref('')
@@ -1437,15 +1441,37 @@ const loadEmailConfig = async () => {
   }
 }
 
-// 加载邮件模板列表
+// 加载邮件模板列表（初始加载，带分页）
 const fetchEmailTemplates = async () => {
   try {
-    const response = await request.get('/email-templates')
+    const response = await request.get('/email-templates', { params: { size: 50 } })
     if (response.code === 200 && response.data) {
-      emailTemplates.value = response.data
+      emailTemplates.value = response.data.content || response.data
     }
   } catch (error) {
     console.error('加载邮件模板列表失败:', error)
+  }
+}
+
+// 远程搜索邮件模板（支持分页）
+const searchEmailTemplates = async (query) => {
+  if (!query || query.trim() === '') {
+    // 空查询时重新加载前50条
+    fetchEmailTemplates()
+    return
+  }
+  emailTemplateLoading.value = true
+  try {
+    const response = await request.get('/email-templates', {
+      params: { name: query.trim(), size: 50 }
+    })
+    if (response.code === 200 && response.data) {
+      emailTemplates.value = response.data.content || response.data
+    }
+  } catch (error) {
+    console.error('搜索邮件模板失败:', error)
+  } finally {
+    emailTemplateLoading.value = false
   }
 }
 
