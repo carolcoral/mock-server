@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-2.3.0-blue?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/Version-2.3.1-blue?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square" alt="License">
   <img src="https://img.shields.io/badge/JDK-21-red?style=flat-square&logo=openjdk" alt="JDK">
   <img src="https://img.shields.io/badge/Node.js-18+-green?style=flat-square&logo=nodedotjs" alt="Node">
@@ -11,7 +11,7 @@
 <p align="center">Spring Boot + Vue 3 全功能 API 模拟平台</p>
 
 <p align="center">
-  HTTP / WebSocket Mock · 多项目隔离 · 细粒度权限 · 动态代码编译 · AI 对话与生成 · Swagger 导入 · 多语言国际化 · 邮件通知 · 系统监控
+  HTTP / WebSocket Mock · 多项目隔离 · 细粒度权限 · AI 对话与生成 · Swagger 导入 · 多数据库 · 动态代码编译 · 多语言国际化 · 自动化测试
 </p>
 
 ---
@@ -20,18 +20,20 @@
 
 | 模块 | 能力 |
 |------|------|
-| 🧩 接口模拟 | 固定响应 / 条件匹配 / 随机权重 / Java 动态代码处理器 / 延迟模拟 / WebSocket Mock |
-| 🔐 细粒度权限 | RBAC 角色权限体系，页面+按钮级权限控制，自定义角色，动态菜单显隐 |
-| 🤖 AI 智能平台 | 多模型对话（流式 SSE + Markdown 渲染 + 上下文记忆）· 一键生成响应数据 / Java 代码 / 邮件模板 / 接口描述 · 12+ LLM 服务商 · 调用统计 |
-| 📥 Swagger 导入 | 支持 Swagger 2.0 / OpenAPI 3.x，上传 JSON 或 URL 一键导入为 Mock API |
+| 🧩 接口模拟 | 固定 / 条件匹配 / 随机权重 / Java 动态代码处理器 / 延迟模拟 / WebSocket Mock |
+| 🔐 细粒度权限 | RBAC 角色权限体系，页面+按钮级 30 项权限控制，自定义角色，动态菜单显隐 |
+| 🤖 AI 智能平台 | 多模型对话（流式 SSE + Markdown 渲染 + 语法高亮）· 一键生成响应/代码/邮件/描述 · 12+ LLM 服务商 · 调用统计 · 动态文档检索 |
+| 📥 Swagger 导入 | 支持 2.0 / OpenAPI 3.x，JSON 上传或 URL 一键导入，递归解析 `$ref` |
+| 🗄️ 多数据库 | SQLite / PostgreSQL / MySQL 一键切换，方言抽象层自动适配，同套代码全兼容 |
+| 🧪 自动化测试 | Python 全自动测试框架，66 用例覆盖 AI / 功能 / RBAC / 安全 / Swagger，HTML 报告 |
 | 📦 项目管理 | 多项目隔离 · 成员权限分级（创建者 / 管理员 / 成员） |
-| 🧬 代码模板 | Monaco Editor · 编译验证 · 项目级 + 系统级模板 · 热加载 · 6 种转换器 |
-| ✉️ 邮件系统 | SMTP 配置 · 模板管理（通用 / 验证码 / 告警）· HTML 实时预览 · 注册验证码 |
+| 🧬 代码模板 | Monaco Editor · 编译验证 · 系统级+项目级 · 热加载 · 6 种转换器 |
+| ✉️ 邮件系统 | SMTP 配置 · 模板管理（通用/验证码/告警）· HTML 预览 · 占位符替换 |
 | 🌍 国际化 | 中文 / English / 日本語 · 全站实时切换 |
-| 📊 监控面板 | 请求趋势 · 来源 IP 多折线 · AI 调用量 · 新增趋势 · IOPS · JVM 堆详情 · CPU/内存/磁盘 |
-| 📖 使用说明 | 交互式引导页，6 步上手：创建项目 → 导入接口 → 配置响应 → 参数匹配 → AI 生成 → 调用监控 |
-| 🎨 现代 UI | 深色渐变侧边栏 · Canvas 动态线条 · 分组折叠菜单 · 收缩模式 · 全屏欢迎页 |
-| 🐳 容器化 | Docker 多阶段构建 · 一键脚本 · 非 root 只读容器 |
+| 📊 监控面板 | 请求趋势 · 来源 IP 多折线 · AI 调用量 · 新增趋势 · IOPS · JVM/CPU/内存/磁盘 |
+| 📖 使用说明 | 交互式引导页，6 步上手，取代 Swagger 入口 |
+| 🎨 现代 UI | 深色侧边栏 · Canvas 动态线条 · 分组折叠 · 收缩模式 · 全屏欢迎页 · 航空主题 |
+| 🐳 容器化 | Docker 多阶段构建 · 非 root 只读容器 · 一键构建推送 |
 
 ---
 
@@ -51,9 +53,12 @@ git clone https://github.com/carolcoral/mock-server.git && cd mock-server
 <summary>📖 更多部署方式</summary>
 
 ```bash
+# 数据库切换（.env 中设置 DB_TYPE）
+# 支持：sqlite（默认）· mysql · postgresql
+
 # 手动构建
 ./build-all-in-one.sh
-java -jar backend/target/mock-server-2.3.0.jar
+java -jar backend/target/mock-server-2.3.1.jar
 
 # 开发模式
 cd backend && mvn spring-boot:run          # 终端 1
@@ -106,10 +111,21 @@ new WebSocket('ws://localhost:8080/api/ws/mock/{projectCode}/{path}')
 
 | 能力 | 说明 |
 |------|------|
-| 💬 智能对话 | 多轮上下文记忆 · SSE 流式响应 · Markdown 渲染 + 代码高亮 · 对话历史持久化 · 智能建议引导 |
+| 💬 智能对话 | 多轮上下文记忆 · SSE 流式响应 · Markdown + GitHub 风格代码高亮 · 对话历史持久化 · 智能建议引导 |
+| 🔍 动态检索 | 根据提问实时检索项目文档注入上下文，命中引用文档，未命中回退通用知识 |
 | 🎨 内容生成 | 一键生成响应数据 · Java 代码模板 · HTML 邮件模板 · 接口描述文档 |
 | 🔌 多模型支持 | OpenAI · Azure · Gemini · Claude · DeepSeek · 通义千问 · 智谱GLM · Moonshot · 百川 · MiniMax · 小米MiMo · 火山引擎豆包 + 自定义兼容 |
 | 📊 调用统计 | 多用户 AI 调用趋势折线图 · 年/月/日粒度 · 成功率监控 |
+
+## 🗄️ 多数据库
+
+| 数据库 | 切换方式 | 适用场景 |
+|--------|----------|----------|
+| SQLite | `DB_TYPE=sqlite`（默认） | 单机部署、零配置开箱即用 |
+| PostgreSQL | `DB_TYPE=postgresql` | 生产环境、高并发 |
+| MySQL | `DB_TYPE=mysql` | 已有 MySQL 基础设施 |
+
+只需修改 `.env` 中的 `DB_TYPE` 和对应连接信息，`DatabaseDialectProvider` 自动适配方言，同套代码全兼容。
 
 ---
 
@@ -134,6 +150,10 @@ mock-server/
 │       ├── layout/                   # 布局组件
 │       ├── stores/                   # Pinia 状态管理
 │       └── api/                      # Axios 封装
+├── auto_test_tool/                   # 自动化测试工具
+│   ├── core/                         # 测试引擎 / HTTP 客户端 / 报告生成
+│   ├── tests/                        # AI / 功能 / RBAC / 安全 测试套件
+│   └── config/                       # 测试配置
 ├── docker/                           # Docker Compose + Dockerfile
 ├── build.sh / run.sh                 # 构建 & 启动
 ├── CHANGELOG.md                      # 变更日志
@@ -146,19 +166,23 @@ mock-server/
 
 ```yaml
 # application.yml
+spring:
+  profiles:
+    active: ${DB_TYPE:sqlite}          # 数据库：sqlite | mysql | postgresql
 jwt:
   secret: ${JWT_SECRET:your-secret-key}
-  expiration: 1800000                 # 30 分钟
+  expiration: 86400000                 # 24 小时
 admin:
   username: ${ADMIN_USERNAME:admin}
   password: ${ADMIN_PASSWORD:}
 ```
 
 ```bash
-# 环境变量
-export JWT_SECRET=your-super-secret-jwt-key-at-least-256-bits-long
-export ADMIN_PASSWORD=YourStrongP@ssw0rd123
-export ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
+# .env 环境变量
+DB_TYPE=sqlite                         # 切换数据库
+JWT_SECRET=your-256-bits-plus-secret-key
+ADMIN_PASSWORD=YourStrongP@ssw0rd123
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
 ```
 
 ---

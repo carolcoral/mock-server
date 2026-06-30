@@ -67,7 +67,7 @@ spring:
 
 # JWT 配置
 jwt:
-  secret: ${JWT_SECRET:mock-server-secret-key-2024-carolcoral-mock-server-application}
+  secret: ${JWT_SECRET:!CHANGE_ME!}  # 生产环境必须通过环境变量设置强密钥
   expiration: ${JWT_EXPIRATION:86400000} # 24小时
   # 令牌前缀
   token-prefix: Bearer
@@ -108,7 +108,7 @@ logging:
 # 管理员配置（从环境变量读取）
 admin:
   username: ${ADMIN_USERNAME:admin}
-  password: ${ADMIN_PASSWORD:Admin@123}
+  password: ${ADMIN_PASSWORD:!CHANGE_ME!}  # 生产环境必须通过环境变量设置
   email: ${ADMIN_EMAIL:admin@mockserver.com}
 
 # 监控配置

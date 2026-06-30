@@ -12,7 +12,7 @@ services:
       - "${PGSQL_PORT:-5432}:5432"
     environment:
       - POSTGRES_USER=${PGSQL_USERNAME:-postgres}
-      - POSTGRES_PASSWORD=${PGSQL_PASSWORD:-postgres123}
+      - POSTGRES_PASSWORD=${PGSQL_PASSWORD:-CHANGE_ME}
       - POSTGRES_DB=${PGSQL_DATABASE:-mock_server}
       - TZ=Asia/Shanghai
       # 性能调优

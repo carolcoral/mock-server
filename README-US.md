@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-2.3.0-blue?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/Version-2.3.1-blue?style=flat-square" alt="Version">
   <img src="https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square" alt="License">
   <img src="https://img.shields.io/badge/JDK-21-red?style=flat-square&logo=openjdk" alt="JDK">
   <img src="https://img.shields.io/badge/Node.js-18+-green?style=flat-square&logo=nodedotjs" alt="Node">
@@ -11,7 +11,7 @@
 <p align="center">Full-featured API Mock Platform with Spring Boot + Vue 3</p>
 
 <p align="center">
-  HTTP / WebSocket Mock · Multi-project Isolation · Fine-grained RBAC · Dynamic Code Compilation · AI Chat & Generation · Swagger Import · i18n · Email Notifications · System Monitoring
+  HTTP / WebSocket Mock · Multi-project Isolation · Fine-grained RBAC · Dynamic Code Compilation · AI Chat & Generation · Swagger Import · Multi-Database · i18n · Automated Testing
 </p>
 
 ---
@@ -20,18 +20,20 @@
 
 | Module | Capabilities |
 |------|------|
-| 🧩 API Mocking | Fixed responses / Conditional matching / Weighted random / Java dynamic code handlers / Delay simulation / WebSocket Mock |
-| 🔐 Fine-grained RBAC | Role-based access control with page & button-level permissions, custom roles, dynamic menu visibility |
-| 🤖 AI Platform | Multi-model chat (SSE streaming + Markdown rendering + context memory) · One-click generation of response data / Java code / email templates / API descriptions · 12+ LLM providers · Call statistics |
-| 📥 Swagger Import | Supports Swagger 2.0 / OpenAPI 3.x, upload JSON or URL to import as Mock APIs in one click |
+| 🧩 API Mocking | Fixed / Conditional / Weighted random / Java dynamic code handlers / Delay / WebSocket Mock |
+| 🔐 Fine-grained RBAC | Role-based access with 30 page & button-level permissions, custom roles, dynamic menus |
+| 🤖 AI Platform | Multi-model chat (SSE + Markdown + syntax highlighting) · One-click generate responses/code/emails/docs · 12+ LLM providers · Dynamic document retrieval · Call stats |
+| 📥 Swagger Import | Swagger 2.0 / OpenAPI 3.x, JSON upload or URL, recursive `$ref` resolution |
+| 🗄️ Multi-Database | SQLite / PostgreSQL / MySQL one-click switch, dialect abstraction auto-adaptive |
+| 🧪 Automated Testing | Python test framework, 66 cases covering AI / Features / RBAC / Security / Swagger, HTML reports |
 | 📦 Project Management | Multi-project isolation · Tiered member permissions (Creator / Admin / Member) |
-| 🧬 Code Templates | Monaco Editor · Compile validation · Project-level & system-level templates · Hot reload · 6 transformer types |
-| ✉️ Email System | SMTP configuration · Template management (General / Verification / Alert) · Live HTML preview · Registration verification codes |
+| 🧬 Code Templates | Monaco Editor · Compile validation · System + project-level · Hot reload · 6 transformer types |
+| ✉️ Email System | SMTP config · Template management (General/Verification/Alert) · Live HTML preview · Placeholder substitution |
 | 🌍 Internationalization | Chinese / English / 日本語 · Full-site real-time switching |
-| 📊 Monitoring Dashboard | Request trends · Source IP multi-line charts · AI call volume · Creation trends · IOPS · JVM heap details · CPU/Memory/Disk |
-| 📖 User Guide | Interactive step-by-step guide dialog, 6 steps: Create Project → Import APIs → Configure Responses → Parameter Matching → AI Generation → Invoke & Monitor |
-| 🎨 Modern UI | Dark gradient sidebar · Canvas dynamic lines · Collapsible grouped menu · Compact mode · Full-screen welcome page |
-| 🐳 Containerization | Docker multi-stage build · One-click scripts · Non-root read-only container |
+| 📊 Monitoring | Request trends · Source IP multi-line · AI call volume · Creation trends · IOPS · JVM/CPU/Memory/Disk |
+| 📖 User Guide | Interactive 6-step guide dialog, replacing Swagger as main entry |
+| 🎨 Modern UI | Dark sidebar · Canvas dynamic lines · Collapsible groups · Compact mode · Welcome page · Aviation theme |
+| 🐳 Containerized | Docker multi-stage build · Non-root read-only container · One-click build & push |
 
 ---
 
@@ -53,7 +55,7 @@ Access: `http://localhost:8080` | API: `/api`
 ```bash
 # Manual build
 ./build-all-in-one.sh
-java -jar backend/target/mock-server-2.3.0.jar
+java -jar backend/target/mock-server-2.3.1.jar
 
 # Development mode
 cd backend && mvn spring-boot:run              # Terminal 1
@@ -106,12 +108,23 @@ new WebSocket('ws://localhost:8080/api/ws/mock/{projectCode}/{path}')
 
 | Capability | Description |
 |------|------|
-| 💬 Smart Chat | Multi-turn context memory · SSE streaming response · Markdown rendering + code highlighting · Persistent chat history · Smart suggestions |
+| 💬 Smart Chat | Multi-turn context memory · SSE streaming · Markdown + GitHub-style syntax highlighting · Persistent chat history · Smart suggestions |
+| 🔍 Dynamic Retrieval | Real-time document search to inject relevant context into prompts, fallback to general knowledge |
 | 🎨 Content Generation | One-click generation of response data · Java code templates · HTML email templates · API description docs |
-| 🔌 Multi-Model Support | OpenAI · Azure · Gemini · Claude · DeepSeek · Qwen · GLM · Moonshot · Baichuan · MiniMax · Xiaomi MiMo · Volcano Engine Doubao + Custom compatible |
+| 🔌 Multi-Model Support | OpenAI · Azure · Gemini · Claude · DeepSeek · Qwen · GLM · Moonshot · Baichuan · MiniMax · MiMo · Doubao + Custom |
 | 📊 Call Statistics | Multi-user AI call trend charts · Year/Month/Day granularity · Success rate monitoring |
 
-> 💡 All AI generation features (code templates, email templates, API descriptions) use SSE streaming transmission with flexible timeout configuration (30-600 seconds, default 15 minutes in production).
+> 💡 All AI generation uses SSE streaming with flexible timeout (30-600s).
+
+## 🗄️ Multi-Database
+
+| Database | Switch | Best For |
+|----------|--------|----------|
+| SQLite | `DB_TYPE=sqlite` (default) | Standalone, zero-config |
+| PostgreSQL | `DB_TYPE=postgresql` | Production, high-concurrency |
+| MySQL | `DB_TYPE=mysql` | Existing MySQL infrastructure |
+
+Just set `DB_TYPE` and connection info in `.env`, the `DatabaseDialectProvider` handles the rest.
 
 ---
 
@@ -136,6 +149,10 @@ mock-server/
 │       ├── layout/                   # Layout Components
 │       ├── stores/                   # Pinia State Management
 │       └── api/                      # Axios Wrapper
+├── auto_test_tool/                   # Automated Testing Suite
+│   ├── core/                         # Test Engine / HTTP Client / Report Generator
+│   ├── tests/                        # AI / Features / RBAC / Security Test Suites
+│   └── config/                       # Test Configuration
 ├── docker/                           # Docker Compose + Dockerfile
 ├── build.sh / run.sh                 # Build & Start Scripts
 ├── CHANGELOG.md                      # Changelog
@@ -149,19 +166,23 @@ mock-server/
 
 ```yaml
 # application.yml
+spring:
+  profiles:
+    active: ${DB_TYPE:sqlite}          # Database: sqlite | mysql | postgresql
 jwt:
   secret: ${JWT_SECRET:your-secret-key}
-  expiration: 1800000                 # 30 minutes
+  expiration: 86400000                 # 24 hours
 admin:
   username: ${ADMIN_USERNAME:admin}
   password: ${ADMIN_PASSWORD:}
 ```
 
 ```bash
-# Environment variables
-export JWT_SECRET=your-super-secret-jwt-key-at-least-256-bits-long
-export ADMIN_PASSWORD=YourStrongP@ssw0rd123
-export ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
+# .env environment variables
+DB_TYPE=sqlite                         # Switch database type
+JWT_SECRET=your-256-bits-plus-secret-key
+ADMIN_PASSWORD=YourStrongP@ssw0rd123
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
 ```
 
 ---

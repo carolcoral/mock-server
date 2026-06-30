@@ -1,6 +1,67 @@
 # 版本变更说明
 
-## v2.3.0 (2026-06-25)
+## v2.3.1 (2026-06-30)
+
+> 多数据源支持、自动化测试框架、AI 对话检索增强与 UI 优化。
+
+### 🗄️ 多数据源支持
+- **数据库抽象层**：新增 `DatabaseDialectProvider`，统一 SQLite / PostgreSQL / MySQL 方言差异（ID 自增 / 布尔值 / 日期函数 / UPSERT 语法）
+- **动态切换**：`.env` 设置 `DB_TYPE` 即可切换数据库，无须修改代码，Spring Profile 自动装配
+- **DatabaseMigration 全面重构**：所有建表/插入语句改为方言感知，自动适配三种数据库
+- **新增 MySQL / PostgreSQL 连接配置**：`datasources/docker-compose.yml` 提供 Docker 环境
+- 统计 SQL 全面改写，移除硬编码 `strftime()`，改用 `DatabaseDialectProvider.formatEpochMillisToDate()`
+- JPA `ddl-auto: update` 与 Hibernate 方言协同，MySQL/PGSQL 由 Hibernate 处理 DDL，SQLite 由迁移脚本处理
+
+### 🧪 自动化测试框架
+- **全新 `auto_test_tool/` 模块**：Python 驱动的全自动测试工具，覆盖 6 大领域、66 个测试用例
+- **测试领域**：AI 对话流式/多模型/智能建议/代码模板/邮件生成 · 页面功能 37 项 CRUD/搜索/分页 · RBAC 角色权限体系 · 安全漏洞扫描 · 页面访问权限 · Swagger 导入冲突检测
+- **核心组件**：`TestRunner` 编排引擎 · `ReportGenerator` HTML/Markdown 双格式报告 · `AuthManager` 多用户认证 · `ConfigLoader` YAML 配置驱动 · `AIModelManager` 多模型轮换
+- **CI 友好**：`setup.sh` 自动环境配置 · `run_test.sh` 一键执行 · `activate.sh` 虚拟环境激活
+- 支持并行测试、指数退避重试、上下文管理器自动清理
+
+### 🤖 AI 对话增强
+- **动态文档检索**：根据用户提问实时检索 README / CHANGELOG 相关段落注入系统提示词，命中文档则优先引用，未命中则使用通用知识回答，不再直接阻断
+- **代码高亮主题**：从 `atom-one-dark` 升级为 `github-dark-dimmed`，与 GitHub 深色模式配色一致
+- 修复代码块语法高亮丢失问题：重构 `wrapCodeBlocks` 逻辑，保留 `hljs` 类名与 token 标签
+- 修复 `color: inherit` 导致普通文本在深色背景上不可见
+- 对话建议问题预缓存加速冷启动
+
+### 🐛 修复
+- **项目删除**：删除项目前清理 `t_project_member` 孤儿记录，修复 SQLite rowid 复用导致的 `UNIQUE constraint failed` 错误
+- **Swagger 导入**：修复项目内接口重复性判断异常
+- 测试框架解包异常（`ValueError: too many values to unpack`）
+- 新增 `/forgot-password` SPA 路由与静态资源转发
+
+### 📝 升级说明
+
+> ⚠️ **v2.3.0 → v2.3.1 数据库变更**：本版本**无新增表结构**，主要重构为多数据源兼容。`DatabaseMigration` 启动时自动执行，所有现有迁移兼容 SQLite / PostgreSQL / MySQL。
+
+若需要在已有 SQLite 基础上切换为 PostgreSQL 或 MySQL：
+
+```sql
+-- ============================================
+-- 从 SQLite 迁移到 PostgreSQL / MySQL
+-- ============================================
+
+-- 1. 导出 SQLite 数据
+-- sqlite3 data/mock-server.db .dump > backup.sql
+
+-- 2. 创建目标数据库
+-- PostgreSQL: CREATE DATABASE mock_server;
+-- MySQL:      CREATE DATABASE mock_server CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 3. 修改 .env 配置
+-- DB_TYPE=postgresql  或  DB_TYPE=mysql
+-- 并配置对应的 HOST / PORT / DATABASE / USERNAME / PASSWORD
+
+-- 4. 启动应用，DatabaseMigration 自动创建表结构
+-- 5. 使用 ETL 工具或手动导入历史数据
+
+-- 注意：SQLite 的 datetime('now') 需替换为目标数据库对应函数
+-- PostgreSQL: NOW()   MySQL: NOW()
+```
+
+---
 
 > 细粒度权限、AI 对话平台、多模型支持、统计增强与安全加固。
 
