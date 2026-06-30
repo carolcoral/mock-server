@@ -36,6 +36,7 @@ from tests.page_feature_tests import PageFeatureTests
 from tests.rbac_tests import RBACTests
 from tests.ai_tests import AITests
 from tests.security_tests import SecurityTests
+from tests.swagger_import_tests import SwaggerImportTests
 
 
 class AutoTestTool:
@@ -43,7 +44,7 @@ class AutoTestTool:
 
     def __init__(self, config_path: str = None):
         print("\n" + "=" * 70)
-        print("  Mock Server 自动化测试工具 v1.0")
+        print("  Mock Server 自动化测试工具 v1.1")
         print("=" * 70)
 
         # 加载配置
@@ -70,6 +71,7 @@ class AutoTestTool:
             "rbac": RBACTests(self.runner),
             "ai": AITests(self.runner, self.ai_manager) if self.ai_manager else None,
             "security": SecurityTests(self.runner),
+            "swagger_import": SwaggerImportTests(self.runner),
         }
 
     def _print_config_summary(self):
@@ -133,6 +135,7 @@ class AutoTestTool:
             ("rbac", "RBAC 权限控制测试"),
             ("ai", "AI 功能测试"),
             ("security", "安全特性测试"),
+            ("swagger_import", "Swagger 导入测试"),
         ]
 
         for module_name, display_name in test_order:

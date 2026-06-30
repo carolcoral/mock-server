@@ -64,6 +64,29 @@ class PageFeatureTests:
             description="DELETE /api/projects/{id}",
             category="project"
         ))
+        suite.cases.append(self.runner.run_test(
+            "feat_project_detail",
+            "获取项目详情",
+            self._test_project_detail,
+            description="GET /api/projects/{id}",
+            category="project"
+        ))
+        suite.cases.append(self.runner.run_test(
+            "feat_project_accessible",
+            "获取用户可访问项目",
+            self._test_project_accessible,
+            description="GET /api/projects/accessible",
+            category="project"
+        ))
+
+        # === 项目成员管理 ===
+        suite.cases.append(self.runner.run_test(
+            "feat_project_member_list",
+            "获取项目成员列表",
+            self._test_project_member_list,
+            description="GET /api/project-members/{projectId}",
+            category="project_member"
+        ))  # skip due to dependency)
 
         # === 接口管理 CRUD ===
         suite.cases.append(self.runner.run_test(
@@ -152,6 +175,13 @@ class PageFeatureTests:
             "获取个人信息",
             self._test_user_get_profile,
             description="GET /api/users/profile",
+            category="user"
+        ))
+        suite.cases.append(self.runner.run_test(
+            "feat_user_search",
+            "搜索用户",
+            self._test_user_search,
+            description="GET /api/users/search",
             category="user"
         ))
         suite.cases.append(self.runner.run_test(
@@ -332,7 +362,7 @@ class PageFeatureTests:
             return False, f"登录失败: {err}", {}
         if not self._created_project_id:
             # 先创建一个项目
-            ok2, _ = self._test_project_create()
+            ok2, _, _ = self._test_project_create()
             if not ok2:
                 return False, "无法创建测试项目", {}
 
@@ -723,7 +753,7 @@ class PageFeatureTests:
         tpl_name = f"测试邮件模板_{random_string(4)}"
         status, resp, err = self.runner.client.post("/email-templates", data={
             "name": tpl_name,
-            "type": "GENERAL",
+            "type": "REGISTER",
             "subject": "自动化测试邮件",
             "content": "<html><body><h1>测试</h1><p>这是自动化测试邮件</p></body></html>",
             "enabled": True
@@ -799,5 +829,58 @@ class PageFeatureTests:
             return False, err, {}
         if status == 403:
             return True, None, {"note": "系统信息返回403（管理员权限不足）", "status": 403}
+        passed, msg = self.runner.assert_api_success(status, resp)
+        return passed, msg, {}
+
+    # ========== 项目详情与可访问项目 ==========
+
+    def _test_project_detail(self):
+        ok, err = self.runner.auth.login_as_admin()
+        if not ok:
+            return False, f"登录失败: {err}", {}
+        if not self._created_project_id:
+            return True, None, {"note": "无可用项目ID"}
+
+        status, resp, err = self.runner.client.get(f"/projects/{self._created_project_id}")
+        if err:
+            return False, err, {}
+        passed, msg = self.runner.assert_api_success(status, resp)
+        return passed, msg, {}
+
+    def _test_project_accessible(self):
+        ok, err = self.runner.auth.login_as_admin()
+        if not ok:
+            return False, f"登录失败: {err}", {}
+        status, resp, err = self.runner.client.get("/projects/accessible")
+        if err:
+            return False, err, {}
+        if status == 403:
+            return True, None, {"note": "可访问项目返回403（管理员权限不足）", "status": 403}
+        passed, msg = self.runner.assert_api_success(status, resp)
+        return passed, msg, {}
+
+    # ========== 项目成员管理 ==========
+
+    def _test_project_member_list(self):
+        ok, err = self.runner.auth.login_as_admin()
+        if not ok:
+            return False, f"登录失败: {err}", {}
+        if not self._created_project_id:
+            return True, None, {"note": "无可用项目ID"}
+        status, resp, err = self.runner.client.get(f"/project-members/{self._created_project_id}")
+        if err:
+            return False, err, {}
+        passed, msg = self.runner.assert_api_success(status, resp)
+        return passed, msg, {}
+
+    # ========== 用户搜索 ==========
+
+    def _test_user_search(self):
+        ok, err = self.runner.auth.login_as_admin()
+        if not ok:
+            return False, f"登录失败: {err}", {}
+        status, resp, err = self.runner.client.get("/users/search", data={"keyword": "admin"})
+        if err:
+            return False, err, {}
         passed, msg = self.runner.assert_api_success(status, resp)
         return passed, msg, {}

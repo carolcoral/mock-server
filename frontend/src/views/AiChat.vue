@@ -146,7 +146,7 @@ import { useUserStore } from '@/stores/user'
 import request from '@/utils/request'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
-import 'highlight.js/styles/atom-one-dark.css'
+import 'highlight.js/styles/github-dark-dimmed.css'
 import mermaid from 'mermaid'
 import {
   Delete, CopyDocument, Position, ChatDotRound
@@ -157,21 +157,8 @@ const userStore = useUserStore()
 
 // ============ highlight.js 配置 ============
 marked.setOptions({
-  highlight: function (code, lang) {
-    if (lang && hljs.getLanguage(lang)) {
-      try {
-        return hljs.highlight(code, { language: lang }).value
-      } catch {
-        // ignore highlighting errors
-      }
-    }
-    // 自动检测语言
-    try {
-      return hljs.highlightAuto(code).value
-    } catch {
-      return code
-    }
-  }
+  // 不在 marked 阶段高亮，统一在 wrapCodeBlocks 中手动调用 hljs，
+  // 避免高亮后的 HTML 在后续包装时被二次转义导致主题颜色丢失。
 })
 
 // ============ Mermaid 配置 ============
@@ -238,55 +225,88 @@ const escapeHtml = (str) => {
     .replace(/"/g, '&quot;')
 }
 
-// 处理代码块：添加 header（语言标签 + 复制按钮）+ 行号
-const wrapCodeBlocks = (html) => {
-  return html.replace(
-    /<pre><code(?:\s+class="language-(\w+)")?>([\s\S]*?)<\/code><\/pre>/g,
-    (match, lang, code) => {
-      // unescape HTML entities that marked already escaped
-      const rawCode = code
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&amp;/g, '&')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
+  // 处理代码块：添加 header（语言标签 + 复制按钮）+ 行号
+  const wrapCodeBlocks = (html) => {
+    return html.replace(
+      /<pre><code(?:\s+class="language-(\w+)")?>([\s\S]*?)<\/code><\/pre>/g,
+      (match, lang, code) => {
+        // 反解 marked 已经转义的 HTML 实体，得到原始源码
+        const rawCode = code
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&amp;/g, '&')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
 
-      const langLabel = lang || (hljs.highlightAuto(rawCode).language || 'code')
-      const escapedCode = escapeHtml(rawCode)
-      const encodedCode = encodeURIComponent(rawCode)
+        // 如果 marked 已经返回 highlight.js 高亮 HTML（含 <span class="hljs-...">），直接保留；
+        // 否则手动调用 hljs 进行高亮，确保 github-dark-dimmed 主题颜色生效。
+        let highlightedCode = ''
+        let langLabel = lang
+        const isAlreadyHighlighted = code.includes('<span')
+        if (isAlreadyHighlighted) {
+          // marked 的 highlight 回调已返回 hljs 高亮 HTML，但 HTML 实体被转义了，需要还原
+          highlightedCode = code
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+        } else {
+          if (lang && hljs.getLanguage(lang)) {
+            try {
+              highlightedCode = hljs.highlight(rawCode, { language: lang }).value
+            } catch {
+              highlightedCode = hljs.highlightAuto(rawCode).value
+            }
+          } else {
+            try {
+              const auto = hljs.highlightAuto(rawCode)
+              highlightedCode = auto.value
+              langLabel = auto.language
+            } catch {
+              highlightedCode = escapeHtml(rawCode)
+            }
+          }
+        }
+        if (!langLabel) {
+          const auto = hljs.highlightAuto(rawCode)
+          langLabel = auto.language || 'code'
+        }
 
-      if (lang === 'mermaid') {
-        return `<div class="mermaid-block" data-mermaid="${encodedCode}">${escapedCode}</div>`
+        const encodedCode = encodeURIComponent(rawCode)
+
+        if (lang === 'mermaid') {
+          return `<div class="mermaid-block" data-mermaid="${encodedCode}">${escapeHtml(rawCode)}</div>`
+        }
+
+        // 生成行号
+        const lines = rawCode.split('\n')
+        const lineCount = lines.length
+        let lineNumbersHtml = ''
+        for (let i = 1; i <= lineCount; i++) {
+          lineNumbersHtml += `<span>${i}</span>`
+        }
+
+        return `
+          <div class="code-block-wrapper">
+            <div class="code-block-header">
+              <span class="code-lang-label">${langLabel}</span>
+              <button class="code-copy-btn" data-code="${encodedCode}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span>${t('aiChat.copyCode')}</span>
+              </button>
+            </div>
+            <div class="code-block-body">
+              <div class="code-line-numbers">${lineNumbersHtml}</div>
+              <pre class="code-pre"><code class="hljs">${highlightedCode}</code></pre>
+            </div>
+          </div>`
       }
-
-      // 生成行号
-      const lines = rawCode.split('\n')
-      const lineCount = lines.length
-      let lineNumbersHtml = ''
-      for (let i = 1; i <= lineCount; i++) {
-        lineNumbersHtml += `<span>${i}</span>`
-      }
-
-      return `
-        <div class="code-block-wrapper">
-          <div class="code-block-header">
-            <span class="code-lang-label">${langLabel}</span>
-            <button class="code-copy-btn" data-code="${encodedCode}">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-              </svg>
-              <span>${t('aiChat.copyCode')}</span>
-            </button>
-          </div>
-          <div class="code-block-body">
-            <div class="code-line-numbers">${lineNumbersHtml}</div>
-            <pre class="code-pre"><code>${escapedCode}</code></pre>
-          </div>
-        </div>`
-    }
-  )
-}
+    )
+  }
 
 const renderMarkdown = (text) => {
   if (!text) return ''
@@ -937,15 +957,15 @@ onBeforeUnmount(() => {
 
 .message-content :deep(.code-block-body) {
   display: flex;
-  background: #282a36;
+  background: #22272e;
 }
 
 .message-content :deep(.code-line-numbers) {
   display: flex;
   flex-direction: column;
   padding: 14px 0;
-  background: #21222c;
-  color: #636d83;
+  background: #1c2128;
+  color: #768390;
   font-size: 13px;
   font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
   line-height: 1.6;
@@ -969,7 +989,7 @@ onBeforeUnmount(() => {
 
 .message-content :deep(.code-pre code) {
   background: none;
-  color: #f8f8f2;
+  color: #adbac7;
   padding: 0;
   font-size: 13px;
   font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;

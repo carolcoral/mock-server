@@ -89,14 +89,24 @@ class TestReport:
         return sum(s.failed for s in self.suites)
 
     @property
+    def total_skipped(self) -> int:
+        return sum(s.skipped for s in self.suites)
+
+    @property
     def total_errors(self) -> int:
         return sum(s.errors for s in self.suites)
 
     @property
+    def effective_total(self) -> int:
+        """有效用例总数（排除 SKIP）"""
+        return self.total_passed + self.total_failed + self.total_errors
+
+    @property
     def pass_rate(self) -> float:
-        if self.total_cases == 0:
+        """通过率 = 通过 / (通过 + 失败 + 错误)，排除跳过的用例"""
+        if self.effective_total == 0:
             return 0.0
-        return self.total_passed / self.total_cases * 100
+        return self.total_passed / self.effective_total * 100
 
     @property
     def duration_seconds(self) -> float:

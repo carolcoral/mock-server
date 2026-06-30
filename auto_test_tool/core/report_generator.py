@@ -109,7 +109,9 @@ class ReportGenerator:
 
         suites_html = ""
         for suite in self.report.suites:
-            suite_pass_rate = (suite.passed / suite.total * 100) if suite.total > 0 else 0
+            # 有效通过率（排除 SKIP 用例）
+            effective = suite.passed + suite.failed + suite.errors
+            suite_pass_rate = (suite.passed / effective * 100) if effective > 0 else 0
             s_color = "#4CAF50" if suite_pass_rate >= 90 else ("#FF9800" if suite_pass_rate >= 70 else "#F44336")
 
             cases_html = ""
@@ -281,7 +283,9 @@ class ReportGenerator:
             lines.append("")
 
         for suite in self.report.suites:
-            suite_pass_rate = (suite.passed / suite.total * 100) if suite.total > 0 else 0
+            # 有效通过率（排除 SKIP 用例）
+            effective = suite.passed + suite.failed + suite.errors
+            suite_pass_rate = (suite.passed / effective * 100) if effective > 0 else 0
             lines.append(f"## {suite.name}")
             lines.append("")
             if suite.description:

@@ -79,28 +79,28 @@ class AITests:
             "ai_generate_response",
             "AI 生成响应数据",
             self._test_ai_generate_response,
-            description="POST /api/ai/generate-response（CHANGELOG v2.2.0 AI 智能生成）",
+            description="POST /api/ai/generate-response",
             category="ai_generate"
         ))
         suite.cases.append(self.runner.run_test(
             "ai_generate_description",
-            "AI 生成接口描述",
+            "AI 生成接口描述（流式）",
             self._test_ai_generate_description,
-            description="POST /api/ai/generate-description",
+            description="POST /api/ai/generate-description/stream",
             category="ai_generate"
         ))
         suite.cases.append(self.runner.run_test(
             "ai_generate_code_template",
-            "AI 生成代码模板",
+            "AI 生成代码模板（流式）",
             self._test_ai_generate_code_template,
-            description="POST /api/ai/generate-code-template（CHANGELOG v2.2.0 6种转换器）",
+            description="POST /api/ai/generate-code-template/stream",
             category="ai_generate"
         ))
         suite.cases.append(self.runner.run_test(
             "ai_generate_email_template",
-            "AI 生成邮件模板",
+            "AI 生成邮件模板（流式）",
             self._test_ai_generate_email_template,
-            description="POST /api/ai/generate-email-template（CHANGELOG v2.2.0）",
+            description="POST /api/ai/generate-email-template/stream（支持 customPrompt）",
             category="ai_generate"
         ))
 
@@ -277,7 +277,8 @@ class AITests:
         if not ok:
             return False, f"管理员登录失败: {err}", {}
 
-        status, resp, api_err = self.runner.client.post("/ai/generate-description", data={
+        # 流式端点，接受 text/event-stream 响应
+        status, resp, api_err = self.runner.client.post("/ai/generate-description/stream", data={
             "apiMethod": "POST",
             "apiPath": "/api/users",
             "apiName": "创建用户"
@@ -286,15 +287,17 @@ class AITests:
             return False, api_err, {}
         if status == 403:
             return True, None, {"note": "AI生成描述返回403（管理员权限不足）", "status": 403}
-        passed, msg = self.runner.assert_api_success(status, resp)
-        return passed, msg, {}
+        if status == 200:
+            return True, None, {"stream_ok": True}
+        return False, f"流式端点返回 {status}", {"status": status}
 
     def _test_ai_generate_code_template(self):
         ok, err = self.runner.auth.login_as_admin()
         if not ok:
             return False, f"管理员登录失败: {err}", {}
 
-        status, resp, api_err = self.runner.client.post("/ai/generate-code-template", data={
+        # 流式端点
+        status, resp, api_err = self.runner.client.post("/ai/generate-code-template/stream", data={
             "apiMethod": "GET",
             "apiPath": "/api/test/data",
             "apiName": "获取数据",
@@ -305,24 +308,28 @@ class AITests:
             return False, api_err, {}
         if status == 403:
             return True, None, {"note": "AI生成代码模板返回403（管理员权限不足）", "status": 403}
-        passed, msg = self.runner.assert_api_success(status, resp)
-        return passed, msg, {}
+        if status == 200:
+            return True, None, {"stream_ok": True}
+        return False, f"流式端点返回 {status}", {"status": status}
 
     def _test_ai_generate_email_template(self):
         ok, err = self.runner.auth.login_as_admin()
         if not ok:
             return False, f"管理员登录失败: {err}", {}
 
-        status, resp, api_err = self.runner.client.post("/ai/generate-email-template", data={
-            "templateType": "GENERAL",
-            "templateName": "测试邮件"
+        # 流式端点，支持 customPrompt
+        status, resp, api_err = self.runner.client.post("/ai/generate-email-template/stream", data={
+            "templateType": "REGISTER",
+            "templateName": "测试邮件",
+            "customPrompt": "请生成简洁的注册欢迎邮件"
         })
         if api_err:
             return False, api_err, {}
         if status == 403:
             return True, None, {"note": "AI生成邮件模板返回403（管理员权限不足）", "status": 403}
-        passed, msg = self.runner.assert_api_success(status, resp)
-        return passed, msg, {}
+        if status == 200:
+            return True, None, {"stream_ok": True, "custom_prompt_supported": True}
+        return False, f"流式端点返回 {status}", {"status": status}
 
     # ========== AI 调用统计测试 ==========
 

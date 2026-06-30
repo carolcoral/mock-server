@@ -1122,7 +1122,8 @@ public class AiService {
 
     /**
      * 在消息列表最前面注入系统提示词（含项目文档知识），
-     * 确保 AI 对话始终基于真实的 README + CHANGELOG + 使用说明内容回答。
+     * 先根据用户提问从 README + CHANGELOG + 使用说明中检索相关内容；
+     * 若检索命中则优先使用文档上下文回答，未命中则允许 AI 使用通用知识生成回答，不直接阻断。
      * 如果消息列表中已包含 system 角色消息，则不重复注入。
      */
     private List<Map<String, String>> enrichWithSystemPrompt(List<Map<String, String>> messages) {
@@ -1133,10 +1134,20 @@ public class AiService {
             }
         }
 
+        // 取最后一条用户消息作为当前提问
+        String currentQuestion = "";
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            Map<String, String> msg = messages.get(i);
+            if ("user".equals(msg.get("role"))) {
+                currentQuestion = msg.getOrDefault("content", "");
+                break;
+            }
+        }
+
         List<Map<String, String>> enriched = new ArrayList<>();
         Map<String, String> sysMsg = new LinkedHashMap<>();
         sysMsg.put("role", "system");
-        sysMsg.put("content", getChatSystemPrompt());
+        sysMsg.put("content", buildSystemPrompt(currentQuestion));
         enriched.add(sysMsg);
         enriched.addAll(messages);
         return enriched;
@@ -1174,57 +1185,140 @@ public class AiService {
     /** 缓存的建议问题列表 */
     private List<String> cachedSuggestions = null;
 
-    /** 缓存的系统提示词（含 README + CHANGELOG + 使用说明），注入到每次 AI 对话中 */
-    private String cachedSystemPrompt = null;
-
     /**
-     * 构建 AI 对话的系统提示词，注入项目知识（README + CHANGELOG + 使用说明），
-     * 确保 AI 回答基于真实的项目文档内容而非凭空编造。
-     * 首次调用时从文档构建并缓存，后续直接返回缓存。
+     * 构建 AI 对话的系统提示词。
+     * 先从 README + CHANGELOG + 使用说明中检索与问题相关的段落；
+     * 若检索命中则注入项目文档上下文并要求优先基于文档回答，未命中时允许 AI 使用通用知识回答，避免直接阻断。
+     *
+     * @param question 用户当前提问（空字符串表示无特定问题，构建通用提示词）
+     * @return 系统提示词
      */
-    private String getChatSystemPrompt() {
-        if (cachedSystemPrompt != null) return cachedSystemPrompt;
-
+    private String buildSystemPrompt(String question) {
         String readme = readStaticFile("README.md");
         String changelog = readStaticFile("CHANGELOG.md");
         String guide = readStaticFile("USER_GUIDE.md");
 
-        StringBuilder prompt = new StringBuilder();
-        prompt.append("你是 Mock Server 的智能助手。你必须严格根据以下项目文档回答用户问题，禁止编造文档中不存在的信息。\n\n");
+        StringBuilder context = new StringBuilder();
+        boolean hasContext = false;
 
-        // 从 README 提取关键信息
         if (readme != null && !readme.isBlank()) {
-            prompt.append("=== Mock Server 系统说明 ===\n");
-            // 提取系统简介（前几行）和核心特性表格
-            String readmeCore = extractCoreInfo(readme);
-            prompt.append(readmeCore).append("\n\n");
+            String snippet = extractRelevantSections(readme, question, 1200);
+            if (!snippet.isBlank()) {
+                context.append("=== Mock Server 系统说明 ===\n").append(snippet).append("\n\n");
+                hasContext = true;
+            }
         }
 
-        // 从 CHANGELOG 提取最新版本变更
         if (changelog != null && !changelog.isBlank()) {
-            prompt.append("=== 最新版本变更 ===\n");
-            String latestChanges = extractLatestChanges(changelog);
-            prompt.append(latestChanges).append("\n\n");
+            String snippet = extractRelevantSections(changelog, question, 800);
+            if (!snippet.isBlank()) {
+                context.append("=== 最新版本变更 ===\n").append(snippet).append("\n\n");
+                hasContext = true;
+            }
         }
 
-        // 从 USER_GUIDE 提取使用说明
         if (guide != null && !guide.isBlank()) {
-            prompt.append("=== 使用说明 ===\n");
-            String guideSummary = truncateText(guide, 2000);
-            prompt.append(guideSummary).append("\n\n");
+            String snippet = extractRelevantSections(guide, question, 800);
+            if (!snippet.isBlank()) {
+                context.append("=== 使用说明 ===\n").append(snippet).append("\n\n");
+                hasContext = true;
+            }
         }
 
-        // 行为约束
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("你是 Mock Server 的智能助手。\n\n");
+
+        if (hasContext) {
+            prompt.append("请优先根据以下项目文档回答用户问题。如果文档中包含明确信息，请引用具体文档内容；")
+                  .append("如果文档中未涉及用户提问，请使用你的通用知识为用户提供有帮助的回答，不要直接拒绝。\n\n");
+            prompt.append(context);
+        } else {
+            prompt.append("我将为你回答关于 Mock Server 或相关技术的问题。请基于你的知识库提供准确、简洁的回答，优先使用中文。\n");
+        }
+
         prompt.append("=== 回答规则 ===\n");
-        prompt.append("1. 所有回答必须基于上述文档内容，如果你不确定或文档中没有相关信息，请诚实告知用户\n");
-        prompt.append("2. 回答简洁清晰，优先使用中文\n");
-        prompt.append("3. 如果用户问的是上述文档中明确描述的功能，请引用具体的使用方法\n");
-        prompt.append("4. 如果用户问的问题与 Mock Server 无关，你可以简短回应但不要展开\n");
+        prompt.append("1. 回答简洁清晰，优先使用中文\n");
+        prompt.append("2. 如果项目文档中有明确描述，请引用具体的使用方法\n");
+        prompt.append("3. 如果问题未被项目文档覆盖，请使用你的通用知识回答，不要直接拒绝或阻断\n");
+        prompt.append("4. 如果用户提问与 Mock Server 完全无关，可以简短回应但不要过度展开\n");
         prompt.append("5. 代码示例优先使用文档中的真实示例\n");
 
-        cachedSystemPrompt = prompt.toString();
-        log.info("AI 对话系统提示词已构建，长度={} 字符", cachedSystemPrompt.length());
-        return cachedSystemPrompt;
+        return prompt.toString();
+    }
+
+    /**
+     * 从文档中提取与用户问题相关的段落。
+     * 基于关键词匹配，返回包含关键词的段落及其前后上下文，长度不超过 maxLength。
+     *
+     * @param doc        文档内容
+     * @param question   用户提问
+     * @param maxLength  最大返回字符数
+     * @return 相关段落摘要
+     */
+    private String extractRelevantSections(String doc, String question, int maxLength) {
+        if (doc == null || doc.isBlank()) {
+            return "";
+        }
+        if (question == null || question.isBlank()) {
+            return truncateText(doc, maxLength);
+        }
+
+        List<String> keywords = extractKeywords(question);
+        if (keywords.isEmpty()) {
+            return truncateText(doc, maxLength);
+        }
+
+        String[] lines = doc.split("\\n");
+        StringBuilder result = new StringBuilder();
+        int charCount = 0;
+        int contextWindow = 2; // 命中行前后各保留 2 行
+
+        for (int i = 0; i < lines.length; i++) {
+            String lowerLine = lines[i].toLowerCase();
+            boolean matched = false;
+            for (String keyword : keywords) {
+                if (lowerLine.contains(keyword)) {
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) {
+                continue;
+            }
+
+            int start = Math.max(0, i - contextWindow);
+            int end = Math.min(lines.length, i + contextWindow + 1);
+            for (int j = start; j < end && charCount < maxLength; j++) {
+                String line = lines[j] + "\n";
+                if (charCount + line.length() > maxLength) {
+                    line = line.substring(0, maxLength - charCount);
+                }
+                result.append(line);
+                charCount += line.length();
+            }
+            if (charCount < maxLength) {
+                result.append("\n");
+            }
+        }
+
+        return result.length() > 0 ? result.toString() : "";
+    }
+
+    /**
+     * 从用户提问中提取关键词，用于文档检索。
+     *
+     * @param question 用户提问
+     * @return 关键词列表
+     */
+    private List<String> extractKeywords(String question) {
+        List<String> keywords = new ArrayList<>();
+        String[] tokens = question.toLowerCase().split("[^\\p{L}\\p{Nd}]+");
+        for (String token : tokens) {
+            if (token.length() >= 2) {
+                keywords.add(token);
+            }
+        }
+        return keywords;
     }
 
     /**
@@ -1330,8 +1424,8 @@ public class AiService {
                 getChatSuggestions();
                 log.info("AI 对话建议问题预生成完成，共 {} 条", 
                         cachedSuggestions != null ? cachedSuggestions.size() : 0);
-                // 同时预构建系统提示词
-                getChatSystemPrompt();
+                // 同时预构建系统提示词（空问题，用于提前加载文档文件）
+                buildSystemPrompt("");
                 log.info("AI 对话系统提示词预构建完成");
             } catch (Exception e) {
                 log.warn("预生成 AI 对话建议问题失败: {}", e.getMessage());

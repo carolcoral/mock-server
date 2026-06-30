@@ -20,6 +20,7 @@ class RBACTests:
         "project:view": ("GET", "/projects"),
         "project:create": ("POST", "/projects"),
         "project:delete": ("DELETE", "/projects/99999"),
+        "project-member:view": ("GET", "/project-members/1"),
         "api:view": ("GET", "/mock-apis"),
         "api:create": ("POST", "/mock-apis"),
         "api:delete": ("DELETE", "/mock-apis/99999"),
@@ -28,6 +29,7 @@ class RBACTests:
         "code-template:delete": ("DELETE", "/code-templates/99999"),
         "user:view": ("GET", "/users"),
         "user:create": ("POST", "/users"),
+        "user:search": ("GET", "/users/search"),
         "user:delete": ("DELETE", "/users/99999"),
         "role:view": ("GET", "/roles"),
         "role:create": ("POST", "/roles"),
@@ -41,6 +43,7 @@ class RBACTests:
         "ai-settings:view": ("GET", "/ai-config"),
         "statistics:view": ("GET", "/statistics/request-frequency"),
         "settings:view": ("GET", "/system-configs"),
+        "system-info:view": ("GET", "/system-info"),
     }
 
     def __init__(self, runner: TestRunner):

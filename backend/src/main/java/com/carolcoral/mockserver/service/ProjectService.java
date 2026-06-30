@@ -205,6 +205,9 @@ public class ProjectService {
                 }
             }
 
+            // 先删除项目成员记录（避免 SQLite 等数据库 rowid 复用导致的唯一约束冲突）
+            projectMemberRepository.deleteByProjectId(projectId);
+
             projectRepository.deleteById(projectId);
 
             // 清除缓存
